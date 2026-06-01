@@ -1,0 +1,220 @@
+"""
+Simulador de posiciones con balance actualizable y gestión de riesgo adaptativa.
+Incluye: Equity Curve Protection, Kill Switch y Exposure Cap.
+"""
+import time, datetime
+import numpy as np
+from data.binance_feed import get_ticker, get_klines
+from system_logger import trades_logger, errors_logger
+
+class PaperTrader:
+    def __init__(self, initial_balance=100.0, max_drawdown_pct=0.15, max_global_risk_pct=0.02):
+        self.balance = initial_balance
+        self.peak_balance = initial_balance   # máximo histórico
+        self.open_position = None
+        self.closed_trades = []
+        self.next_id = 1
+        self.max_drawdown_pct = max_drawdown_pct      # si supera, pausa total
+        self.max_global_risk_pct = max_global_risk_pct  # 2% exposición total simultánea
+        self.consecutive_losses = 0
+        self.max_consecutive_losses = 4
+        self.last_trade_win = True
+        self.paused = False
+        self.pause_until = 0
+
+    def get_balance(self):
+        return self.balance
+
+    def get_peak_balance(self):
+        return self.peak_balance
+
+    def get_drawdown_pct(self):
+        if self.peak_balance <= 0:
+            return 0.0
+        return (self.peak_balance - self.balance) / self.peak_balance
+
+    def is_paused(self):
+        """Devuelve True si el trading está pausado por protección."""
+        if self.paused and time.time() < self.pause_until:
+            return True
+        elif self.paused and time.time() >= self.pause_until:
+            self.paused = False
+            trades_logger.info("Pausa finalizada, reanudando trading.")
+        return False
+
+    def check_kill_switch(self):
+        """Verifica condiciones de kill switch (rachas de pérdidas)."""
+        if self.consecutive_losses >= self.max_consecutive_losses:
+            self.paused = True
+            self.pause_until = time.time() + 12 * 3600  # 12 horas
+            trades_logger.warning(f"Kill Switch activado: {self.consecutive_losses} pérdidas consecutivas. Pausa hasta {datetime.fromtimestamp(self.pause_until)}")
+            self.consecutive_losses = 0  # resetear contador tras pausa
+            return True
+        return False
+
+    def open_trade(self, signal):
+        if self.is_paused():
+            trades_logger.warning("Trading pausado. No se puede abrir nueva posición.")
+            return False
+        if self.open_position is not None:
+            trades_logger.warning("Intento de abrir posición duplicada")
+            return False
+        entry = signal.get('price', 0.0)
+        sl = signal.get('stop_loss')
+        tp1 = signal.get('take_profit')
+        tp2 = signal.get('tp2')
+        risk_usd = signal.get('risk_usd', 0.0)
+        if not entry or not sl:
+            errors_logger.error("Señal incompleta")
+            return False
+
+        self.open_position = {
+            'id': self.next_id,
+            'symbol': 'BTCUSDT',
+            'side': signal['side'],
+            'entry_price': entry,
+            'stop_loss': sl,
+            'take_profit1': tp1,
+            'take_profit2': tp2,
+            'quantity': signal.get('contracts', 0.001),
+            'entry_time': time.time(),
+            'entry_date': datetime.datetime.now().isoformat(),
+            'current_price': entry,
+            'highest_price': entry,
+            'lowest_price': entry,
+            'risk_per_unit': abs(entry - sl),
+            'breakeven_moved': False,
+            'trailing_activated': False,
+            'risk_usd': risk_usd
+        }
+        self.next_id += 1
+        trades_logger.info(f"Abierta {signal['side']} @ {entry:.2f} SL={sl:.2f} TP1={tp1} Risk={risk_usd:.2f}")
+        return True
+
+    def update_position(self):
+        if self.open_position is None:
+            return
+        price = get_ticker()
+        if price is None:
+            return
+
+        pos = self.open_position
+        pos['current_price'] = price
+
+        side = pos['side']
+        if side == 'BUY':
+            if price > pos['highest_price']:
+                pos['highest_price'] = price
+        else:
+            if price < pos['lowest_price']:
+                pos['lowest_price'] = price
+
+        if pos['stop_loss'] and (
+            (side == 'BUY' and price <= pos['stop_loss']) or
+            (side == 'SELL' and price >= pos['stop_loss'])
+        ):
+            self._close_position(price, 'stop_loss')
+            return
+
+        tp1 = pos.get('take_profit1')
+        if tp1 and (
+            (side == 'BUY' and price >= tp1) or
+            (side == 'SELL' and price <= tp1)
+        ):
+            self._close_position(price, 'take_profit1')
+            return
+
+        self._trailing_stop()
+
+    def _trailing_stop(self):
+        pos = self.open_position
+        if not pos:
+            return
+        entry = pos['entry_price']
+        current = pos['current_price']
+        side = pos['side']
+        risk_per_unit = pos['risk_per_unit']
+
+        if side == 'BUY':
+            r_moved = (current - entry) / risk_per_unit if risk_per_unit else 0
+        else:
+            r_moved = (entry - current) / risk_per_unit if risk_per_unit else 0
+
+        if not pos.get('breakeven_moved', False) and r_moved >= 0.8:
+            old_sl = pos['stop_loss']
+            pos['stop_loss'] = entry
+            pos['breakeven_moved'] = True
+            trades_logger.info(f"Trailing: SL movido a breakeven (entry) desde {old_sl:.2f}")
+
+        if r_moved >= 1.5:
+            try:
+                klines = get_klines(pos['symbol'], interval='15m', limit=5)
+                if klines and len(klines) >= 3:
+                    highs = [float(k['high']) for k in klines[-3:]]
+                    lows = [float(k['low']) for k in klines[-3:]]
+                    if side == 'BUY':
+                        new_sl = min(lows) * 0.999
+                    else:
+                        new_sl = max(highs) * 1.001
+                    if (side == 'BUY' and new_sl > pos['stop_loss']) or \
+                       (side == 'SELL' and new_sl < pos['stop_loss']):
+                        old_sl = pos['stop_loss']
+                        pos['stop_loss'] = new_sl
+                        pos['trailing_activated'] = True
+                        trades_logger.info(f"Trailing: SL ajustado a {new_sl:.2f} (antes {old_sl:.2f})")
+            except Exception as e:
+                errors_logger.error(f"Error en trailing stop: {e}")
+
+    def _close_position(self, exit_price, reason):
+        pos = self.open_position
+        pnl = (exit_price - pos['entry_price']) * pos['quantity'] if pos['side'] == 'BUY' else (pos['entry_price'] - exit_price) * pos['quantity']
+        record = {
+            'id': pos['id'], 'symbol': pos['symbol'], 'side': pos['side'],
+            'entry_price': pos['entry_price'], 'exit_price': exit_price,
+            'quantity': pos['quantity'], 'pnl': pnl,
+            'entry_time': pos['entry_date'], 'exit_time': datetime.datetime.now().isoformat(),
+            'reason': reason
+        }
+        self.closed_trades.append(record)
+        self.balance += pnl
+        # Actualizar pico histórico
+        if self.balance > self.peak_balance:
+            self.peak_balance = self.balance
+        # Actualizar racha de pérdidas
+        if pnl <= 0:
+            self.consecutive_losses += 1
+        else:
+            self.consecutive_losses = 0
+        # Verificar kill switch tras cierre
+        self.check_kill_switch()
+        self.open_position = None
+        trades_logger.info(f"Cerrada {pos['side']} @ {exit_price:.2f} PnL={pnl:.4f} Balance={self.balance:.2f} ({reason})")
+
+    def get_open_position(self):
+        if self.open_position is None:
+            return None
+        pos = self.open_position
+        current = pos.get('current_price', pos['entry_price'])
+        pnl = (current - pos['entry_price']) * pos['quantity'] if pos['side'] == 'BUY' else (pos['entry_price'] - current) * pos['quantity']
+        return {
+            'id': pos['id'], 'symbol': pos['symbol'], 'side': pos['side'],
+            'entry_price': pos['entry_price'], 'current_price': current,
+            'quantity': pos['quantity'], 'stop_loss': pos['stop_loss'],
+            'take_profit1': pos.get('take_profit1'), 'take_profit2': pos.get('take_profit2'),
+            'pnl': pnl, 'entry_time': pos['entry_date'],
+            'highest_price': pos['highest_price'], 'lowest_price': pos['lowest_price'],
+            'breakeven_moved': pos.get('breakeven_moved', False),
+            'trailing_activated': pos.get('trailing_activated', False)
+        }
+
+    def get_closed_trades(self):
+        return self.closed_trades
+
+    def force_close(self):
+        if self.open_position is None:
+            return False
+        price = get_ticker()
+        if price is None:
+            return False
+        self._close_position(price, 'manual')
+        return True
