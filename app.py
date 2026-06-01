@@ -3,7 +3,6 @@ import time, datetime, pandas as pd, json, requests, re
 from engine.scalping_engine import ScalpingEngine
 from paper_trader import PaperTrader
 from data.binance_feed import get_ticker
-from system_monitor import SystemMonitor
 
 # ======================================================
 # CONFIGURACIÓN DE PARES ACTIVOS
@@ -94,7 +93,7 @@ def send_test_telegram(token, chat_id):
 # ══════════════════════════════════════════════════════════════════
 if 'trader' not in st.session_state:
     st.session_state['trader'] = PaperTrader(initial_balance=100.0, state_file="paper_state.json")
-    st.session_state['trader'].save_state() 
+    st.session_state['trader'].save_state()
 trader = st.session_state['trader']
 
 if 'risk_manager' not in st.session_state:
@@ -125,12 +124,6 @@ if 'pair_states' not in st.session_state:
         'market_phase': 'unknown',
         'fib_label': 'N/A'
     } for pair in ACTIVE_PAIRS}
-
-# SystemMonitor singleton
-if 'monitor' not in st.session_state:
-    st.session_state['monitor'] = SystemMonitor()
-    st.session_state['monitor'].start()
-monitor = st.session_state['monitor']
 
 # ---------- PAGE CONFIG ----------
 st.set_page_config(page_title="QNTFRY · Command Terminal", page_icon="⬡", layout="wide")
@@ -921,72 +914,23 @@ with st.sidebar:
     if run_btn:
         st.session_state['last_telegram_signal_id'] = None
 
-    st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
-    st.markdown('<div style="font-family:\'Share Tech Mono\',monospace;font-size:9px;'
-                'letter-spacing:.22em;text-transform:uppercase;color:#2a3d52;'
-                'margin-bottom:8px;padding-bottom:6px;'
-                'border-bottom:1px solid rgba(0,212,255,0.08);">SYSTEM HEALTH</div>',
-                unsafe_allow_html=True)
-
-    metrics = monitor.get_metrics()
-    st.markdown(f"WebSocket: {'🟢 CONNECTED' if metrics.get('websocket_status')=='CONNECTED' else '🔴 DISCONNECTED'}")
-    edad_tick = metrics.get('last_tick_age_ms')
-    st.markdown(f"Edad tick: {edad_tick:.0f}ms" if edad_tick is not None else "Edad tick: —")
-    st.markdown(f"CPU: {metrics.get('cpu_percent', 0.0):.1f}% | RAM: {metrics.get('ram_total_percent', 0.0):.1f}%")
-    st.markdown(f"Uptime: {metrics.get('uptime_sec', 0):.0f}s")
-
-    # ── RISK STATUS ───────────────────────────────────────────
-    st.markdown("---")
-    st.markdown("### ⚙️ RISK STATUS")
-    dd_pct = trader.get_drawdown_pct() * 100
-    st.markdown(f"Drawdown: {dd_pct:.1f}%")
-    st.markdown(f"Peak Balance: ${trader.get_peak_balance():,.2f}")
-    if trader.is_paused():
-        st.error("⚠️ TRADING PAUSADO")
-    st.markdown(f"Consecutive Losses: {trader.consecutive_losses}/{trader.max_consecutive_losses}")
-    st.markdown(f"Daily PnL: ${risk_manager.daily_pnl:,.2f}")
-
-    # ── TELEGRAM ALERTS con fallback hardcodeado ─────────────────
+    # ── TELEGRAM ALERTS (valores directos, sin secrets) ────────
     st.markdown("---")
     st.markdown("### 📨 TELEGRAM ALERTS")
-    # TODO: eliminar hardcode antes de VPS
-    DEFAULT_TOKEN = "8813532919:AAF4FcqNCMA5jfeiHDp71M-lbqLbBh3RuzY"
-    DEFAULT_CHAT_ID = "8026382563"
-    default_token = DEFAULT_TOKEN
-    default_chat_id = DEFAULT_CHAT_ID
-    telegram_token = st.text_input(
-        "Bot Token",
-        type="password",
-        placeholder="Ej: 123456:ABC-DEF",
-        value=default_token
-    )
-    telegram_chat_id = st.text_input(
-        "Chat ID",
-        placeholder="Ej: 123456789",
-        value=default_chat_id
-    )
+    telegram_token = st.text_input("Bot Token", type="password", value="8813532919:AAF4FcqNCMA5jfeiHDp71M-lbqLbBh3RuzY")
+    telegram_chat_id = st.text_input("Chat ID", value="8026382563")
     if telegram_token and telegram_chat_id:
         st.success("✅ Alertas activas")
-        if st.button("📤 Enviar mensaje de prueba", key="test_telegram_btn"):
+        if st.button("📤 Enviar mensaje de prueba"):
             send_test_telegram(telegram_token, telegram_chat_id)
     else:
         st.info("Completa ambos campos para recibir alertas")
 
-    # ── LIVE EXECUTION (Binance) ──────────────────────────────
+    # ── LIVE EXECUTION (API Keys vacías, sin secrets) ───────────
     st.markdown("---")
     st.markdown("### 🟢 LIVE EXECUTION (Binance)")
-    binance_api_key = st.text_input(
-        "API Key",
-        type="password",
-        placeholder="Ej: abc123...",
-        value=""
-    )
-    binance_secret_key = st.text_input(
-        "Secret Key",
-        type="password",
-        placeholder="Ej: def456...",
-        value=""
-    )
+    binance_api_key = st.text_input("API Key", type="password", value="")
+    binance_secret_key = st.text_input("Secret Key", type="password", value="")
     use_testnet = st.checkbox("Usar Testnet", value=True)
     enable_live_trading = st.checkbox("Activar ejecución real (riesgo real)", value=False)
     if enable_live_trading and (not binance_api_key or not binance_secret_key):
@@ -1030,7 +974,7 @@ col4.metric("P&L ABIERTO", f"${pnl_abierto_total:,.2f}")
 col5.metric("OPEN OPS", f"{posiciones_abiertas} / 4")
 col6.metric("P&L CERRADO", f"${pnl_cerrado:,.2f}")
 
-# ========== PANEL DE ESTADO MULTI-PAR CON DESCRIPCIÓN ==========
+# ========== PANEL DE ESTADO MULTI-PAR ==========
 st.markdown('<div class="sec-title">Market Scan · Multi-Pair Status</div>', unsafe_allow_html=True)
 pair_status_data = []
 color_map = {'FORMING':'#ffb800', 'EXECUTE':'#00ff88', 'READY':'#4d7cff', 'INVALID':'#ff2d6b'}
@@ -1041,23 +985,13 @@ for p in ACTIVE_PAIRS:
     score_val = state.get('score', 0)
     price_val = state.get('price')
     price_display = f"${price_val:,.2f}" if price_val else "—"
-    # Construir mini-descripción
     fib = state.get('fib_label', 'N/A')
     trend = state.get('trend_h4', 'neutral')
     phase = state.get('market_phase', 'unknown')
-    setup = setup_state
-    if setup_state == 'FORMING':
-        extra = "Formando setup"
-    elif setup_state == 'INVALID':
-        extra = "Setup inválido"
-    elif setup_state == 'EXECUTE':
-        extra = "Listo para ejecutar"
-    else:
-        extra = "Esperando"
+    extra = "Formando setup" if setup_state == 'FORMING' else ("Setup inválido" if setup_state == 'INVALID' else "Listo para ejecutar")
     description = f"Fib {fib} | H4: {trend} | Phase: {phase} | {extra}"
     pair_status_data.append([p, price_display, setup_state, f"{score_val}%", signal_val, description])
 
-# Tabla con columna adicional
 st.markdown("""
 <table style="width:100%; border-collapse: collapse; background: var(--glass); border-radius: 12px; overflow: hidden;">
   <thead>
@@ -1126,7 +1060,6 @@ def process_signal_for_pair(res, symbol, token, chat_id):
                 st.session_state['last_telegram_signal_id'] = signal_id
 
 def update_pair_state(pair, res, price):
-    """Actualiza el estado completo de un par en session_state."""
     st.session_state['pair_states'][pair] = {
         'setup_state': res.get('setup_state', 'INVALID'),
         'signal': res.get('signal', 'WAIT'),
@@ -1141,7 +1074,7 @@ def update_pair_state(pair, res, price):
         'fib_label': extract_fib_label(res.get('explanation', ''))
     }
 
-# ----- AUTO-REFRESH MULTI-PAR (con sleep y rerun) -----
+# ----- AUTO-REFRESH MULTI-PAR -----
 if auto and now - st.session_state['last_analysis'] > 60:
     with st.spinner(f"Analizando {len(ACTIVE_PAIRS)} pares..."):
         for current_pair in ACTIVE_PAIRS:
@@ -1160,7 +1093,7 @@ if auto and now - st.session_state['last_analysis'] > 60:
     time.sleep(60)
     st.rerun()
 
-# ----- MODO MANUAL (solo el par seleccionado) -----
+# ----- MODO MANUAL -----
 if run_btn:
     with st.spinner(f"Analizando {pair}..."):
         price = get_ticker(pair)
@@ -1175,15 +1108,13 @@ if run_btn:
         process_signal_for_pair(res, pair, telegram_token, telegram_chat_id)
         trader.update_position(pair, price)
 
-# ---------- DATOS PARA LA UI (Commander y Agentes) ----------
+# ---------- DATOS PARA LA UI ----------
 if st.session_state.get('last_signal'):
     res = st.session_state['last_signal']
 else:
     res = st.session_state['pair_states'].get(pair, {})
 
-# CORRECCIÓN: agent_scores se toma del estado multi-par, no de res
 agent_scores = st.session_state['pair_states'].get(pair, {}).get('agent_scores', {})
-
 setup_state = res.get('setup_state', 'INVALID')
 signal = res.get('signal', 'WAIT')
 direction = res.get('direction', 'neutral')
@@ -1192,7 +1123,7 @@ dynamic_score = res.get('score', 0)
 explanation = res.get('explanation', 'No analysis yet')
 pos = trader.get_open_position(pair)
 
-# ---------- TARJETAS DE AGENTES (con los scores reales) ----------
+# ---------- TARJETAS DE AGENTES ----------
 st.markdown('<div class="sec-title">Neural Agents — Nodes 01 → 05</div>', unsafe_allow_html=True)
 ag_cols = st.columns(5)
 agent_labels = {
@@ -1248,7 +1179,6 @@ if signal != 'WAIT':
 else:
     st.warning("No trade ready for this pair")
 
-# Mostrar posición abierta para este par (si existe)
 if pos:
     st.subheader(f"Open Position · {pair}")
     st.write(f"Side: {pos['side']} | Entry: ${pos['entry_price']:,.2f} | Current: ${pos['current_price']:,.2f}")
@@ -1257,7 +1187,6 @@ if pos:
         trader.force_close(symbol=pair)
         st.rerun()
 
-# ---------- ESTADO DE RIESGO ----------
 with st.expander("⚙️ Risk Management Details"):
     dd_pct = trader.get_drawdown_pct() * 100
     st.write(f"**Drawdown actual:** {dd_pct:.2f}%")
@@ -1269,7 +1198,6 @@ with st.expander("⚙️ Risk Management Details"):
     else:
         st.success("✅ Trading activo")
 
-# ---------- HISTORIAL ----------
 st.subheader("Trade History")
 if closed_trades:
     df = pd.DataFrame(closed_trades)
