@@ -1,10 +1,9 @@
 import requests
 
 def get_ticker(symbol="BTCUSDT"):
-    """Devuelve el precio actual de un símbolo usando la API pública de Binance."""
     url = f"https://api.binance.com/api/v3/ticker/price?symbol={symbol.upper()}"
     try:
-        resp = requests.get(url, timeout=30)   # ← timeout aumentado a 30s
+        resp = requests.get(url, timeout=30)
         if resp.status_code == 200:
             data = resp.json()
             return float(data["price"])
@@ -16,10 +15,9 @@ def get_ticker(symbol="BTCUSDT"):
         return None
 
 def get_klines(symbol="BTCUSDT", interval="5m", limit=100):
-    """Devuelve las últimas velas en formato lista de diccionarios."""
     url = f"https://api.binance.com/api/v3/klines?symbol={symbol.upper()}&interval={interval}&limit={limit}"
     try:
-        resp = requests.get(url, timeout=30)   # ← timeout aumentado a 30s
+        resp = requests.get(url, timeout=30)
         if resp.status_code == 200:
             klines = []
             for k in resp.json():
