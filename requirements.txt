@@ -5,3 +5,4 @@ requests>=2.28
 scipy>=1.10
 matplotlib>=3.7
 psutil
+websocket-client
