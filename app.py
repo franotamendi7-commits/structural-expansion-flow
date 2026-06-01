@@ -979,13 +979,13 @@ with st.sidebar:
         "API Key",
         type="password",
         placeholder="Ej: abc123...",
-        value=st.secrets.get("BINANCE_API_KEY", "")
+        value=""
     )
     binance_secret_key = st.text_input(
         "Secret Key",
         type="password",
         placeholder="Ej: def456...",
-        value=st.secrets.get("BINANCE_SECRET_KEY", "")
+        value=""
     )
     use_testnet = st.checkbox("Usar Testnet", value=True)
     enable_live_trading = st.checkbox("Activar ejecución real (riesgo real)", value=False)
