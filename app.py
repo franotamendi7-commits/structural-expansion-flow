@@ -952,8 +952,8 @@ with st.sidebar:
     # TODO: eliminar hardcode antes de VPS
     DEFAULT_TOKEN = "8813532919:AAF4FcqNCMA5jfeiHDp71M-lbqLbBh3RuzY"
     DEFAULT_CHAT_ID = "8026382563"
-    default_token = st.secrets.get("TELEGRAM_TOKEN", DEFAULT_TOKEN)
-    default_chat_id = st.secrets.get("TELEGRAM_CHAT_ID", DEFAULT_CHAT_ID)
+    default_token = DEFAULT_TOKEN
+    default_chat_id = DEFAULT_CHAT_ID
     telegram_token = st.text_input(
         "Bot Token",
         type="password",
