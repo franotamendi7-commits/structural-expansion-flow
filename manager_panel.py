@@ -1,4 +1,7 @@
 import streamlit as st
+from streamlit_autorefresh import st_autorefresh
+st_autorefresh(interval=10000, key="manager_refresh")
+
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib
