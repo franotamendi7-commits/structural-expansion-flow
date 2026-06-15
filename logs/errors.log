@@ -59620,3 +59620,38 @@
 2026-06-01 14:08:30 | INFO     | WebSocket conectado a Binance
 2026-06-01 15:12:00 | INFO     | WebSocket conectado a Binance
 2026-06-01 15:33:18 | INFO     | WebSocket conectado a Binance
+2026-06-10 12:50:34 | ERROR    | Error en análisis
+Traceback (most recent call last):
+  File "/Users/franciscootamendi/ai-agents-v3/engine/scalping_engine.py", line 556, in run
+    indicators = IndicatorEngine(klines).calculate()
+  File "/Users/franciscootamendi/ai-agents-v3/engine/scalping_engine.py", line 127, in calculate
+    c = np.array([float(v['close']) for v in k])
+                        ~^^^^^^^^^
+TypeError: list indices must be integers or slices, not str
+2026-06-10 12:51:36 | ERROR    | Error en análisis
+Traceback (most recent call last):
+  File "/Users/franciscootamendi/ai-agents-v3/engine/scalping_engine.py", line 556, in run
+    indicators = IndicatorEngine(klines).calculate()
+  File "/Users/franciscootamendi/ai-agents-v3/engine/scalping_engine.py", line 127, in calculate
+    c = np.array([float(v['close']) for v in k])
+                        ~^^^^^^^^^
+TypeError: list indices must be integers or slices, not str
+2026-06-10 12:54:48 | ERROR    | Error en análisis
+Traceback (most recent call last):
+  File "/Users/franciscootamendi/ai-agents-v3/engine/scalping_engine.py", line 556, in run
+    indicators = IndicatorEngine(klines).calculate()
+  File "/Users/franciscootamendi/ai-agents-v3/engine/scalping_engine.py", line 127, in calculate
+    c = np.array([float(v['close']) for v in k])
+                        ~^^^^^^^^^
+TypeError: list indices must be integers or slices, not str
+2026-06-10 12:55:49 | ERROR    | Error en análisis
+Traceback (most recent call last):
+  File "/Users/franciscootamendi/ai-agents-v3/engine/scalping_engine.py", line 574, in run
+    fib = WeeklyAdaptiveFibonacci(klines['1d'], days=fib_days)
+  File "/Users/franciscootamendi/ai-agents-v3/engine/scalping_engine.py", line 240, in __init__
+    self._calculate(daily_klines, days)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "/Users/franciscootamendi/ai-agents-v3/engine/scalping_engine.py", line 255, in _calculate
+    rng = fib_high - fib_low
+          ~~~~~~~~~^~~~~~~~~
+TypeError: unsupported operand type(s) for -: 'str' and 'str'
