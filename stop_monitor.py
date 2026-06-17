@@ -2,13 +2,14 @@
 import time
 import json
 import os
+import csv
 from datetime import datetime
 from paper_trader import PaperTrader
 from data.binance_feed import get_ticker
 from execution_manager import ExecutionManager
-from portfolio_manager import PortfolioManager
 
 PAPER_STATE_FILE = "/Users/franciscootamendi/ai-agents-v3/paper_state.json"
+AUDIT_FILE = "audit_log.csv"
 WAIT_SECONDS = 0.1  # 100 ms
 
 # Credenciales de Binance Futures Testnet (hardcodeadas)
@@ -28,12 +29,38 @@ def log(msg):
         log_file.flush()
     print(f"[{timestamp}] {msg}")
 
+# ── AUDITOR DE SALIDA ──
+AUDIT_FIELDS = ["trade_id","timestamp_entry","symbol","side","score",
+                "entry","sl","tp1","tp2","fib_label","phase",
+                "ci","wr","st","veto","explanation_raw","exit_reason",
+                "exit_price","pnl_final","duration_min"]
+
+def log_signal_closed(trade_id, exit_reason, exit_price, pnl, duration_min):
+    """Actualiza la fila del trade_id con los datos de salida."""
+    if not os.path.exists(AUDIT_FILE):
+        return
+    rows = []
+    with open(AUDIT_FILE, "r") as f:
+        reader = csv.DictReader(f)
+        fieldnames = reader.fieldnames
+        rows = list(reader)
+    for row in rows:
+        if row['trade_id'] == trade_id:
+            row['exit_reason'] = exit_reason
+            row['exit_price'] = str(exit_price)
+            row['pnl_final'] = str(pnl)
+            row['duration_min'] = str(round(duration_min, 2))
+            break
+    with open(AUDIT_FILE, "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+
 def main():
     trader = PaperTrader(state_file=PAPER_STATE_FILE)
     exec_mgr = ExecutionManager(api_key=API_KEY, api_secret=API_SECRET, testnet=True)
-    pm = PortfolioManager()
 
-    log("Stop Monitor iniciado. Ciclo cada 100ms.")
+    log("Stop Monitor iniciado. Ciclo cada 100ms. Auditor de salida activo.")
     
     while True:
         try:
@@ -92,19 +119,29 @@ def main():
                     else:
                         log(f"Orden real ejecutada: ID={real_order.get('order_id')}, precio={real_order.get('executed_price')}")
 
-                # 2. Cerrar en PaperTrader (actualiza balance simulado y estado)
-                pnl_closed = trader.close_position(symbol, exit_price=exit_price, reason=reason, fraction=close_percent)
+                # ── AUDITOR DE SALIDA (ANTES DE CERRAR POSICIÓN) ──
+                # Guardar trade_id y entry_time antes de que la posición se elimine
+                trade_id = pos.get('trade_id')
+                entry_time_str = pos.get('entry_time')
+                if trade_id and entry_time_str:
+                    try:
+                        entry_time = datetime.fromisoformat(entry_time_str)
+                        duration_min = (datetime.now() - entry_time).total_seconds() / 60.0
+                    except:
+                        duration_min = 0.0
+                else:
+                    duration_min = 0.0
+
+                # 2. Cerrar en PaperTrader (CORREGIDO: close_percent, no fraction)
+                pnl_closed = trader.close_position(symbol, exit_price=exit_price, reason=reason, close_percent=close_percent)
                 log(f"Posición cerrada en PaperTrader: {symbol} ({reason}, {close_percent*100:.0f}%) PnL: ${pnl_closed:.2f}")
 
-                # 3. Distribuir el PnL entre los inversores
-                if pnl_closed != 0:
-                    try:
-                        pm.actualizar_balances(pnl_closed)
-                        log(f"PortfolioManager actualizado: PnL global ${pnl_closed:.2f}")
-                    except Exception as e:
-                        log(f"Error al actualizar PortfolioManager: {e}")
+                # 3. Registrar en auditor de salida
+                if trade_id:
+                    log_signal_closed(trade_id, action, exit_price, pnl_closed, duration_min)
+                    log(f"Auditoría registrada: {trade_id} cerrado por {action} con PnL ${pnl_closed:.2f}")
 
-                # Si fue TP1, mover el SL a breakeven (opcional, el PaperTrader ya lo hace si se usa check_exits,
+                # Si fue TP1, mover el SL a breakeven (el PaperTrader ya lo hace si se usa check_exits,
                 # pero aquí lo hacemos explícitamente para mantener consistencia)
                 if action == 'tp1':
                     entry_price = pos.get("entry_price")

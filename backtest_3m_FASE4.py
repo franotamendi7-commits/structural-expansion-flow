@@ -1,110 +1,78 @@
-# engine/scalping_engine.py
-import sys, os, time, math, json
+"""
+BACKTEST 3 MESES (últimos 90 días) - FASE 4 (Híbrido Definitivo Total)
+Fase 2b + confirmación 15m reducida a 1 vela + entrada alternativa por momentum.
+Fibonacci obligatorio (sin fib_block no hay entrada).
+"""
+import sys, os, time, math
 import numpy as np
 import pandas as pd
+import requests
 from scipy.signal import argrelextrema
 from scipy.stats import linregress
 from datetime import datetime, timezone, timedelta
-from data.binance_feed import get_klines, get_ticker
-from system_logger import market_logger, signals_logger, errors_logger
 
-# ------------------------------------------------------------
-# CONFIGURACIÓN POR ACTIVO (FASE 4 DEFINITIVA)
-# ------------------------------------------------------------
-SYMBOL_CONFIG = {
-    'BTCUSDT': {
-        'supertrend_multiplier': 2.8,          # Fase 2b
-        'choppiness_neutral_threshold': 68.0,  # Fase 1
-        'fibonacci_days': 30,
-        'tp_ratio': 1.5,
-    },
-    'ETHUSDT': {
-        'supertrend_multiplier': 2.6,          # Fase 2b
-        'choppiness_neutral_threshold': 66.0,  # Fase 1
-        'fibonacci_days': 30,
-        'tp_ratio': 1.8,
-    },
-    'SOLUSDT': {
-        'supertrend_multiplier': 2.3,          # Fase 2b
-        'choppiness_neutral_threshold': 65.0,  # Fase 1
-        'fibonacci_days': 90,
-        'tp_ratio': 2.0,
-    },
-    'XRPUSDT': {
-        'supertrend_multiplier': 2.3,          # Fase 2b
-        'choppiness_neutral_threshold': 63.0,  # Fase 1
-        'fibonacci_days': 60,
-        'tp_ratio': 1.8,
-    },
-    'LTCUSDT': {
-        'supertrend_multiplier': 2.8,
-        'choppiness_neutral_threshold': 65.0,
-        'fibonacci_days': 45,
-        'tp_ratio': 1.7,
-    },
-    'DOGEUSDT': {
-        'supertrend_multiplier': 2.0,
-        'choppiness_neutral_threshold': 60.0,
-        'fibonacci_days': 45,
-        'tp_ratio': 2.0,
-    },
-    'LINKUSDT': {
-        'supertrend_multiplier': 2.6,
-        'choppiness_neutral_threshold': 65.0,
-        'fibonacci_days': 45,
-        'tp_ratio': 1.9,
-    },
-    'BNBUSDT': {
-        'supertrend_multiplier': 2.8,
-        'choppiness_neutral_threshold': 68.0,
-        'fibonacci_days': 30,
-        'tp_ratio': 1.6,
-    },
-    'AVAXUSDT': {
-        'supertrend_multiplier': 2.4,
-        'choppiness_neutral_threshold': 62.0,
-        'fibonacci_days': 60,
-        'tp_ratio': 2.0,
-    },
-    'ADAUSDT': {
-        'supertrend_multiplier': 2.5,
-        'choppiness_neutral_threshold': 65.0,
-        'fibonacci_days': 60,
-        'tp_ratio': 1.8,
-    },
-    'MATICUSDT': {
-        'supertrend_multiplier': 2.7,
-        'choppiness_neutral_threshold': 63.0,
-        'fibonacci_days': 45,
-        'tp_ratio': 1.9,
-    },
-}
+# ────────────────────── CONFIGURACIÓN ──────────────────────
+SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT"]
+START_DATE = datetime(2026, 3, 19, 0, 0, tzinfo=timezone.utc)
+END_DATE   = datetime(2026, 6, 17, 23, 59, tzinfo=timezone.utc)
+MAX_KLINES = 1000
+BASE_URL   = "https://api.binance.com/api/v3/klines"
+INITIAL_CAPITAL = 100.0
+FIXED_RISK_PCT = 0.01
+COMMISSION = 0.0005          # 0.05% taker
+SPREAD = 0.0002              # 0.02% en entrada
 
-# ------------------------------------------------------------
-# CLASES AUXILIARES
-# ------------------------------------------------------------
-class DataFetcher:
-    def __init__(self, pair): self.pair = pair
-    def fetch(self):
+# ────────────────────── DESCARGA DE DATOS ──────────────────────
+def fetch_klines_range(symbol, interval, start_dt, end_dt):
+    start_ms = int(start_dt.timestamp() * 1000)
+    end_ms   = int(end_dt.timestamp() * 1000)
+    all_klines = []
+    while start_ms < end_ms:
+        params = {'symbol':symbol,'interval':interval,'limit':MAX_KLINES,
+                  'startTime':start_ms,'endTime':end_ms}
         try:
-            return {
-                '1d':  get_klines(self.pair, '1d', 200),
-                '4h':  get_klines(self.pair, '4h', 100),
-                '1h':  get_klines(self.pair, '1h', 100),
-                '15m': get_klines(self.pair, '15m', 100),
-                '5m':  get_klines(self.pair, '5m', 100)
-            }
+            resp = requests.get(BASE_URL, params=params, timeout=30)
         except Exception as e:
-            errors_logger.error(f"DataFetcher error: {e}")
-            return None
+            print(f"Error conexión: {e}"); time.sleep(1); continue
+        if resp.status_code != 200:
+            print(f"Error {resp.status_code}: {resp.text}"); time.sleep(1); continue
+        data = resp.json()
+        if not data: break
+        batch = [{
+            'timestamp': int(k[0]),
+            'open': float(k[1]), 'high': float(k[2]),
+            'low': float(k[3]), 'close': float(k[4]),
+            'volume': float(k[5])
+        } for k in data]
+        all_klines.extend(batch)
+        start_ms = batch[-1]['timestamp'] + 1
+        time.sleep(0.3)
+    return [k for k in all_klines if start_dt.timestamp()*1000 <= k['timestamp'] <= end_dt.timestamp()*1000]
+
+def fetch_historical(symbol):
+    print(f"  {symbol}: descargando...")
+    k1d  = fetch_klines_range(symbol, '1d', START_DATE, END_DATE)
+    k4h  = fetch_klines_range(symbol, '4h', START_DATE, END_DATE)
+    k1h  = fetch_klines_range(symbol, '1h', START_DATE, END_DATE)
+    k15m = fetch_klines_range(symbol, '15m', START_DATE, END_DATE)
+    k5m  = fetch_klines_range(symbol, '5m', START_DATE, END_DATE)
+    print(f"     -> {len(k1d)}d {len(k4h)}4h {len(k1h)}1h {len(k15m)}15m {len(k5m)}5m")
+    return {'1d':k1d,'4h':k4h,'1h':k1h,'15m':k15m,'5m':k5m}
+
+# ──────────── MOTOR (Fase 4: Híbrido Definitivo Total) ────────────
+SYMBOL_CONFIG = {
+    'BTCUSDT': {'supertrend_multiplier':2.8,'choppiness_neutral_threshold':68.0,'fibonacci_days':30,'tp_ratio':1.5},
+    'ETHUSDT': {'supertrend_multiplier':2.6,'choppiness_neutral_threshold':66.0,'fibonacci_days':30,'tp_ratio':1.8},
+    'SOLUSDT': {'supertrend_multiplier':2.3,'choppiness_neutral_threshold':65.0,'fibonacci_days':90,'tp_ratio':2.0},
+    'XRPUSDT': {'supertrend_multiplier':2.3,'choppiness_neutral_threshold':63.0,'fibonacci_days':60,'tp_ratio':1.8},
+}
 
 class IndicatorEngine:
     def __init__(self, klines): self.klines = klines
     @staticmethod
     def _ema(s, p):
         if len(s) < p: return None
-        m = 2/(p+1)
-        e = sum(s[:p])/p
+        m = 2/(p+1); e = sum(s[:p])/p
         for x in s[p:]: e = (x-e)*m + e
         return e
     @staticmethod
@@ -122,8 +90,7 @@ class IndicatorEngine:
         ind = {}
         for tf in ['1d','4h','1h','15m','5m']:
             k = self.klines.get(tf)
-            if not k or len(k) < 30:
-                ind[tf] = None; continue
+            if not k or len(k) < 30: ind[tf] = None; continue
             c = np.array([float(v['close']) for v in k])
             h = np.array([float(v['high']) for v in k])
             l = np.array([float(v['low']) for v in k])
@@ -137,13 +104,11 @@ class IndicatorEngine:
             body = abs(c[-1] - o[-1]); tr = h[-1] - l[-1]
             body_p = body / tr if tr > 0 else 0
             uw = h[-1] - max(o[-1], c[-1]); lw = min(o[-1], c[-1]) - l[-1]
-            ind[tf] = {
-                'ema20': ema20, 'ema50': ema50, 'atr14': atr14,
-                'bb_upper': bb_u, 'bb_lower': bb_l, 'bb_width': bb_w,
-                'vol_ratio': vol_r, 'close': c[-1],
-                'body_pct': body_p, 'wick_upper_pct': uw/tr if tr>0 else 0,
-                'wick_lower_pct': lw/tr if tr>0 else 0
-            }
+            ind[tf] = {'ema20':ema20,'ema50':ema50,'atr14':atr14,
+                       'bb_upper':bb_u,'bb_lower':bb_l,'bb_width':bb_w,
+                       'vol_ratio':vol_r,'close':c[-1],
+                       'body_pct':body_p,'wick_upper_pct':uw/tr if tr>0 else 0,
+                       'wick_lower_pct':lw/tr if tr>0 else 0}
         return ind
 
 class StructureAnalyzer:
@@ -165,8 +130,7 @@ class StructureAnalyzer:
             if hs[-1] > hs[-2] and ls[-1] > ls[-2]: trend = 'bullish'
             elif hs[-1] < hs[-2] and ls[-1] < ls[-2]: trend = 'bearish'
         bos = (trend=='bullish' and c[-1] > hs[-1]) or (trend=='bearish' and c[-1] < ls[-1])
-        return {'trend': trend, 'bos': bos, 'choch': False,
-                'recent_high': hs[-1] if hs else max(h), 'recent_low': ls[-1] if ls else min(l)}
+        return {'trend':trend,'bos':bos,'choch':False,'recent_high':hs[-1] if hs else max(h),'recent_low':ls[-1] if ls else min(l)}
 
 class MarketPhaseDetector:
     def __init__(self, ind, kl, tf): self.ind = ind; self.kl = kl
@@ -187,13 +151,15 @@ class PhaseTransitionDetector:
         self.klines_1h = klines_1h; self.klines_15m = klines_15m
     def check_breakout_retest(self, compression_detected: bool) -> dict:
         if not compression_detected:
-            return {'breakout_confirmed': False, 'retest_valid': False, 'direction': 'neutral'}
+            return {'breakout_confirmed':False,'retest_valid':False,'direction':'neutral'}
         h1 = self.klines_1h
-        if not h1 or len(h1) < 5: return {'breakout_confirmed': False, 'retest_valid': False, 'direction': 'neutral'}
+        if not h1 or len(h1) < 5:
+            return {'breakout_confirmed':False,'retest_valid':False,'direction':'neutral'}
         highs_1h = [float(k['high']) for k in h1[-5:]]; lows_1h = [float(k['low']) for k in h1[-5:]]
         range_high = max(highs_1h); range_low = min(lows_1h)
         m15 = self.klines_15m
-        if not m15 or len(m15) < 3: return {'breakout_confirmed': False, 'retest_valid': False, 'direction': 'neutral'}
+        if not m15 or len(m15) < 3:
+            return {'breakout_confirmed':False,'retest_valid':False,'direction':'neutral'}
         closes_m15 = [float(k['close']) for k in m15[-3:]]; volumes_m15 = [float(k['volume']) for k in m15[-3:]]
         avg_vol = np.mean(volumes_m15) if volumes_m15 else 0
         last_close = closes_m15[-1]; last_vol = volumes_m15[-1]
@@ -212,59 +178,45 @@ class PhaseTransitionDetector:
                 for i in range(len(m15)-3, len(m15)):
                     high = float(m15[i]['high']); close = float(m15[i]['close'])
                     if high >= range_low and close < range_low: retest_valid = True; break
-        return {'breakout_confirmed': breakout_confirmed, 'retest_valid': retest_valid, 'direction': breakout_direction}
+        return {'breakout_confirmed':breakout_confirmed,'retest_valid':retest_valid,'direction':breakout_direction}
 
 class MomentumAnalyzer:
     def __init__(self, indicators): self.ind = indicators
     def analyze(self):
         scores = {}
-        w = {'4h':0.5, '1h':0.35, '15m':0.15}
+        w = {'4h':0.5,'1h':0.35,'15m':0.15}
         for tf, wt in w.items():
-            if not self.ind.get(tf) or not self.ind[tf]['ema20'] or not self.ind[tf]['ema50']:
-                continue
+            if not self.ind.get(tf) or not self.ind[tf]['ema20'] or not self.ind[tf]['ema50']: continue
             d = 1 if self.ind[tf]['ema20'] > self.ind[tf]['ema50'] else -1
             acc = (self.ind[tf]['vol_ratio'] - 1) * 0.5 if self.ind[tf]['vol_ratio'] else 0
             scores[tf] = (d * 0.7 + acc * 0.3) * wt
         total = sum(scores.values()) if scores else 0
         direction = 'bullish' if total > 0.15 else ('bearish' if total < -0.15 else 'neutral')
-        return {'score': total, 'direction': direction, 'strength': abs(total)}
+        return {'score':total,'direction':direction,'strength':abs(total)}
 
 class WeeklyAdaptiveFibonacci:
-    """
-    Fibonacci adaptativo semanal (usa velas diarias).
-    Si no hay suficientes velas diarias para el período configurado,
-    usa todas las disponibles con un mínimo de 2.
-    """
     def __init__(self, daily_klines, days=30):
         self.levels = None
         self._calculate(daily_klines, days)
-
     def _calculate(self, klines, days):
-        if not klines or len(klines) < 2:
-            self.levels = None
-            return
+        if not klines or len(klines) < 2: self.levels = None; return
         usable_days = min(days, len(klines))
         recent = klines[-usable_days:]
-        highs = [k['high'] for k in recent]
-        lows = [k['low'] for k in recent]
-        fib_high = max(highs)
-        fib_low = min(lows)
-        if fib_high <= fib_low:
-            self.levels = None
-            return
+        highs = [k['high'] for k in recent]; lows = [k['low'] for k in recent]
+        fib_high = max(highs); fib_low = min(lows)
+        if fib_high <= fib_low: self.levels = None; return
         rng = fib_high - fib_low
         self.levels = {
             0.00: fib_low,
-            0.25: fib_low + rng * 0.25,
-            0.50: fib_low + rng * 0.50,
-            0.75: fib_low + rng * 0.75,
+            0.25: fib_low + rng*0.25,
+            0.50: fib_low + rng*0.50,
+            0.75: fib_low + rng*0.75,
             1.00: fib_high,
-            1.25: fib_high + rng * 0.25,
-            1.50: fib_high + rng * 0.50,
-            1.75: fib_high + rng * 0.75,
-            2.00: fib_high + rng * 1.00
+            1.25: fib_high + rng*0.25,
+            1.50: fib_high + rng*0.50,
+            1.75: fib_high + rng*0.75,
+            2.00: fib_high + rng*1.00
         }
-
     def get_levels(self): return self.levels
     def get_current_block(self, price):
         if not self.levels: return None
@@ -283,7 +235,6 @@ class PatternDetector:
         prev = klines[-2]; curr = klines[-1]
         return (prev['close'] > prev['open'] and curr['close'] < curr['open'] and
                 curr['open'] > prev['close'] and curr['close'] < prev['open'])
-
     @staticmethod
     def is_bullish_engulfing(klines):
         if len(klines) < 2: return False
@@ -291,23 +242,9 @@ class PatternDetector:
         return (prev['close'] < prev['open'] and curr['close'] > curr['open'] and
                 curr['open'] < prev['close'] and curr['close'] > prev['open'])
 
-    @staticmethod
-    def two_bearish_candles(klines):
-        if len(klines) < 2: return False
-        return (klines[-2]['close'] < klines[-2]['open'] and klines[-1]['close'] < klines[-1]['open'])
-
-    @staticmethod
-    def two_bullish_candles(klines):
-        if len(klines) < 2: return False
-        return (klines[-2]['close'] > klines[-2]['open'] and klines[-1]['close'] > klines[-1]['open'])
-
-# ------------------------------------------------------------
-# FILTROS
-# ------------------------------------------------------------
 class ChoppinessIndex:
     def __init__(self, period=14, neutral_threshold=70.0):
         self.period = period; self.trend_threshold = 38.2; self.neutral_threshold = neutral_threshold
-
     def calculate(self, klines):
         if len(klines) < self.period + 1: return None
         highs = np.array([float(k['high']) for k in klines[-self.period:]])
@@ -315,19 +252,17 @@ class ChoppinessIndex:
         closes = np.array([float(k['close']) for k in klines[-self.period:]])
         tr = np.maximum(highs - lows, np.abs(highs - np.roll(closes, 1)), np.abs(lows - np.roll(closes, 1)))
         tr[0] = highs[0] - lows[0]
-        atr_sum = np.sum(tr)
-        highest = np.max(highs); lowest = np.min(lows)
+        atr_sum = np.sum(tr); highest = np.max(highs); lowest = np.min(lows)
         total_range = highest - lowest
         if total_range == 0: return 50.0
         ci = 100 * np.log10(atr_sum / total_range) / np.log10(self.period)
         return np.clip(ci, 0, 100)
-
     def analyze(self, klines):
         ci_value = self.calculate(klines)
-        if ci_value is None: return {'value': 50.0, 'zone': 'neutral', 'tradeable': True, 'description': 'CI calculation failed'}
-        if ci_value < self.trend_threshold: return {'value': ci_value, 'zone': 'trending', 'tradeable': True, 'description': f"CI={ci_value:.1f} — tendencia fuerte"}
-        elif ci_value > self.neutral_threshold: return {'value': ci_value, 'zone': 'choppy', 'tradeable': False, 'description': f"CI={ci_value:.1f} — lateral/choppy"}
-        else: return {'value': ci_value, 'zone': 'neutral', 'tradeable': True, 'description': f"CI={ci_value:.1f} — zona neutral"}
+        if ci_value is None: return {'value':50.0,'zone':'neutral','tradeable':True,'description':'CI calc failed'}
+        if ci_value < self.trend_threshold: return {'value':ci_value,'zone':'trending','tradeable':True,'description':f"CI={ci_value:.1f} — tendencia fuerte"}
+        elif ci_value > self.neutral_threshold: return {'value':ci_value,'zone':'choppy','tradeable':False,'description':f"CI={ci_value:.1f} — lateral/choppy"}
+        else: return {'value':ci_value,'zone':'neutral','tradeable':True,'description':f"CI={ci_value:.1f} — zona neutral"}
 
 class WilliamsRTrigger:
     OVERSOLD = -80; OVERBOUGHT = -20
@@ -343,7 +278,7 @@ class WilliamsRTrigger:
     def analyze(self, klines_5m, klines_15m):
         wr5 = self._calc(klines_5m); wr15 = self._calc(klines_15m)
         if wr5 is None or wr15 is None:
-            return {'value_5m': -50, 'value_15m': -50, 'long_trigger': False, 'short_trigger': False, 'cross_strength': 0.0, 'description': 'WR calculation failed'}
+            return {'value_5m':-50,'value_15m':-50,'long_trigger':False,'short_trigger':False,'cross_strength':0.0,'description':'WR calc failed'}
         prev5 = self._calc(klines_5m[:-1]) if len(klines_5m) >= self.period+1 else wr5
         long_trigger = prev5 is not None and prev5 <= self.OVERSOLD and wr5 > self.OVERSOLD
         short_trigger = prev5 is not None and prev5 >= self.OVERBOUGHT and wr5 < self.OVERBOUGHT
@@ -351,7 +286,7 @@ class WilliamsRTrigger:
         desc = f"WR 5M={wr5:.1f}, 15M={wr15:.1f}"
         if long_trigger: desc += " — LONG trigger"
         if short_trigger: desc += " — SHORT trigger"
-        return {'value_5m': wr5, 'value_15m': wr15, 'long_trigger': long_trigger, 'short_trigger': short_trigger, 'cross_strength': cross_strength, 'description': desc}
+        return {'value_5m':wr5,'value_15m':wr15,'long_trigger':long_trigger,'short_trigger':short_trigger,'cross_strength':cross_strength,'description':desc}
 
 class SupertrendFilter:
     def __init__(self, period_short=10, period_long=14, multiplier=3.0):
@@ -384,7 +319,7 @@ class SupertrendFilter:
         _, dir15, label15 = self._calc(klines_15m, self.period_short)
         _, dir1h, label1h = self._calc(klines_1h, self.period_long)
         if dir5 is None or dir15 is None or dir1h is None:
-            return {'direction_5m': 'neutral', 'direction_15m': 'neutral', 'direction_1h': 'neutral', 'aligned': False, 'bias': 'mixed', 'strength': 0.0}
+            return {'direction_5m':'neutral','direction_15m':'neutral','direction_1h':'neutral','aligned':False,'bias':'mixed','strength':0.0}
         dirs = [label5, label15, label1h]
         bull = dirs.count('bullish'); bear = dirs.count('bearish')
         if bull == 3: bias, aligned, strength = 'bullish', True, 1.0
@@ -392,46 +327,36 @@ class SupertrendFilter:
         elif bull == 2: bias, aligned, strength = 'bullish', False, 0.67
         elif bear == 2: bias, aligned, strength = 'bearish', False, 0.67
         else: bias, aligned, strength = 'mixed', False, 0.0
-        return {'direction_5m': label5, 'direction_15m': label15, 'direction_1h': label1h, 'aligned': aligned, 'bias': bias, 'strength': strength}
+        return {'direction_5m':label5,'direction_15m':label15,'direction_1h':label1h,'aligned':aligned,'bias':bias,'strength':strength}
 
 class EnhancedFilterManager:
     def __init__(self, choppiness_threshold=70.0, supertrend_multiplier=3.0):
         self.ci = ChoppinessIndex(neutral_threshold=choppiness_threshold)
         self.wr = WilliamsRTrigger()
         self.st = SupertrendFilter(multiplier=supertrend_multiplier)
-
     def evaluate(self, klines_5m, klines_15m, klines_1h, base_direction):
         ci_state = self.ci.analyze(klines_15m)
         wr_state = self.wr.analyze(klines_5m, klines_15m)
         st_state = self.st.analyze(klines_5m, klines_15m, klines_1h)
         veto = False; veto_reason = ""; add_score = 0
-
-        if not ci_state['tradeable']: veto = True; veto_reason = f"CI={ci_state['value']:.1f} lateral (choppy)"
+        if not ci_state['tradeable']: veto = True; veto_reason = f"CI={ci_state['value']:.1f} lateral"
         elif ci_state['zone'] == 'trending': add_score += 1 if base_direction == 'LONG' else -1
-
         if not veto:
             if base_direction == 'SHORT' and wr_state['short_trigger']: add_score += 1
             elif base_direction == 'LONG' and wr_state['long_trigger']: add_score += 1
-            elif base_direction == 'SHORT' and wr_state['long_trigger']: veto = True; veto_reason = "WilliamsR long trigger en short"
-            elif base_direction == 'LONG' and wr_state['short_trigger']: veto = True; veto_reason = "WilliamsR short trigger en long"
-
+            elif base_direction == 'SHORT' and wr_state['long_trigger']: veto = True; veto_reason = "WR long trigger en short"
+            elif base_direction == 'LONG' and wr_state['short_trigger']: veto = True; veto_reason = "WR short trigger en long"
         if not veto:
             if base_direction == 'SHORT' and st_state['bias'] == 'bearish' and st_state['aligned']: add_score += 1
             elif base_direction == 'LONG' and st_state['bias'] == 'bullish' and st_state['aligned']: add_score += 1
-            elif base_direction == 'SHORT' and st_state['bias'] == 'bullish' and st_state['aligned']: veto = True; veto_reason = "Supertrend 3/3 alcista en short"
-            elif base_direction == 'LONG' and st_state['bias'] == 'bearish' and st_state['aligned']: veto = True; veto_reason = "Supertrend 3/3 bajista en long"
-
-        return {'veto': veto, 'veto_reason': veto_reason, 'add_score': add_score, 'ci': ci_state, 'wr': wr_state, 'st': st_state}
+            elif base_direction == 'SHORT' and st_state['bias'] == 'bullish' and st_state['aligned']: veto = True; veto_reason = "ST 3/3 alcista en short"
+            elif base_direction == 'LONG' and st_state['bias'] == 'bearish' and st_state['aligned']: veto = True; veto_reason = "ST 3/3 bajista en long"
+        return {'veto':veto,'veto_reason':veto_reason,'add_score':add_score,'ci':ci_state,'wr':wr_state,'st':st_state}
 
 class SessionFilter:
     @staticmethod
-    def is_trading_session():
-        # MODIFICADO: trading 24/7 (siempre True)
-        return True
+    def is_trading_session(): return True  # 24/7 para backtest
 
-# ------------------------------------------------------------
-# TRADE SETUP BUILDER (con score dinámico para todos)
-# ------------------------------------------------------------
 class TradeSetupBuilder:
     def __init__(self, entry_price, stop_loss, capital, risk_pct=0.01, leverage=20,
                  trend_h4='neutral', signal_direction='neutral', tp_ratio=1.5, score=85):
@@ -439,20 +364,12 @@ class TradeSetupBuilder:
         self.base_risk_pct = risk_pct; self.leverage = leverage
         self.trend_h4 = trend_h4; self.signal_direction = signal_direction
         self.tp_ratio = tp_ratio; self.score = score
-
     def _adjusted_risk_pct(self):
-        # Umbrales recalibrados: solo descarta con score < 30
-        if self.score >= 90:
-            return min(self.base_risk_pct * 1.5, 0.015)
-        elif self.score >= 80:
-            return self.base_risk_pct
-        elif self.score >= 70:
-            return self.base_risk_pct * 0.75
-        elif self.score >= 30:
-            return self.base_risk_pct * 0.5
-        else:
-            return 0.0
-
+        if self.score >= 90: return min(self.base_risk_pct * 1.5, 0.015)
+        elif self.score >= 80: return self.base_risk_pct
+        elif self.score >= 70: return self.base_risk_pct * 0.75
+        elif self.score >= 30: return self.base_risk_pct * 0.5
+        else: return 0.0
     def build(self):
         sl_pct = abs(self.entry - self.sl) / self.entry
         MAX_SL_PCT = 0.018
@@ -468,28 +385,20 @@ class TradeSetupBuilder:
            (self.trend_h4 == 'bearish' and self.signal_direction == 'bullish'):
             effective_risk *= 0.5; contrarian = True
         notional = effective_risk / sl_pct; contracts = notional / self.entry
-        liq_price = self.entry * (1 - 1/self.leverage) if self.entry > self.sl else self.entry * (1 + 1/self.leverage)
         if self.entry > self.sl:
             tp1 = self.entry + self.tp_ratio * (self.entry - self.sl)
             tp2 = self.entry + 2 * self.tp_ratio * (self.entry - self.sl)
         else:
             tp1 = self.entry - self.tp_ratio * (self.sl - self.entry)
             tp2 = self.entry - 2 * self.tp_ratio * (self.sl - self.entry)
-        return {'entry': self.entry, 'sl': self.sl, 'tp1': tp1, 'tp2': tp2,
-                'risk_pct': sl_pct * 100, 'risk_usd': effective_risk,
-                'notional': notional, 'contracts': contracts,
-                'liq_price': liq_price, 'contrarian': contrarian}
+        return {'entry':self.entry,'sl':self.sl,'tp1':tp1,'tp2':tp2,
+                'contracts':contracts}
 
-# ------------------------------------------------------------
-# MOTOR UNIFICADO (FASE 4 DEFINITIVA)
-# ------------------------------------------------------------
 class ScalpingEngine:
-    def __init__(self, symbol, capital=100.0, risk_pct=0.01, debug_filters=True):
+    def __init__(self, symbol, capital=100.0, risk_pct=0.01, debug_filters=False):
         if symbol not in SYMBOL_CONFIG:
-            raise ValueError(f"Símbolo {symbol} no configurado. Usar: {list(SYMBOL_CONFIG.keys())}")
-        self.symbol = symbol
-        self.capital = capital
-        self.risk_pct = risk_pct
+            raise ValueError(f"Símbolo {symbol} no configurado")
+        self.symbol = symbol; self.capital = capital; self.risk_pct = risk_pct
         self.config = SYMBOL_CONFIG[symbol]
         self.filter_manager = EnhancedFilterManager(
             choppiness_threshold=self.config['choppiness_neutral_threshold'],
@@ -500,36 +409,23 @@ class ScalpingEngine:
     def _calculate_dynamic_score(self, direction, fib_block, enhanced, mom, klines_4h, klines_15m):
         score = 70
         if klines_4h and len(klines_4h) >= 2:
-            curr = klines_4h[-1]
-            body = abs(float(curr['close']) - float(curr['open']))
+            curr = klines_4h[-1]; body = abs(float(curr['close']) - float(curr['open']))
             tr = float(curr['high']) - float(curr['low'])
             body_ratio = body / tr if tr > 0 else 0
-            if body_ratio > 0.4:
-                score += 15
+            if body_ratio > 0.4: score += 15
         if klines_15m and len(klines_15m) >= 3:
             vols = [float(k['volume']) for k in klines_15m[-3:]]
-            if len(vols) == 3 and vols[-1] > vols[-2] > vols[-3]:
-                score += 15
+            if len(vols) == 3 and vols[-1] > vols[-2] > vols[-3]: score += 15
         st_state = enhanced.get('st', {})
-        if st_state.get('aligned') and st_state.get('bias') == direction.lower():
-            score += 10
+        if st_state.get('aligned') and st_state.get('bias') == direction.lower(): score += 10
         ci_value = enhanced.get('ci', {}).get('value', 50)
-        if ci_value is not None and ci_value < 60:
-            score += 10
-        mom_direction = mom.get('direction', 'neutral')
-        mom_strength = mom.get('strength', 0)
-        if mom_direction == direction.lower():
-            score += min(mom_strength * 20, 20)
+        if ci_value is not None and ci_value < 60: score += 10
+        mom_direction = mom.get('direction', 'neutral'); mom_strength = mom.get('strength', 0)
+        if mom_direction == direction.lower(): score += min(mom_strength * 20, 20)
         return max(0, min(100, int(round(score))))
 
-    def run(self):
+    def run(self, klines, current_price):
         try:
-            klines = DataFetcher(self.symbol).fetch()
-            if klines is None:
-                return self._empty_result('Network error')
-            if any(klines[tf] is None for tf in ['5m', '15m', '1h', '4h', '1d']):
-                return self._empty_result('Network error')
-
             indicators = IndicatorEngine(klines).calculate()
             if not indicators.get('4h'): return self._empty_result('Insufficient data')
             struct_h4 = StructureAnalyzer(klines['4h']).analyze()
@@ -538,96 +434,66 @@ class ScalpingEngine:
             phase_h4 = MarketPhaseDetector(indicators['4h'], klines['4h'], '4h').detect()
             compression = (phase_h4 == 'compressing' or phase_h1 == 'compressing')
             mom = MomentumAnalyzer(indicators).analyze()
-
-            try:
-                vol_5m = np.array([float(k['volume']) for k in klines['5m']])
-                vol_ratio = vol_5m[-1] / np.mean(vol_5m[-20:]) if len(vol_5m) >= 20 else 1.0
-            except TypeError:
-                return self._empty_result('Data error (volume)')
-
+            vol_5m = np.array([float(k['volume']) for k in klines['5m']])
+            vol_ratio = vol_5m[-1] / np.mean(vol_5m[-20:]) if len(vol_5m) >= 20 else 1.0
             breakout_retest = PhaseTransitionDetector(klines['1h'], klines['15m']).check_breakout_retest(compression)
             fib_days = self.config['fibonacci_days']
             fib = WeeklyAdaptiveFibonacci(klines['1d'], days=fib_days)
-            current_price = get_ticker(self.symbol) or indicators['15m']['close']
             fib_block = fib.get_current_block(current_price)
 
-            # ─── FASE 4: Fibonacci obligatorio ───
-            if not fib_block:
+            # Fibonacci obligatorio: sin fib_block no hay entrada
+            if fib_block is None:
                 return self._empty_result('No Fibonacci block')
 
             signal = 'WAIT'; direction = 'neutral'; setup_state = 'FORMING'
-
-            # Condición principal: engulfing 4h + (1 vela 15m o momentum)
+            # NUEVA LÓGICA FASE 4
             if PatternDetector.is_bearish_engulfing(klines['4h']):
+                # Confirmación con 1 vela 15m
                 last_15m = klines['15m'][-1]
-                if float(last_15m['close']) < float(last_15m['open']):
+                if float(last_15m['close']) < float(last_15m['open']):  # vela bajista
                     signal = 'SHORT'; direction = 'bearish'; setup_state = 'EXECUTE'
-                elif mom.get('direction') == 'bearish' and mom.get('strength', 0) > 0.4:
-                    signal = 'SHORT'; direction = 'bearish'; setup_state = 'EXECUTE'
-
+                else:
+                    # Alternativa por momentum
+                    if mom.get('direction') == 'bearish' and mom.get('strength', 0) > 0.4:
+                        signal = 'SHORT'; direction = 'bearish'; setup_state = 'EXECUTE'
             elif PatternDetector.is_bullish_engulfing(klines['4h']):
                 last_15m = klines['15m'][-1]
-                if float(last_15m['close']) > float(last_15m['open']):
+                if float(last_15m['close']) > float(last_15m['open']):  # vela alcista
                     signal = 'LONG'; direction = 'bullish'; setup_state = 'EXECUTE'
-                elif mom.get('direction') == 'bullish' and mom.get('strength', 0) > 0.4:
-                    signal = 'LONG'; direction = 'bullish'; setup_state = 'EXECUTE'
+                else:
+                    if mom.get('direction') == 'bullish' and mom.get('strength', 0) > 0.4:
+                        signal = 'LONG'; direction = 'bullish'; setup_state = 'EXECUTE'
 
             if phase_h1 in ('ranging', 'neutral'): signal = 'WAIT'; setup_state = 'INVALID'
-            # SessionFilter es 24/7, así que este if nunca veta, pero lo mantenemos por claridad
             if signal in ('LONG', 'SHORT') and not SessionFilter.is_trading_session():
                 if self.debug_filters: print("[DEBUG] VETO sesión")
                 signal = 'WAIT'; setup_state = 'INVALID'
-
-            enhanced = {'veto': False, 'add_score': 0, 'ci': {}, 'wr': {}, 'st': {}}
+            enhanced = {'veto':False,'add_score':0,'ci':{},'wr':{},'st':{}}
             if signal in ('LONG', 'SHORT'):
                 enhanced = self.filter_manager.evaluate(klines['5m'], klines['15m'], klines['1h'], signal)
                 if enhanced['veto']:
                     if self.debug_filters: print(f"[DEBUG] VETO: {enhanced['veto_reason']}")
                     signal = 'WAIT'; setup_state = 'INVALID'
-            # El veto extra de Supertrend LONG fue ELIMINADO
-
-            # ── AUDITOR DE RECHAZO ──
-            if signal == 'WAIT':
-                reasons = {
-                    "fib_block": fib_block is not None,
-                    "bearish_engulfing_4h": PatternDetector.is_bearish_engulfing(klines['4h']) if klines.get('4h') else None,
-                    "bullish_engulfing_4h": PatternDetector.is_bullish_engulfing(klines['4h']) if klines.get('4h') else None,
-                    "phase": phase_h1,
-                    "ci": enhanced.get('ci', {}).get('value', '?'),
-                    "wr": enhanced.get('wr', {}).get('value_5m', '?'),
-                    "st": enhanced.get('st', {}).get('bias', '?'),
-                    "veto": enhanced.get('veto', False),
-                    "veto_reason": enhanced.get('veto_reason', '')
-                }
-                explanation_preliminar = f"Fib={fib_block[0]}-{fib_block[2]}"
-                _log_rejection(self.symbol, reasons, explanation_preliminar)
+            # Veto extra Supertrend LONG eliminado
 
             trade = None; entry = None; dynamic_score = 0
             if signal in ('LONG', 'SHORT'):
                 entry = indicators['5m']['close'] if indicators['5m'] else (indicators['15m']['close'] if indicators['15m'] else indicators['1h']['close'])
-                if fib_block:
-                    if signal == 'SHORT':
-                        last_high = max([float(k['high']) for k in klines['15m'][-10:]])
-                        sl = last_high * 1.002
-                    else:
-                        last_low = min([float(k['low']) for k in klines['15m'][-10:]])
-                        sl = last_low * 0.998
+                # fib_block existe siempre aquí por el chequeo inicial
+                if signal == 'SHORT':
+                    last_high = max([float(k['high']) for k in klines['15m'][-10:]])
+                    sl = last_high * 1.002
                 else:
-                    atr1h = self._calc_atr(klines['1h'], 14) or entry * 0.005
-                    sl = entry + atr1h * 2 if direction == 'bearish' else entry - atr1h * 2
+                    last_low = min([float(k['low']) for k in klines['15m'][-10:]])
+                    sl = last_low * 0.998
 
                 dynamic_score = self._calculate_dynamic_score(
-                    direction=direction,
-                    fib_block=fib_block,
-                    enhanced=enhanced,
-                    mom=mom,
-                    klines_4h=klines['4h'],
-                    klines_15m=klines['15m']
+                    direction=direction, fib_block=fib_block, enhanced=enhanced,
+                    mom=mom, klines_4h=klines['4h'], klines_15m=klines['15m']
                 )
-
                 trade = TradeSetupBuilder(
                     entry, sl, capital=self.capital, risk_pct=self.risk_pct,
-                    trend_h4=struct_h4.get('trend', 'neutral'),
+                    trend_h4=struct_h4.get('trend','neutral'),
                     signal_direction=direction,
                     tp_ratio=self.config['tp_ratio'],
                     score=dynamic_score
@@ -636,57 +502,190 @@ class ScalpingEngine:
             fib_label = f"{fib_block[0]}-{fib_block[2]}" if fib_block else "?"
             explanation = f"Fib={fib_label} Sig={signal} Phase={phase_h1} CI={enhanced['ci'].get('value','?')} WR={enhanced['wr'].get('value_5m','?')} ST={enhanced['st'].get('bias','?')} Veto={enhanced['veto']}"
             return {
-                'signal': signal,
-                'score': dynamic_score if signal != 'WAIT' else 0,
+                'signal': signal, 'score': dynamic_score if signal != 'WAIT' else 0,
                 'direction': direction, 'setup_state': setup_state,
-                'agent_scores': {'scanner':85, 'risk':80, 'technical':90, 'momentum':85, 'guard':80},
-                'weighted_confidence': dynamic_score if signal != 'WAIT' else 50,
-                'trend_h4': struct_h4.get('trend','neutral'),
-                'market_phase': phase_h1, 'vol_ratio': vol_ratio,
-                'explanation': explanation, 'trade': trade,
-                'ci': enhanced['ci'], 'wr': enhanced['wr'], 'st': enhanced['st'],
-                'veto': enhanced['veto'], 'veto_reason': enhanced.get('veto_reason','')
+                'trade': trade,
+                'explanation': explanation,
+                'enhanced': enhanced
             }
         except Exception as e:
-            errors_logger.exception("Error en análisis")
             return self._empty_result(f'Error: {e}')
 
     def _empty_result(self, explanation=''):
         return {'signal':'WAIT','setup_state':'INVALID','explanation':explanation,
-                'direction':'neutral','trade':None,'score':0}
+                'direction':'neutral','trade':None,'score':0,'enhanced':{}}
 
     def _calc_atr(self, klines, period=14):
         if len(klines) < period + 1: return None
         highs = np.array([float(k['high']) for k in klines])
-        lows  = np.array([float(k['low'])  for k in klines])
+        lows = np.array([float(k['low'])  for k in klines])
         closes = np.array([float(k['close']) for k in klines])
         tr = [max(highs[i]-lows[i], abs(highs[i]-closes[i-1]), abs(lows[i]-closes[i-1])) for i in range(1, len(highs))]
         return np.mean(tr[-period:])
 
-# ------------------------------------------------------------
-# AUDITOR DE RECHAZO (REJECTION LOG)
-# ------------------------------------------------------------
-REJECTION_LOG_FILE = "rejection_log.json"
+# ──────────── SIMULADOR DE SALIDAS REALES ────────────
+def simulate_exit(direction, entry_real, sl_original, tp1, contracts_total, candles, start_idx):
+    if direction == 'bullish':
+        tp_distance = tp1 - entry_real
+        tp2 = entry_real + 2 * tp_distance
+        half_target = entry_real + 0.5 * tp_distance
+    else:
+        tp_distance = entry_real - tp1
+        tp2 = entry_real - 2 * tp_distance
+        half_target = entry_real - 0.5 * tp_distance
 
-def _log_rejection(symbol, reasons, explanation):
-    try:
-        logs = []
-        if os.path.exists(REJECTION_LOG_FILE):
-            with open(REJECTION_LOG_FILE, "r") as f:
-                try:
-                    logs = json.load(f)
-                except:
-                    logs = []
-        entry = {
-            "timestamp": datetime.now().isoformat(),
-            "symbol": symbol,
-            "reasons": reasons,
-            "explanation": explanation
+    remaining = contracts_total; sl_active = sl_original
+    breakeven_moved = False; partial_done = False; events = []
+
+    for j in range(start_idx+1, len(candles)):
+        high = candles[j]['high']; low = candles[j]['low']
+        if direction == 'bullish':
+            if not breakeven_moved and high >= half_target:
+                sl_active = entry_real; breakeven_moved = True
+                events.append(f"be_50%@{j}")
+            if not partial_done and high >= tp1:
+                close_contracts = contracts_total * 0.6
+                pnl = (tp1 - entry_real) * close_contracts
+                comm = tp1 * close_contracts * COMMISSION
+                events.append({"type":"tp1","contracts":close_contracts,"price":tp1,"pnl":pnl,"comm":comm})
+                remaining = contracts_total * 0.4; sl_active = entry_real
+                breakeven_moved = True; partial_done = True
+            if partial_done and high >= tp2:
+                pnl = (tp2 - entry_real) * remaining
+                comm = tp2 * remaining * COMMISSION
+                events.append({"type":"tp2","contracts":remaining,"price":tp2,"pnl":pnl,"comm":comm})
+                remaining = 0; break
+            if low <= sl_active:
+                exit_price = sl_active
+                if not partial_done:
+                    pnl = (exit_price - entry_real) * contracts_total
+                    comm = exit_price * contracts_total * COMMISSION
+                    events.append({"type":"sl_full","contracts":contracts_total,"price":exit_price,"pnl":pnl,"comm":comm})
+                else:
+                    pnl = (exit_price - entry_real) * remaining
+                    comm = exit_price * remaining * COMMISSION
+                    events.append({"type":"sl_rem","contracts":remaining,"price":exit_price,"pnl":pnl,"comm":comm})
+                remaining = 0; break
+        else:  # bearish
+            if not breakeven_moved and low <= half_target:
+                sl_active = entry_real; breakeven_moved = True
+                events.append(f"be_50%@{j}")
+            if not partial_done and low <= tp1:
+                close_contracts = contracts_total * 0.6
+                pnl = (entry_real - tp1) * close_contracts
+                comm = tp1 * close_contracts * COMMISSION
+                events.append({"type":"tp1","contracts":close_contracts,"price":tp1,"pnl":pnl,"comm":comm})
+                remaining = contracts_total * 0.4; sl_active = entry_real
+                breakeven_moved = True; partial_done = True
+            if partial_done and low <= tp2:
+                pnl = (entry_real - tp2) * remaining
+                comm = tp2 * remaining * COMMISSION
+                events.append({"type":"tp2","contracts":remaining,"price":tp2,"pnl":pnl,"comm":comm})
+                remaining = 0; break
+            if high >= sl_active:
+                exit_price = sl_active
+                if not partial_done:
+                    pnl = (entry_real - exit_price) * contracts_total
+                    comm = exit_price * contracts_total * COMMISSION
+                    events.append({"type":"sl_full","contracts":contracts_total,"price":exit_price,"pnl":pnl,"comm":comm})
+                else:
+                    pnl = (entry_real - exit_price) * remaining
+                    comm = exit_price * remaining * COMMISSION
+                    events.append({"type":"sl_rem","contracts":remaining,"price":exit_price,"pnl":pnl,"comm":comm})
+                remaining = 0; break
+    if remaining > 0:
+        last_price = candles[-1]['close']
+        pnl = (last_price - entry_real) * remaining if direction == 'bullish' else (entry_real - last_price) * remaining
+        comm = last_price * remaining * COMMISSION
+        events.append({"type":"forced","contracts":remaining,"price":last_price,"pnl":pnl,"comm":comm})
+
+    commission_entry = entry_real * contracts_total * COMMISSION
+    net = -commission_entry
+    for ev in events:
+        if isinstance(ev, dict) and 'pnl' in ev:
+            net += ev['pnl'] - ev['comm']
+    exit_type = 'tp2_reached' if any(e.get('type')=='tp2' for e in events if isinstance(e,dict)) else \
+                'tp1_partial_then_sl' if any(e.get('type')=='tp1' for e in events if isinstance(e,dict)) else 'full_sl'
+    return net, events, exit_type
+
+# ──────────── EJECUCIÓN DEL BACKTEST ────────────
+all_trades = []
+capital = INITIAL_CAPITAL
+stats = {'tp2_reached':0, 'tp1_partial_then_sl':0, 'full_sl':0}
+
+for sym in SYMBOLS:
+    data = fetch_historical(sym)
+    candles_1h = data['1h']
+    if len(candles_1h) < 10:
+        print(f"{sym}: datos insuficientes"); continue
+
+    engine = ScalpingEngine(symbol=sym, capital=capital, risk_pct=FIXED_RISK_PCT)
+    for i in range(10, len(candles_1h)):
+        ts = candles_1h[i]['timestamp']
+        trunc = {
+            '5m':  [k for k in data['5m']  if k['timestamp'] <= ts],
+            '15m': [k for k in data['15m'] if k['timestamp'] <= ts],
+            '1h':  candles_1h[:i+1],
+            '4h':  [k for k in data['4h']  if k['timestamp'] <= ts],
+            '1d':  [k for k in data['1d']  if k['timestamp'] <= ts],
         }
-        logs.append(entry)
-        if len(logs) > 1000:
-            logs = logs[-1000:]
-        with open(REJECTION_LOG_FILE, "w") as f:
-            json.dump(logs, f, indent=2)
-    except Exception as e:
-        print(f"[RejectionLog] Error escribiendo: {e}")
+        current_price = candles_1h[i]['close']
+        engine.capital = capital
+        res = engine.run(trunc, current_price)
+
+        if res['setup_state'] == 'EXECUTE' and res['trade'] is not None:
+            trade = res['trade']
+            entry = trade['entry']; sl = trade['sl']; tp1 = trade['tp1']
+            contracts = trade['contracts']
+            direction = res['direction']
+
+            if direction == 'bullish': entry_real = entry * (1 + SPREAD)
+            else: entry_real = entry * (1 - SPREAD)
+
+            start_idx_5m = next((idx for idx, c in enumerate(data['5m']) if c['timestamp'] >= ts), len(data['5m'])-1)
+            pnl_neto, events, exit_type = simulate_exit(
+                direction, entry_real, sl, tp1, contracts, data['5m'], start_idx_5m
+            )
+            capital += pnl_neto
+            all_trades.append({
+                'symbol': sym,
+                'entry_time': datetime.fromtimestamp(ts/1000, tz=timezone.utc).isoformat(),
+                'direction': direction,
+                'entry_signal': entry,
+                'entry_real': round(entry_real,6),
+                'sl_original': sl, 'tp1': tp1,
+                'contracts': contracts,
+                'pnl_neto': round(pnl_neto,4),
+                'exit_events': str(events),
+                'exit_type': exit_type,
+                'explanation': res['explanation'],
+                'score': res['score'],
+            })
+            stats[exit_type] += 1
+
+if all_trades:
+    df = pd.DataFrame(all_trades)
+    csv_name = 'backtest_3m_FASE4.csv'
+    df.to_csv(csv_name, index=False)
+    print(f"\n📁 {len(df)} trades guardados en {csv_name}")
+
+    win_rate = (df['pnl_neto'] > 0).mean() * 100
+    total_pnl = df['pnl_neto'].sum()
+    curve = (INITIAL_CAPITAL + df['pnl_neto'].cumsum()).values
+    peak = np.maximum.accumulate(curve)
+    max_dd = (peak - curve).max()
+    max_dd_pct = (max_dd / peak.max() * 100) if peak.max() > 0 else 0
+
+    print("\n========== RESULTADOS 3 MESES (FASE 4) ==========")
+    print(f"Trades totales:            {len(df)}")
+    print(f"Win Rate:                  {win_rate:.1f}%")
+    print(f"PnL neto total:            ${total_pnl:,.2f}")
+    print(f"Drawdown máximo:           ${max_dd:,.2f} ({max_dd_pct:.1f}% del pico)")
+    print(f"Capital final:             ${capital:,.2f}")
+    print("------------------------------------------------------")
+    print("Desglose de salidas:")
+    print(f"  TP2 alcanzado:          {stats['tp2_reached']}")
+    print(f"  TP1 parcial + SL:       {stats['tp1_partial_then_sl']}")
+    print(f"  SL completo:            {stats['full_sl']}")
+else:
+    print("\nNo se generaron trades.")

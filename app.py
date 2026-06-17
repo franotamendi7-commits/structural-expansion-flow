@@ -1,5 +1,5 @@
 import streamlit as st
-import time, datetime, pandas as pd, json, requests, re
+import time, datetime, pandas as pd, json, requests, re, csv, os
 from engine.scalping_engine import ScalpingEngine
 from paper_trader import PaperTrader
 from data.binance_feed import get_ticker
@@ -882,6 +882,24 @@ div[data-testid="stExpander"] summary {
 .glow-red   { text-shadow: 0 0 10px rgba(255,45,107,0.6), 0 0 30px rgba(255,45,107,0.3); }
 .glow-cyan  { text-shadow: 0 0 10px rgba(0,212,255,0.6), 0 0 30px rgba(0,212,255,0.3); }
 .glow-gold  { text-shadow: 0 0 10px rgba(255,184,0,0.6), 0 0 30px rgba(255,184,0,0.3); }
+
+/* ── PERFORMANCE CARDS (estilo compacto) ─────────────────── */
+.perf-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 1.2rem;
+}
+.perf-cell {
+  background: var(--glass);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  backdrop-filter: blur(12px);
+  text-align: center;
+}
+.perf-label { font-family: var(--font-mono); font-size: 8px; color: var(--text-dim); letter-spacing: 0.15em; text-transform: uppercase; }
+.perf-value { font-family: var(--font-hud); font-size: 18px; font-weight: 700; color: var(--text); margin-top: 4px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -939,6 +957,7 @@ with st.sidebar:
         st.success("✅ Live trading activado. Las órdenes se enviarán a Binance.")
     else:
         st.info("Modo paper trading (ejecución simulada)")
+
 # ══════════════════════════════════════════════════════════════════
 # HEADER
 # ══════════════════════════════════════════════════════════════════
@@ -1082,10 +1101,10 @@ def update_pair_state(pair, res, price):
                     'setup_state': 'EXECUTE',
                     'signal': pos['side'],
                     'direction': pos['side'].lower(),
-                    'score': 95,  # score original aproximado, podríamos guardarlo en la posición
+                    'score': 95,
                     'agent_scores': {'scanner': 85, 'risk': 80, 'technical': 90, 'momentum': 85, 'guard': 80},
                     'explanation': 'Posición abierta (datos restaurados)',
-                    'trend_h4': 'neutral',  # no lo tenemos, pero al menos no muestra "unknown"
+                    'trend_h4': 'neutral',
                     'market_phase': 'trending',
                     'fib_label': 'N/A'
                 })
@@ -1235,5 +1254,126 @@ if closed_trades:
     df = pd.DataFrame(closed_trades)
     cols = ['symbol', 'side', 'entry_price', 'exit_price', 'pnl', 'reason', 'exit_time']
     st.dataframe(df[[c for c in cols if c in df.columns]])
+
+# ══════════════════════════════════════════════════════════════════
+# NUEVAS SECCIONES: PERFORMANCE, AUDITORÍA, REJECTION LOG
+# ══════════════════════════════════════════════════════════════════
+st.markdown("---")
+
+# ── PERFORMANCE COMPACTA (BALANCE, P&L, DRAWDOWN) ──
+st.markdown('<div class="sec-title">Performance Overview</div>', unsafe_allow_html=True)
+paper_state = {}
+if os.path.exists("paper_state.json"):
+    with open("paper_state.json", "r") as f:
+        try:
+            paper_state = json.load(f)
+        except:
+            paper_state = {}
+
+total_pnl = 0.0
+drawdown_percent = 0.0
+peak_balance = 0.0
+if paper_state:
+    balance_ps = paper_state.get('balance', 100.0)
+    peak_balance = paper_state.get('peak_balance', balance_ps)
+    if peak_balance > 0:
+        drawdown_percent = (peak_balance - balance_ps) / peak_balance * 100
+    closed_trades_ps = paper_state.get('closed_trades', [])
+    total_pnl = sum(t.get('pnl', 0) for t in closed_trades_ps)
+else:
+    balance_ps = trader.get_balance()
+    peak_balance = trader.get_peak_balance()
+    drawdown_percent = (peak_balance - balance_ps) / peak_balance * 100 if peak_balance > 0 else 0.0
+    total_pnl = sum(t['pnl'] for t in closed_trades) if closed_trades else 0.0
+
+st.markdown(f"""
+<div class="perf-row">
+  <div class="perf-cell">
+    <div class="perf-label">Balance</div>
+    <div class="perf-value" style="color: var(--neon-cyan)">${balance_ps:,.2f}</div>
+  </div>
+  <div class="perf-cell">
+    <div class="perf-label">PnL Neto</div>
+    <div class="perf-value" style="color: {'var(--neon-green)' if total_pnl >= 0 else 'var(--neon-red)'}">${total_pnl:,.2f}</div>
+  </div>
+  <div class="perf-cell">
+    <div class="perf-label">Drawdown</div>
+    <div class="perf-value" style="color: var(--neon-red)">{drawdown_percent:.1f}%</div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+# Mini equity curve (opcional, pero está bueno)
+if paper_state and 'closed_trades' in paper_state:
+    trades_hist = paper_state['closed_trades']
+    if trades_hist:
+        import matplotlib.pyplot as plt
+        import matplotlib.dates as mdates
+        df_hist = pd.DataFrame(trades_hist)
+        df_hist['exit_time'] = pd.to_datetime(df_hist['exit_time'])
+        df_hist = df_hist.sort_values('exit_time')
+        initial_balance = 100.0
+        df_hist['cum_pnl'] = df_hist['pnl'].cumsum() + initial_balance
+        # Agregar punto actual
+        now_row = pd.DataFrame({'exit_time': [datetime.datetime.now()], 'cum_pnl': [balance_ps]})
+        df_hist = pd.concat([df_hist, now_row], ignore_index=True)
+
+        fig, ax = plt.subplots(figsize=(8, 2.5))
+        fig.patch.set_facecolor('#020408')
+        ax.set_facecolor('#020408')
+        ax.plot(df_hist['exit_time'], df_hist['cum_pnl'], color='#00d4ff', linewidth=1.5)
+        ax.fill_between(df_hist['exit_time'], df_hist['cum_pnl'], initial_balance, color='#00d4ff', alpha=0.1)
+        ax.axhline(y=initial_balance, color='#5a7a99', linestyle='--', linewidth=0.8)
+        ax.set_ylabel('Balance (USDT)', color='#5a7a99')
+        ax.tick_params(colors='#5a7a99')
+        ax.grid(color='#2a3d52', linestyle='--', alpha=0.5)
+        ax.spines['bottom'].set_color('#2a3d52')
+        ax.spines['left'].set_color('#2a3d52')
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        st.pyplot(fig, use_container_width=True)
+
+# ── AUDITORÍA (ÚLTIMAS 10) ──
+st.markdown('<div class="sec-title">Audit Log (last 10)</div>', unsafe_allow_html=True)
+audit_file = "audit_log.csv"
+if os.path.exists(audit_file):
+    try:
+        audit_df = pd.read_csv(audit_file)
+        if not audit_df.empty:
+            st.dataframe(audit_df.tail(10)[['trade_id','timestamp_entry','symbol','side','entry','exit_price','pnl_final','exit_reason']])
+        else:
+            st.info("Sin registros de auditoría aún.")
+    except:
+        st.info("Error al leer el archivo de auditoría.")
+else:
+    st.info("Archivo de auditoría no encontrado.")
+
+# ── REJECTION LOG (ÚLTIMOS 10) ──
+st.markdown('<div class="sec-title">Rejection Log (last 10)</div>', unsafe_allow_html=True)
+rejection_file = "rejection_log.json"
+if os.path.exists(rejection_file):
+    try:
+        with open(rejection_file, "r") as f:
+            rejections = json.load(f)
+        if rejections:
+            rows = []
+            for r in rejections[-10:]:
+                reasons = r.get('reasons', {})
+                rows.append({
+                    "Hora": r.get('timestamp', '')[-8:],
+                    "Par": r.get('symbol', ''),
+                    "Fase": reasons.get('phase', '?'),
+                    "CI": reasons.get('ci', '?'),
+                    "WR": reasons.get('wr', '?'),
+                    "ST": reasons.get('st', '?'),
+                    "Veto": reasons.get('veto_reason', '')
+                })
+            st.dataframe(pd.DataFrame(rows))
+        else:
+            st.info("Sin rechazos registrados.")
+    except:
+        st.info("Error al leer el archivo de rechazos.")
+else:
+    st.info("Archivo de rechazos no encontrado.")
 
 st.caption(f"WebSocket live · Analysis every 60s · Risk fixed 1% · {datetime.datetime.now().strftime('%H:%M:%S')}")

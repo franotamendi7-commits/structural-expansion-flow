@@ -38,6 +38,24 @@ class ExecutionManager:
         except requests.exceptions.RequestException as e:
             return {'error': str(e)}
 
+    def set_isolated_margin(self, symbol):
+        """Establece el modo de margen aislado para el símbolo."""
+        try:
+            resp = self.session.set_margin_type(
+                category="linear",
+                symbol=symbol,
+                marginType="ISOLATED"
+            )
+            if resp.get("retCode") == 0:
+                print(f"[ExecutionManager] Margen aislado activado para {symbol}")
+                return True
+            else:
+                print(f"[ExecutionManager] Error al activar margen aislado: {resp.get('retMsg')}")
+                return False
+        except Exception as e:
+            print(f"[ExecutionManager] Excepción al activar margen aislado: {e}")
+            return False
+
     def execute_signal(self, signal_dict: dict) -> dict:
         """
         Ejecuta una orden de mercado simple.
@@ -45,6 +63,9 @@ class ExecutionManager:
         side: 'BUY' o 'SELL'
         quantity: cantidad en contratos (float)
         """
+        # Activar margen aislado
+        self.set_isolated_margin(signal_dict.get("symbol"))
+
         side = signal_dict.get('side', 'BUY').upper()
         symbol = signal_dict.get('symbol')
         quantity = signal_dict.get('quantity')
