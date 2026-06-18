@@ -1,6 +1,6 @@
 """
-BACKTEST 3 MESES (últimos 90 días) - FASE 3 (Híbrido Definitivo)
-Fase 2b + entrada por engulfing 4h sin confirmación 15m + permite operar sin Fibonacci.
+BACKTEST 3 MESES (últimos 90 días) – FASE 5 con 5 pares (BTC, ETH, SOL, XRP, BNB)
+Entrada solo por engulfing 4h, sin confirmación 15m. Fibonacci obligatorio.
 """
 import sys, os, time, math
 import numpy as np
@@ -11,7 +11,7 @@ from scipy.stats import linregress
 from datetime import datetime, timezone, timedelta
 
 # ────────────────────── CONFIGURACIÓN ──────────────────────
-SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT"]
+SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT", "BNBUSDT"]
 START_DATE = datetime(2026, 3, 19, 0, 0, tzinfo=timezone.utc)
 END_DATE   = datetime(2026, 6, 17, 23, 59, tzinfo=timezone.utc)
 MAX_KLINES = 1000
@@ -58,12 +58,13 @@ def fetch_historical(symbol):
     print(f"     -> {len(k1d)}d {len(k4h)}4h {len(k1h)}1h {len(k15m)}15m {len(k5m)}5m")
     return {'1d':k1d,'4h':k4h,'1h':k1h,'15m':k15m,'5m':k5m}
 
-# ──────────── MOTOR (Fase 3: Fase 2b + entrada simplificada) ────────────
+# ──────────── MOTOR (Fase 5 para 5 pares) ────────────
 SYMBOL_CONFIG = {
-    'BTCUSDT': {'supertrend_multiplier':2.8,'choppiness_neutral_threshold':68.0,'fibonacci_days':30,'tp_ratio':1.5},
-    'ETHUSDT': {'supertrend_multiplier':2.6,'choppiness_neutral_threshold':66.0,'fibonacci_days':30,'tp_ratio':1.8},
-    'SOLUSDT': {'supertrend_multiplier':2.3,'choppiness_neutral_threshold':65.0,'fibonacci_days':90,'tp_ratio':2.0},
-    'XRPUSDT': {'supertrend_multiplier':2.3,'choppiness_neutral_threshold':63.0,'fibonacci_days':60,'tp_ratio':1.8},
+    'BTCUSDT': {'supertrend_multiplier':2.8,'choppiness_neutral_threshold':74.0,'fibonacci_days':30,'tp_ratio':1.5},
+    'ETHUSDT': {'supertrend_multiplier':2.6,'choppiness_neutral_threshold':72.0,'fibonacci_days':30,'tp_ratio':1.8},
+    'SOLUSDT': {'supertrend_multiplier':2.3,'choppiness_neutral_threshold':70.0,'fibonacci_days':90,'tp_ratio':2.0},
+    'XRPUSDT': {'supertrend_multiplier':2.3,'choppiness_neutral_threshold':68.0,'fibonacci_days':60,'tp_ratio':1.8},
+    'BNBUSDT': {'supertrend_multiplier':2.8,'choppiness_neutral_threshold':68.0,'fibonacci_days':30,'tp_ratio':1.6},
 }
 
 class IndicatorEngine:
@@ -240,7 +241,6 @@ class PatternDetector:
         prev = klines[-2]; curr = klines[-1]
         return (prev['close'] < prev['open'] and curr['close'] > curr['open'] and
                 curr['open'] < prev['close'] and curr['close'] > prev['open'])
-    # ya no usamos las funciones de dos velas
 
 class ChoppinessIndex:
     def __init__(self, period=14, neutral_threshold=70.0):
@@ -441,8 +441,11 @@ class ScalpingEngine:
             fib = WeeklyAdaptiveFibonacci(klines['1d'], days=fib_days)
             fib_block = fib.get_current_block(current_price)
 
+            if fib_block is None:
+                return self._empty_result('No Fibonacci block')
+
             signal = 'WAIT'; direction = 'neutral'; setup_state = 'FORMING'
-            # NUEVA LÓGICA: engulfing 4h sin confirmación de 15m, ni requerimiento de fib_block
+            # Fase 5: solo engulfing 4h, sin confirmación de 15m
             if PatternDetector.is_bearish_engulfing(klines['4h']):
                 signal = 'SHORT'; direction = 'bearish'; setup_state = 'EXECUTE'
             elif PatternDetector.is_bullish_engulfing(klines['4h']):
@@ -458,21 +461,17 @@ class ScalpingEngine:
                 if enhanced['veto']:
                     if self.debug_filters: print(f"[DEBUG] VETO: {enhanced['veto_reason']}")
                     signal = 'WAIT'; setup_state = 'INVALID'
-            # Veto extra Supertrend LONG eliminado
+            # Veto extra ST LONG eliminado
 
             trade = None; entry = None; dynamic_score = 0
             if signal in ('LONG', 'SHORT'):
                 entry = indicators['5m']['close'] if indicators['5m'] else (indicators['15m']['close'] if indicators['15m'] else indicators['1h']['close'])
-                if fib_block:
-                    if signal == 'SHORT':
-                        last_high = max([float(k['high']) for k in klines['15m'][-10:]])
-                        sl = last_high * 1.002
-                    else:
-                        last_low = min([float(k['low']) for k in klines['15m'][-10:]])
-                        sl = last_low * 0.998
+                if signal == 'SHORT':
+                    last_high = max([float(k['high']) for k in klines['15m'][-10:]])
+                    sl = last_high * 1.002
                 else:
-                    atr1h = self._calc_atr(klines['1h'], 14) or entry * 0.005
-                    sl = entry + atr1h * 2 if direction == 'bearish' else entry - atr1h * 2
+                    last_low = min([float(k['low']) for k in klines['15m'][-10:]])
+                    sl = last_low * 0.998
 
                 dynamic_score = self._calculate_dynamic_score(
                     direction=direction, fib_block=fib_block, enhanced=enhanced,
@@ -652,7 +651,7 @@ for sym in SYMBOLS:
 
 if all_trades:
     df = pd.DataFrame(all_trades)
-    csv_name = 'backtest_3m_FASE3.csv'
+    csv_name = 'backtest_3m_FASE5_5pares.csv'
     df.to_csv(csv_name, index=False)
     print(f"\n📁 {len(df)} trades guardados en {csv_name}")
 
@@ -663,16 +662,23 @@ if all_trades:
     max_dd = (peak - curve).max()
     max_dd_pct = (max_dd / peak.max() * 100) if peak.max() > 0 else 0
 
-    print("\n========== RESULTADOS 3 MESES (FASE 3) ==========")
+    print("\n========== RESULTADOS 3 MESES (FASE 5 – 5 PARES) ==========")
     print(f"Trades totales:            {len(df)}")
     print(f"Win Rate:                  {win_rate:.1f}%")
     print(f"PnL neto total:            ${total_pnl:,.2f}")
     print(f"Drawdown máximo:           ${max_dd:,.2f} ({max_dd_pct:.1f}% del pico)")
     print(f"Capital final:             ${capital:,.2f}")
-    print("------------------------------------------------------")
+    print("--------------------------------------------------------------")
     print("Desglose de salidas:")
     print(f"  TP2 alcanzado:          {stats['tp2_reached']}")
     print(f"  TP1 parcial + SL:       {stats['tp1_partial_then_sl']}")
     print(f"  SL completo:            {stats['full_sl']}")
+    print("\nResumen por par:")
+    for sym in SYMBOLS:
+        sym_df = df[df['symbol'] == sym]
+        if len(sym_df) > 0:
+            sym_win = (sym_df['pnl_neto'] > 0).mean() * 100
+            sym_pnl = sym_df['pnl_neto'].sum()
+            print(f"  {sym}: {len(sym_df)} trades | WR {sym_win:.1f}% | PnL ${sym_pnl:,.2f}")
 else:
     print("\nNo se generaron trades.")

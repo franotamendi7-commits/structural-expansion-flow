@@ -9,32 +9,38 @@ from data.binance_feed import get_klines, get_ticker
 from system_logger import market_logger, signals_logger, errors_logger
 
 # ------------------------------------------------------------
-# CONFIGURACIÓN POR ACTIVO (FASE 4 DEFINITIVA)
+# CONFIGURACIÓN POR ACTIVO (FASE 5 – 5 PARES)
 # ------------------------------------------------------------
 SYMBOL_CONFIG = {
     'BTCUSDT': {
-        'supertrend_multiplier': 2.8,          # Fase 2b
-        'choppiness_neutral_threshold': 68.0,  # Fase 1
+        'supertrend_multiplier': 2.8,
+        'choppiness_neutral_threshold': 74.0,
         'fibonacci_days': 30,
         'tp_ratio': 1.5,
     },
     'ETHUSDT': {
-        'supertrend_multiplier': 2.6,          # Fase 2b
-        'choppiness_neutral_threshold': 66.0,  # Fase 1
+        'supertrend_multiplier': 2.6,
+        'choppiness_neutral_threshold': 72.0,
         'fibonacci_days': 30,
         'tp_ratio': 1.8,
     },
     'SOLUSDT': {
-        'supertrend_multiplier': 2.3,          # Fase 2b
-        'choppiness_neutral_threshold': 65.0,  # Fase 1
+        'supertrend_multiplier': 2.3,
+        'choppiness_neutral_threshold': 70.0,
         'fibonacci_days': 90,
         'tp_ratio': 2.0,
     },
     'XRPUSDT': {
-        'supertrend_multiplier': 2.3,          # Fase 2b
-        'choppiness_neutral_threshold': 63.0,  # Fase 1
+        'supertrend_multiplier': 2.3,
+        'choppiness_neutral_threshold': 68.0,
         'fibonacci_days': 60,
         'tp_ratio': 1.8,
+    },
+    'BNBUSDT': {
+        'supertrend_multiplier': 2.8,
+        'choppiness_neutral_threshold': 68.0,
+        'fibonacci_days': 30,
+        'tp_ratio': 1.6,
     },
     'LTCUSDT': {
         'supertrend_multiplier': 2.8,
@@ -53,12 +59,6 @@ SYMBOL_CONFIG = {
         'choppiness_neutral_threshold': 65.0,
         'fibonacci_days': 45,
         'tp_ratio': 1.9,
-    },
-    'BNBUSDT': {
-        'supertrend_multiplier': 2.8,
-        'choppiness_neutral_threshold': 68.0,
-        'fibonacci_days': 30,
-        'tp_ratio': 1.6,
     },
     'AVAXUSDT': {
         'supertrend_multiplier': 2.4,
@@ -81,7 +81,7 @@ SYMBOL_CONFIG = {
 }
 
 # ------------------------------------------------------------
-# CLASES AUXILIARES
+# CLASES AUXILIARES (DataFetcher, IndicatorEngine, etc.)
 # ------------------------------------------------------------
 class DataFetcher:
     def __init__(self, pair): self.pair = pair
@@ -230,41 +230,24 @@ class MomentumAnalyzer:
         return {'score': total, 'direction': direction, 'strength': abs(total)}
 
 class WeeklyAdaptiveFibonacci:
-    """
-    Fibonacci adaptativo semanal (usa velas diarias).
-    Si no hay suficientes velas diarias para el período configurado,
-    usa todas las disponibles con un mínimo de 2.
-    """
     def __init__(self, daily_klines, days=30):
         self.levels = None
         self._calculate(daily_klines, days)
-
     def _calculate(self, klines, days):
         if not klines or len(klines) < 2:
-            self.levels = None
-            return
+            self.levels = None; return
         usable_days = min(days, len(klines))
         recent = klines[-usable_days:]
         highs = [k['high'] for k in recent]
         lows = [k['low'] for k in recent]
-        fib_high = max(highs)
-        fib_low = min(lows)
-        if fib_high <= fib_low:
-            self.levels = None
-            return
+        fib_high = max(highs); fib_low = min(lows)
+        if fib_high <= fib_low: self.levels = None; return
         rng = fib_high - fib_low
         self.levels = {
-            0.00: fib_low,
-            0.25: fib_low + rng * 0.25,
-            0.50: fib_low + rng * 0.50,
-            0.75: fib_low + rng * 0.75,
-            1.00: fib_high,
-            1.25: fib_high + rng * 0.25,
-            1.50: fib_high + rng * 0.50,
-            1.75: fib_high + rng * 0.75,
-            2.00: fib_high + rng * 1.00
+            0.00: fib_low, 0.25: fib_low+rng*0.25, 0.50: fib_low+rng*0.50,
+            0.75: fib_low+rng*0.75, 1.00: fib_high, 1.25: fib_high+rng*0.25,
+            1.50: fib_high+rng*0.50, 1.75: fib_high+rng*0.75, 2.00: fib_high+rng*1.00
         }
-
     def get_levels(self): return self.levels
     def get_current_block(self, price):
         if not self.levels: return None
@@ -283,7 +266,6 @@ class PatternDetector:
         prev = klines[-2]; curr = klines[-1]
         return (prev['close'] > prev['open'] and curr['close'] < curr['open'] and
                 curr['open'] > prev['close'] and curr['close'] < prev['open'])
-
     @staticmethod
     def is_bullish_engulfing(klines):
         if len(klines) < 2: return False
@@ -291,23 +273,12 @@ class PatternDetector:
         return (prev['close'] < prev['open'] and curr['close'] > curr['open'] and
                 curr['open'] < prev['close'] and curr['close'] > prev['open'])
 
-    @staticmethod
-    def two_bearish_candles(klines):
-        if len(klines) < 2: return False
-        return (klines[-2]['close'] < klines[-2]['open'] and klines[-1]['close'] < klines[-1]['open'])
-
-    @staticmethod
-    def two_bullish_candles(klines):
-        if len(klines) < 2: return False
-        return (klines[-2]['close'] > klines[-2]['open'] and klines[-1]['close'] > klines[-1]['open'])
-
 # ------------------------------------------------------------
 # FILTROS
 # ------------------------------------------------------------
 class ChoppinessIndex:
     def __init__(self, period=14, neutral_threshold=70.0):
         self.period = period; self.trend_threshold = 38.2; self.neutral_threshold = neutral_threshold
-
     def calculate(self, klines):
         if len(klines) < self.period + 1: return None
         highs = np.array([float(k['high']) for k in klines[-self.period:]])
@@ -321,7 +292,6 @@ class ChoppinessIndex:
         if total_range == 0: return 50.0
         ci = 100 * np.log10(atr_sum / total_range) / np.log10(self.period)
         return np.clip(ci, 0, 100)
-
     def analyze(self, klines):
         ci_value = self.calculate(klines)
         if ci_value is None: return {'value': 50.0, 'zone': 'neutral', 'tradeable': True, 'description': 'CI calculation failed'}
@@ -399,38 +369,31 @@ class EnhancedFilterManager:
         self.ci = ChoppinessIndex(neutral_threshold=choppiness_threshold)
         self.wr = WilliamsRTrigger()
         self.st = SupertrendFilter(multiplier=supertrend_multiplier)
-
     def evaluate(self, klines_5m, klines_15m, klines_1h, base_direction):
         ci_state = self.ci.analyze(klines_15m)
         wr_state = self.wr.analyze(klines_5m, klines_15m)
         st_state = self.st.analyze(klines_5m, klines_15m, klines_1h)
         veto = False; veto_reason = ""; add_score = 0
-
         if not ci_state['tradeable']: veto = True; veto_reason = f"CI={ci_state['value']:.1f} lateral (choppy)"
         elif ci_state['zone'] == 'trending': add_score += 1 if base_direction == 'LONG' else -1
-
         if not veto:
             if base_direction == 'SHORT' and wr_state['short_trigger']: add_score += 1
             elif base_direction == 'LONG' and wr_state['long_trigger']: add_score += 1
             elif base_direction == 'SHORT' and wr_state['long_trigger']: veto = True; veto_reason = "WilliamsR long trigger en short"
             elif base_direction == 'LONG' and wr_state['short_trigger']: veto = True; veto_reason = "WilliamsR short trigger en long"
-
         if not veto:
             if base_direction == 'SHORT' and st_state['bias'] == 'bearish' and st_state['aligned']: add_score += 1
             elif base_direction == 'LONG' and st_state['bias'] == 'bullish' and st_state['aligned']: add_score += 1
             elif base_direction == 'SHORT' and st_state['bias'] == 'bullish' and st_state['aligned']: veto = True; veto_reason = "Supertrend 3/3 alcista en short"
             elif base_direction == 'LONG' and st_state['bias'] == 'bearish' and st_state['aligned']: veto = True; veto_reason = "Supertrend 3/3 bajista en long"
-
         return {'veto': veto, 'veto_reason': veto_reason, 'add_score': add_score, 'ci': ci_state, 'wr': wr_state, 'st': st_state}
 
 class SessionFilter:
     @staticmethod
-    def is_trading_session():
-        # MODIFICADO: trading 24/7 (siempre True)
-        return True
+    def is_trading_session(): return True   # 24/7
 
 # ------------------------------------------------------------
-# TRADE SETUP BUILDER (con score dinámico para todos)
+# TRADE SETUP BUILDER
 # ------------------------------------------------------------
 class TradeSetupBuilder:
     def __init__(self, entry_price, stop_loss, capital, risk_pct=0.01, leverage=20,
@@ -439,20 +402,12 @@ class TradeSetupBuilder:
         self.base_risk_pct = risk_pct; self.leverage = leverage
         self.trend_h4 = trend_h4; self.signal_direction = signal_direction
         self.tp_ratio = tp_ratio; self.score = score
-
     def _adjusted_risk_pct(self):
-        # Umbrales recalibrados: solo descarta con score < 30
-        if self.score >= 90:
-            return min(self.base_risk_pct * 1.5, 0.015)
-        elif self.score >= 80:
-            return self.base_risk_pct
-        elif self.score >= 70:
-            return self.base_risk_pct * 0.75
-        elif self.score >= 30:
-            return self.base_risk_pct * 0.5
-        else:
-            return 0.0
-
+        if self.score >= 90: return min(self.base_risk_pct * 1.5, 0.015)
+        elif self.score >= 80: return self.base_risk_pct
+        elif self.score >= 70: return self.base_risk_pct * 0.75
+        elif self.score >= 30: return self.base_risk_pct * 0.5
+        else: return 0.0
     def build(self):
         sl_pct = abs(self.entry - self.sl) / self.entry
         MAX_SL_PCT = 0.018
@@ -481,7 +436,7 @@ class TradeSetupBuilder:
                 'liq_price': liq_price, 'contrarian': contrarian}
 
 # ------------------------------------------------------------
-# MOTOR UNIFICADO (FASE 4 DEFINITIVA)
+# MOTOR UNIFICADO (FASE 5 – 5 PARES)
 # ------------------------------------------------------------
 class ScalpingEngine:
     def __init__(self, symbol, capital=100.0, risk_pct=0.01, debug_filters=True):
@@ -504,8 +459,7 @@ class ScalpingEngine:
             body = abs(float(curr['close']) - float(curr['open']))
             tr = float(curr['high']) - float(curr['low'])
             body_ratio = body / tr if tr > 0 else 0
-            if body_ratio > 0.4:
-                score += 15
+            if body_ratio > 0.4: score += 15
         if klines_15m and len(klines_15m) >= 3:
             vols = [float(k['volume']) for k in klines_15m[-3:]]
             if len(vols) == 3 and vols[-1] > vols[-2] > vols[-3]:
@@ -525,58 +479,33 @@ class ScalpingEngine:
     def run(self):
         try:
             klines = DataFetcher(self.symbol).fetch()
-            if klines is None:
+            if klines is None or any(klines[tf] is None for tf in ['5m', '15m', '1h', '4h', '1d']):
                 return self._empty_result('Network error')
-            if any(klines[tf] is None for tf in ['5m', '15m', '1h', '4h', '1d']):
-                return self._empty_result('Network error')
-
             indicators = IndicatorEngine(klines).calculate()
             if not indicators.get('4h'): return self._empty_result('Insufficient data')
             struct_h4 = StructureAnalyzer(klines['4h']).analyze()
-            struct_h1 = StructureAnalyzer(klines['1h']).analyze()
             phase_h1 = MarketPhaseDetector(indicators['1h'], klines['1h'], '1h').detect()
-            phase_h4 = MarketPhaseDetector(indicators['4h'], klines['4h'], '4h').detect()
-            compression = (phase_h4 == 'compressing' or phase_h1 == 'compressing')
             mom = MomentumAnalyzer(indicators).analyze()
-
             try:
                 vol_5m = np.array([float(k['volume']) for k in klines['5m']])
                 vol_ratio = vol_5m[-1] / np.mean(vol_5m[-20:]) if len(vol_5m) >= 20 else 1.0
             except TypeError:
                 return self._empty_result('Data error (volume)')
-
-            breakout_retest = PhaseTransitionDetector(klines['1h'], klines['15m']).check_breakout_retest(compression)
-            fib_days = self.config['fibonacci_days']
-            fib = WeeklyAdaptiveFibonacci(klines['1d'], days=fib_days)
+            fib = WeeklyAdaptiveFibonacci(klines['1d'], days=self.config['fibonacci_days'])
             current_price = get_ticker(self.symbol) or indicators['15m']['close']
             fib_block = fib.get_current_block(current_price)
-
-            # ─── FASE 4: Fibonacci obligatorio ───
             if not fib_block:
                 return self._empty_result('No Fibonacci block')
 
             signal = 'WAIT'; direction = 'neutral'; setup_state = 'FORMING'
 
-            # Condición principal: engulfing 4h + (1 vela 15m o momentum)
+            # FASE 5: solo engulfing de 4h, sin confirmación de 15m
             if PatternDetector.is_bearish_engulfing(klines['4h']):
-                last_15m = klines['15m'][-1]
-                if float(last_15m['close']) < float(last_15m['open']):
-                    signal = 'SHORT'; direction = 'bearish'; setup_state = 'EXECUTE'
-                elif mom.get('direction') == 'bearish' and mom.get('strength', 0) > 0.4:
-                    signal = 'SHORT'; direction = 'bearish'; setup_state = 'EXECUTE'
-
+                signal = 'SHORT'; direction = 'bearish'; setup_state = 'EXECUTE'
             elif PatternDetector.is_bullish_engulfing(klines['4h']):
-                last_15m = klines['15m'][-1]
-                if float(last_15m['close']) > float(last_15m['open']):
-                    signal = 'LONG'; direction = 'bullish'; setup_state = 'EXECUTE'
-                elif mom.get('direction') == 'bullish' and mom.get('strength', 0) > 0.4:
-                    signal = 'LONG'; direction = 'bullish'; setup_state = 'EXECUTE'
+                signal = 'LONG'; direction = 'bullish'; setup_state = 'EXECUTE'
 
             if phase_h1 in ('ranging', 'neutral'): signal = 'WAIT'; setup_state = 'INVALID'
-            # SessionFilter es 24/7, así que este if nunca veta, pero lo mantenemos por claridad
-            if signal in ('LONG', 'SHORT') and not SessionFilter.is_trading_session():
-                if self.debug_filters: print("[DEBUG] VETO sesión")
-                signal = 'WAIT'; setup_state = 'INVALID'
 
             enhanced = {'veto': False, 'add_score': 0, 'ci': {}, 'wr': {}, 'st': {}}
             if signal in ('LONG', 'SHORT'):
@@ -584,9 +513,8 @@ class ScalpingEngine:
                 if enhanced['veto']:
                     if self.debug_filters: print(f"[DEBUG] VETO: {enhanced['veto_reason']}")
                     signal = 'WAIT'; setup_state = 'INVALID'
-            # El veto extra de Supertrend LONG fue ELIMINADO
 
-            # ── AUDITOR DE RECHAZO ──
+            # Auditor de rechazo
             if signal == 'WAIT':
                 reasons = {
                     "fib_block": fib_block is not None,
@@ -599,8 +527,7 @@ class ScalpingEngine:
                     "veto": enhanced.get('veto', False),
                     "veto_reason": enhanced.get('veto_reason', '')
                 }
-                explanation_preliminar = f"Fib={fib_block[0]}-{fib_block[2]}"
-                _log_rejection(self.symbol, reasons, explanation_preliminar)
+                _log_rejection(self.symbol, reasons, f"Fib={fib_block[0]}-{fib_block[2]}")
 
             trade = None; entry = None; dynamic_score = 0
             if signal in ('LONG', 'SHORT'):
@@ -617,14 +544,9 @@ class ScalpingEngine:
                     sl = entry + atr1h * 2 if direction == 'bearish' else entry - atr1h * 2
 
                 dynamic_score = self._calculate_dynamic_score(
-                    direction=direction,
-                    fib_block=fib_block,
-                    enhanced=enhanced,
-                    mom=mom,
-                    klines_4h=klines['4h'],
-                    klines_15m=klines['15m']
+                    direction=direction, fib_block=fib_block, enhanced=enhanced,
+                    mom=mom, klines_4h=klines['4h'], klines_15m=klines['15m']
                 )
-
                 trade = TradeSetupBuilder(
                     entry, sl, capital=self.capital, risk_pct=self.risk_pct,
                     trend_h4=struct_h4.get('trend', 'neutral'),
@@ -636,8 +558,7 @@ class ScalpingEngine:
             fib_label = f"{fib_block[0]}-{fib_block[2]}" if fib_block else "?"
             explanation = f"Fib={fib_label} Sig={signal} Phase={phase_h1} CI={enhanced['ci'].get('value','?')} WR={enhanced['wr'].get('value_5m','?')} ST={enhanced['st'].get('bias','?')} Veto={enhanced['veto']}"
             return {
-                'signal': signal,
-                'score': dynamic_score if signal != 'WAIT' else 0,
+                'signal': signal, 'score': dynamic_score if signal != 'WAIT' else 0,
                 'direction': direction, 'setup_state': setup_state,
                 'agent_scores': {'scanner':85, 'risk':80, 'technical':90, 'momentum':85, 'guard':80},
                 'weighted_confidence': dynamic_score if signal != 'WAIT' else 50,
@@ -654,7 +575,6 @@ class ScalpingEngine:
     def _empty_result(self, explanation=''):
         return {'signal':'WAIT','setup_state':'INVALID','explanation':explanation,
                 'direction':'neutral','trade':None,'score':0}
-
     def _calc_atr(self, klines, period=14):
         if len(klines) < period + 1: return None
         highs = np.array([float(k['high']) for k in klines])
@@ -664,28 +584,19 @@ class ScalpingEngine:
         return np.mean(tr[-period:])
 
 # ------------------------------------------------------------
-# AUDITOR DE RECHAZO (REJECTION LOG)
+# AUDITOR DE RECHAZO
 # ------------------------------------------------------------
 REJECTION_LOG_FILE = "rejection_log.json"
-
 def _log_rejection(symbol, reasons, explanation):
     try:
         logs = []
         if os.path.exists(REJECTION_LOG_FILE):
             with open(REJECTION_LOG_FILE, "r") as f:
-                try:
-                    logs = json.load(f)
-                except:
-                    logs = []
-        entry = {
-            "timestamp": datetime.now().isoformat(),
-            "symbol": symbol,
-            "reasons": reasons,
-            "explanation": explanation
-        }
+                try: logs = json.load(f)
+                except: logs = []
+        entry = {"timestamp": datetime.now().isoformat(), "symbol": symbol, "reasons": reasons, "explanation": explanation}
         logs.append(entry)
-        if len(logs) > 1000:
-            logs = logs[-1000:]
+        if len(logs) > 1000: logs = logs[-1000:]
         with open(REJECTION_LOG_FILE, "w") as f:
             json.dump(logs, f, indent=2)
     except Exception as e:

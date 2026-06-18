@@ -1,6 +1,6 @@
 """
-BACKTEST 3 MESES (últimos 90 días) - FASE 2c
-Ajustes: entrada alternativa por momentum (strength > 0.4) si no hay 2 velas 15m.
+BACKTEST 3 MESES (últimos 90 días) - FASE 4 para LTC, DOGE, LINK, BNB
+Parámetros Fase 4: engulfing 4h + (1 vela 15m o momentum), fib obligatorio.
 """
 import sys, os, time, math
 import numpy as np
@@ -11,7 +11,7 @@ from scipy.stats import linregress
 from datetime import datetime, timezone, timedelta
 
 # ────────────────────── CONFIGURACIÓN ──────────────────────
-SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT"]
+SYMBOLS = ["LTCUSDT", "DOGEUSDT", "LINKUSDT", "BNBUSDT"]
 START_DATE = datetime(2026, 3, 19, 0, 0, tzinfo=timezone.utc)
 END_DATE   = datetime(2026, 6, 17, 23, 59, tzinfo=timezone.utc)
 MAX_KLINES = 1000
@@ -58,12 +58,12 @@ def fetch_historical(symbol):
     print(f"     -> {len(k1d)}d {len(k4h)}4h {len(k1h)}1h {len(k15m)}15m {len(k5m)}5m")
     return {'1d':k1d,'4h':k4h,'1h':k1h,'15m':k15m,'5m':k5m}
 
-# ──────────── MOTOR ORIGINAL (Fase 2c: entrada alternativa por momentum) ────────────
+# ──────────── MOTOR (Fase 4 para nuevos pares) ────────────
 SYMBOL_CONFIG = {
-    'BTCUSDT': {'supertrend_multiplier':3.0,'choppiness_neutral_threshold':68.0,'fibonacci_days':30,'tp_ratio':1.5},
-    'ETHUSDT': {'supertrend_multiplier':2.8,'choppiness_neutral_threshold':66.0,'fibonacci_days':30,'tp_ratio':1.8},
-    'SOLUSDT': {'supertrend_multiplier':2.5,'choppiness_neutral_threshold':65.0,'fibonacci_days':90,'tp_ratio':2.0},
-    'XRPUSDT': {'supertrend_multiplier':2.5,'choppiness_neutral_threshold':63.0,'fibonacci_days':60,'tp_ratio':1.8},
+    'LTCUSDT':  {'supertrend_multiplier':2.8,'choppiness_neutral_threshold':65.0,'fibonacci_days':45,'tp_ratio':1.7},
+    'DOGEUSDT': {'supertrend_multiplier':2.0,'choppiness_neutral_threshold':60.0,'fibonacci_days':45,'tp_ratio':2.0},
+    'LINKUSDT': {'supertrend_multiplier':2.6,'choppiness_neutral_threshold':65.0,'fibonacci_days':45,'tp_ratio':1.9},
+    'BNBUSDT':  {'supertrend_multiplier':2.8,'choppiness_neutral_threshold':68.0,'fibonacci_days':30,'tp_ratio':1.6},
 }
 
 class IndicatorEngine:
@@ -240,14 +240,6 @@ class PatternDetector:
         prev = klines[-2]; curr = klines[-1]
         return (prev['close'] < prev['open'] and curr['close'] > curr['open'] and
                 curr['open'] < prev['close'] and curr['close'] > prev['open'])
-    @staticmethod
-    def two_bearish_candles(klines):
-        if len(klines) < 2: return False
-        return (klines[-2]['close'] < klines[-2]['open'] and klines[-1]['close'] < klines[-1]['open'])
-    @staticmethod
-    def two_bullish_candles(klines):
-        if len(klines) < 2: return False
-        return (klines[-2]['close'] > klines[-2]['open'] and klines[-1]['close'] > klines[-1]['open'])
 
 class ChoppinessIndex:
     def __init__(self, period=14, neutral_threshold=70.0):
@@ -448,23 +440,24 @@ class ScalpingEngine:
             fib = WeeklyAdaptiveFibonacci(klines['1d'], days=fib_days)
             fib_block = fib.get_current_block(current_price)
 
+            # Fibonacci obligatorio
+            if fib_block is None:
+                return self._empty_result('No Fibonacci block')
+
             signal = 'WAIT'; direction = 'neutral'; setup_state = 'FORMING'
-            # --- NUEVA LÓGICA DE ENTRADA (Fase 2c) ---
-            if fib_block and PatternDetector.is_bearish_engulfing(klines['4h']):
-                if PatternDetector.two_bearish_candles(klines['15m']):
+            # Fase 4: engulfing 4h + (1 vela 15m o momentum)
+            if PatternDetector.is_bearish_engulfing(klines['4h']):
+                last_15m = klines['15m'][-1]
+                if float(last_15m['close']) < float(last_15m['open']):
                     signal = 'SHORT'; direction = 'bearish'; setup_state = 'EXECUTE'
-                else:
-                    # Entrada alternativa por momentum
-                    if mom.get('direction') == 'bearish' and mom.get('strength', 0) > 0.4:
-                        signal = 'SHORT'; direction = 'bearish'; setup_state = 'EXECUTE'
-            elif fib_block and PatternDetector.is_bullish_engulfing(klines['4h']):
-                if PatternDetector.two_bullish_candles(klines['15m']):
+                elif mom.get('direction') == 'bearish' and mom.get('strength', 0) > 0.4:
+                    signal = 'SHORT'; direction = 'bearish'; setup_state = 'EXECUTE'
+            elif PatternDetector.is_bullish_engulfing(klines['4h']):
+                last_15m = klines['15m'][-1]
+                if float(last_15m['close']) > float(last_15m['open']):
                     signal = 'LONG'; direction = 'bullish'; setup_state = 'EXECUTE'
-                else:
-                    # Entrada alternativa por momentum
-                    if mom.get('direction') == 'bullish' and mom.get('strength', 0) > 0.4:
-                        signal = 'LONG'; direction = 'bullish'; setup_state = 'EXECUTE'
-            # --- FIN NUEVA LÓGICA ---
+                elif mom.get('direction') == 'bullish' and mom.get('strength', 0) > 0.4:
+                    signal = 'LONG'; direction = 'bullish'; setup_state = 'EXECUTE'
 
             if phase_h1 in ('ranging', 'neutral'): signal = 'WAIT'; setup_state = 'INVALID'
             if signal in ('LONG', 'SHORT') and not SessionFilter.is_trading_session():
@@ -476,21 +469,17 @@ class ScalpingEngine:
                 if enhanced['veto']:
                     if self.debug_filters: print(f"[DEBUG] VETO: {enhanced['veto_reason']}")
                     signal = 'WAIT'; setup_state = 'INVALID'
-            # Veto extra Supertrend LONG eliminado
+            # Veto extra ST LONG eliminado
 
             trade = None; entry = None; dynamic_score = 0
             if signal in ('LONG', 'SHORT'):
                 entry = indicators['5m']['close'] if indicators['5m'] else (indicators['15m']['close'] if indicators['15m'] else indicators['1h']['close'])
-                if fib_block:
-                    if signal == 'SHORT':
-                        last_high = max([float(k['high']) for k in klines['15m'][-10:]])
-                        sl = last_high * 1.002
-                    else:
-                        last_low = min([float(k['low']) for k in klines['15m'][-10:]])
-                        sl = last_low * 0.998
+                if signal == 'SHORT':
+                    last_high = max([float(k['high']) for k in klines['15m'][-10:]])
+                    sl = last_high * 1.002
                 else:
-                    atr1h = self._calc_atr(klines['1h'], 14) or entry * 0.005
-                    sl = entry + atr1h * 2 if direction == 'bearish' else entry - atr1h * 2
+                    last_low = min([float(k['low']) for k in klines['15m'][-10:]])
+                    sl = last_low * 0.998
 
                 dynamic_score = self._calculate_dynamic_score(
                     direction=direction, fib_block=fib_block, enhanced=enhanced,
@@ -670,7 +659,7 @@ for sym in SYMBOLS:
 
 if all_trades:
     df = pd.DataFrame(all_trades)
-    csv_name = 'backtest_3m_FASE2c.csv'
+    csv_name = 'backtest_3m_FASE4_nuevos_pares.csv'
     df.to_csv(csv_name, index=False)
     print(f"\n📁 {len(df)} trades guardados en {csv_name}")
 
@@ -681,13 +670,13 @@ if all_trades:
     max_dd = (peak - curve).max()
     max_dd_pct = (max_dd / peak.max() * 100) if peak.max() > 0 else 0
 
-    print("\n========== RESULTADOS 3 MESES (FASE 2c) ==========")
+    print("\n========== RESULTADOS 3 MESES (FASE 4 – NUEVOS PARES) ==========")
     print(f"Trades totales:            {len(df)}")
     print(f"Win Rate:                  {win_rate:.1f}%")
     print(f"PnL neto total:            ${total_pnl:,.2f}")
     print(f"Drawdown máximo:           ${max_dd:,.2f} ({max_dd_pct:.1f}% del pico)")
     print(f"Capital final:             ${capital:,.2f}")
-    print("------------------------------------------------------")
+    print("------------------------------------------------------------------")
     print("Desglose de salidas:")
     print(f"  TP2 alcanzado:          {stats['tp2_reached']}")
     print(f"  TP1 parcial + SL:       {stats['tp1_partial_then_sl']}")

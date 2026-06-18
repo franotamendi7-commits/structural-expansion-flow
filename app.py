@@ -5,9 +5,9 @@ from paper_trader import PaperTrader
 from data.binance_feed import get_ticker
 
 # ======================================================
-# CONFIGURACIÓN DE PARES ACTIVOS
+# CONFIGURACIÓN DE PARES ACTIVOS (FASE 5: + BNBUSDT)
 # ======================================================
-ACTIVE_PAIRS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT"]
+ACTIVE_PAIRS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT", "BNBUSDT"]
 
 # ─────────────────────────────────────────────────────────────────
 # GESTIÓN DINÁMICA DE RIESGO (desactivada: riesgo FIJO 1%)
@@ -883,7 +883,7 @@ div[data-testid="stExpander"] summary {
 .glow-cyan  { text-shadow: 0 0 10px rgba(0,212,255,0.6), 0 0 30px rgba(0,212,255,0.3); }
 .glow-gold  { text-shadow: 0 0 10px rgba(255,184,0,0.6), 0 0 30px rgba(255,184,0,0.3); }
 
-/* ── PERFORMANCE CARDS (estilo compacto) ─────────────────── */
+/* ── PERFORMANCE CARDS ── */
 .perf-row {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -932,7 +932,7 @@ with st.sidebar:
     if run_btn:
         st.session_state['last_telegram_signal_id'] = None
 
-    # ── TELEGRAM ALERTS (valores directos, sin secrets) ────────
+    # ── TELEGRAM ALERTS ──
     st.markdown("---")
     st.markdown("### 📨 TELEGRAM ALERTS")
     telegram_token = st.text_input("Bot Token", type="password", value="8813532919:AAF4FcqNCMA5jfeiHDp71M-lbqLbBh3RuzY")
@@ -944,7 +944,7 @@ with st.sidebar:
     else:
         st.info("Completa ambos campos para recibir alertas")
 
-        # ── LIVE EXECUTION (API Keys hardcodeadas) ─────────────────
+    # ── LIVE EXECUTION ──
     st.markdown("---")
     st.markdown("### 🟢 LIVE EXECUTION (Binance)")
     binance_api_key = st.text_input("API Key", type="password", value="TEyU8MQ4xWGsTq0bujMJxLs4qd0d4i1JCWtwwiy9W74taSIbi1Mor0m83DsCUu6u")
@@ -984,30 +984,26 @@ pnl_abierto_total = sum(pos.get('pnl', 0) for pos in trader.get_all_open_positio
 closed_trades = trader.get_closed_trades()
 pnl_cerrado = sum(t['pnl'] for t in closed_trades) if closed_trades else 0.0
 
-col1, col2, col3, col4, col5, col6 = st.columns(6)
-col1.metric("BALANCE", f"${balance:,.2f}")
-col2.metric("MARGIN 20x", f"${balance * 20:,.0f}")
-col3.metric("RISK / OP", f"${balance * 0.01:,.2f} (1.0%)")
-col4.metric("P&L ABIERTO", f"${pnl_abierto_total:,.2f}")
-col5.metric("OPEN OPS", f"{posiciones_abiertas} / 4")
-col6.metric("P&L CERRADO", f"${pnl_cerrado:,.2f}")
+cols_metrics = st.columns(6)
+cols_metrics[0].metric("BALANCE", f"${balance:,.2f}")
+cols_metrics[1].metric("MARGIN 20x", f"${balance * 20:,.0f}")
+cols_metrics[2].metric("RISK / OP", f"${balance * 0.01:,.2f} (1.0%)")
+cols_metrics[3].metric("P&L ABIERTO", f"${pnl_abierto_total:,.2f}")
+cols_metrics[4].metric("OPEN OPS", f"{posiciones_abiertas} / {len(ACTIVE_PAIRS)}")
+cols_metrics[5].metric("P&L CERRADO", f"${pnl_cerrado:,.2f}")
 
 # ========== PANEL DE ESTADO MULTI-PAR ==========
 pair_status_data = []
 color_map = {'FORMING':'#ffb800', 'EXECUTE':'#00ff88', 'READY':'#4d7cff', 'INVALID':'#ff2d6b'}
 for p in ACTIVE_PAIRS:
-    # Verificar si hay posición abierta real
     open_pos = trader.get_open_position(p)
     if open_pos is not None:
-        # Posición abierta: forzar EXECUTE y la señal real
         setup_state = 'EXECUTE'
-        signal_val = open_pos['side']   # 'LONG' o 'SHORT'
-        # Tomar el score del último análisis guardado (si existe) o usar 0
+        signal_val = open_pos['side']
         state = st.session_state['pair_states'].get(p, {})
         score_val = state.get('score', 0)
         price_val = state.get('price')
     else:
-        # Sin posición: usar el estado guardado
         state = st.session_state['pair_states'].get(p, {})
         setup_state = state.get('setup_state', 'INVALID')
         signal_val = state.get('signal', 'WAIT')
@@ -1021,6 +1017,7 @@ for p in ACTIVE_PAIRS:
     extra = "Formando setup" if setup_state == 'FORMING' else ("Setup inválido" if setup_state == 'INVALID' else "Listo para ejecutar")
     description = f"Fib {fib} | H4: {trend} | Phase: {phase} | {extra}"
     pair_status_data.append([p, price_display, setup_state, f"{score_val}%", signal_val, description])
+
 st.markdown("""
 <table style="width:100%; border-collapse: collapse; background: var(--glass); border-radius: 12px; overflow: hidden;">
   <thead>
@@ -1089,12 +1086,9 @@ def process_signal_for_pair(res, symbol, token, chat_id):
                 st.session_state['last_telegram_signal_id'] = signal_id
 
 def update_pair_state(pair, res, price):
-    # Si ya hay una posición abierta para este par, NO sobrescribir el estado completo
     if trader.get_open_position(pair) is not None:
-        # Solo actualizar el precio
         if pair in st.session_state['pair_states']:
             st.session_state['pair_states'][pair]['price'] = price
-            # Si el estado está vacío (reinicio), rellenar con datos de la posición
             if st.session_state['pair_states'][pair].get('signal') == 'WAIT' or not st.session_state['pair_states'][pair].get('direction'):
                 pos = trader.get_open_position(pair)
                 st.session_state['pair_states'][pair].update({
@@ -1109,8 +1103,6 @@ def update_pair_state(pair, res, price):
                     'fib_label': 'N/A'
                 })
         return
-
-    # Si no hay posición abierta, actualizar normalmente
     st.session_state['pair_states'][pair] = {
         'setup_state': res.get('setup_state', 'INVALID'),
         'signal': res.get('signal', 'WAIT'),
@@ -1259,81 +1251,56 @@ if closed_trades:
 # NUEVAS SECCIONES: PERFORMANCE, AUDITORÍA, REJECTION LOG
 # ══════════════════════════════════════════════════════════════════
 st.markdown("---")
-
-# ── PERFORMANCE COMPACTA (BALANCE, P&L, DRAWDOWN) ──
 st.markdown('<div class="sec-title">Performance Overview</div>', unsafe_allow_html=True)
 paper_state = {}
 if os.path.exists("paper_state.json"):
     with open("paper_state.json", "r") as f:
-        try:
-            paper_state = json.load(f)
-        except:
-            paper_state = {}
-
-total_pnl = 0.0
-drawdown_percent = 0.0
-peak_balance = 0.0
+        try: paper_state = json.load(f)
+        except: paper_state = {}
+total_pnl = 0.0; drawdown_percent = 0.0; peak_balance = 0.0
 if paper_state:
     balance_ps = paper_state.get('balance', 100.0)
     peak_balance = paper_state.get('peak_balance', balance_ps)
-    if peak_balance > 0:
-        drawdown_percent = (peak_balance - balance_ps) / peak_balance * 100
-    closed_trades_ps = paper_state.get('closed_trades', [])
-    total_pnl = sum(t.get('pnl', 0) for t in closed_trades_ps)
+    if peak_balance > 0: drawdown_percent = (peak_balance - balance_ps) / peak_balance * 100
+    total_pnl = sum(t.get('pnl', 0) for t in paper_state.get('closed_trades', []))
 else:
     balance_ps = trader.get_balance()
     peak_balance = trader.get_peak_balance()
-    drawdown_percent = (peak_balance - balance_ps) / peak_balance * 100 if peak_balance > 0 else 0.0
+    if peak_balance > 0: drawdown_percent = (peak_balance - balance_ps) / peak_balance * 100
     total_pnl = sum(t['pnl'] for t in closed_trades) if closed_trades else 0.0
-
 st.markdown(f"""
 <div class="perf-row">
-  <div class="perf-cell">
-    <div class="perf-label">Balance</div>
-    <div class="perf-value" style="color: var(--neon-cyan)">${balance_ps:,.2f}</div>
-  </div>
-  <div class="perf-cell">
-    <div class="perf-label">PnL Neto</div>
-    <div class="perf-value" style="color: {'var(--neon-green)' if total_pnl >= 0 else 'var(--neon-red)'}">${total_pnl:,.2f}</div>
-  </div>
-  <div class="perf-cell">
-    <div class="perf-label">Drawdown</div>
-    <div class="perf-value" style="color: var(--neon-red)">{drawdown_percent:.1f}%</div>
-  </div>
+  <div class="perf-cell"><div class="perf-label">Balance</div><div class="perf-value" style="color: var(--neon-cyan)">${balance_ps:,.2f}</div></div>
+  <div class="perf-cell"><div class="perf-label">PnL Neto</div><div class="perf-value" style="color: {'var(--neon-green)' if total_pnl >= 0 else 'var(--neon-red)'}">${total_pnl:,.2f}</div></div>
+  <div class="perf-cell"><div class="perf-label">Drawdown</div><div class="perf-value" style="color: var(--neon-red)">{drawdown_percent:.1f}%</div></div>
 </div>
 """, unsafe_allow_html=True)
 
-# Mini equity curve (opcional, pero está bueno)
-if paper_state and 'closed_trades' in paper_state:
-    trades_hist = paper_state['closed_trades']
-    if trades_hist:
-        import matplotlib.pyplot as plt
-        import matplotlib.dates as mdates
-        df_hist = pd.DataFrame(trades_hist)
-        df_hist['exit_time'] = pd.to_datetime(df_hist['exit_time'])
-        df_hist = df_hist.sort_values('exit_time')
-        initial_balance = 100.0
-        df_hist['cum_pnl'] = df_hist['pnl'].cumsum() + initial_balance
-        # Agregar punto actual
-        now_row = pd.DataFrame({'exit_time': [datetime.datetime.now()], 'cum_pnl': [balance_ps]})
-        df_hist = pd.concat([df_hist, now_row], ignore_index=True)
+if paper_state and 'closed_trades' in paper_state and paper_state['closed_trades']:
+    import matplotlib.pyplot as plt
+    import matplotlib.dates as mdates
+    df_hist = pd.DataFrame(paper_state['closed_trades'])
+    df_hist['exit_time'] = pd.to_datetime(df_hist['exit_time'])
+    df_hist = df_hist.sort_values('exit_time')
+    initial_balance = 100.0
+    df_hist['cum_pnl'] = df_hist['pnl'].cumsum() + initial_balance
+    now_row = pd.DataFrame({'exit_time': [datetime.datetime.now()], 'cum_pnl': [balance_ps]})
+    df_hist = pd.concat([df_hist, now_row], ignore_index=True)
+    fig, ax = plt.subplots(figsize=(8, 2.5))
+    fig.patch.set_facecolor('#020408')
+    ax.set_facecolor('#020408')
+    ax.plot(df_hist['exit_time'], df_hist['cum_pnl'], color='#00d4ff', linewidth=1.5)
+    ax.fill_between(df_hist['exit_time'], df_hist['cum_pnl'], initial_balance, color='#00d4ff', alpha=0.1)
+    ax.axhline(y=initial_balance, color='#5a7a99', linestyle='--', linewidth=0.8)
+    ax.set_ylabel('Balance (USDT)', color='#5a7a99')
+    ax.tick_params(colors='#5a7a99')
+    ax.grid(color='#2a3d52', linestyle='--', alpha=0.5)
+    ax.spines['bottom'].set_color('#2a3d52')
+    ax.spines['left'].set_color('#2a3d52')
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    st.pyplot(fig, use_container_width=True)
 
-        fig, ax = plt.subplots(figsize=(8, 2.5))
-        fig.patch.set_facecolor('#020408')
-        ax.set_facecolor('#020408')
-        ax.plot(df_hist['exit_time'], df_hist['cum_pnl'], color='#00d4ff', linewidth=1.5)
-        ax.fill_between(df_hist['exit_time'], df_hist['cum_pnl'], initial_balance, color='#00d4ff', alpha=0.1)
-        ax.axhline(y=initial_balance, color='#5a7a99', linestyle='--', linewidth=0.8)
-        ax.set_ylabel('Balance (USDT)', color='#5a7a99')
-        ax.tick_params(colors='#5a7a99')
-        ax.grid(color='#2a3d52', linestyle='--', alpha=0.5)
-        ax.spines['bottom'].set_color('#2a3d52')
-        ax.spines['left'].set_color('#2a3d52')
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        st.pyplot(fig, use_container_width=True)
-
-# ── AUDITORÍA (ÚLTIMAS 10) ──
 st.markdown('<div class="sec-title">Audit Log (last 10)</div>', unsafe_allow_html=True)
 audit_file = "audit_log.csv"
 if os.path.exists(audit_file):
@@ -1348,26 +1315,16 @@ if os.path.exists(audit_file):
 else:
     st.info("Archivo de auditoría no encontrado.")
 
-# ── REJECTION LOG (ÚLTIMOS 10) ──
 st.markdown('<div class="sec-title">Rejection Log (last 10)</div>', unsafe_allow_html=True)
 rejection_file = "rejection_log.json"
 if os.path.exists(rejection_file):
     try:
-        with open(rejection_file, "r") as f:
-            rejections = json.load(f)
+        with open(rejection_file, "r") as f: rejections = json.load(f)
         if rejections:
             rows = []
             for r in rejections[-10:]:
                 reasons = r.get('reasons', {})
-                rows.append({
-                    "Hora": r.get('timestamp', '')[-8:],
-                    "Par": r.get('symbol', ''),
-                    "Fase": reasons.get('phase', '?'),
-                    "CI": reasons.get('ci', '?'),
-                    "WR": reasons.get('wr', '?'),
-                    "ST": reasons.get('st', '?'),
-                    "Veto": reasons.get('veto_reason', '')
-                })
+                rows.append({"Hora": r.get('timestamp', '')[-8:], "Par": r.get('symbol', ''), "Fase": reasons.get('phase', '?'), "CI": reasons.get('ci', '?'), "WR": reasons.get('wr', '?'), "ST": reasons.get('st', '?'), "Veto": reasons.get('veto_reason', '')})
             st.dataframe(pd.DataFrame(rows))
         else:
             st.info("Sin rechazos registrados.")
