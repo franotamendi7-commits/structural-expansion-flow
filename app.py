@@ -3,9 +3,11 @@ import time, datetime, pandas as pd, json, requests, re, csv, os
 from engine.scalping_engine import ScalpingEngine
 from paper_trader import PaperTrader
 from data.binance_feed import get_ticker
+from execution_manager import ExecutionManager
+import ml_filter
 
 # ======================================================
-# CONFIGURACIÓN DE PARES ACTIVOS (FASE 5: + BNBUSDT)
+# CONFIGURACIÓN DE PARES ACTIVOS
 # ======================================================
 ACTIVE_PAIRS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT", "BNBUSDT"]
 
@@ -99,6 +101,14 @@ trader = st.session_state['trader']
 if 'risk_manager' not in st.session_state:
     st.session_state['risk_manager'] = DynamicRiskManager(base_risk_pct=0.01)
 risk_manager = st.session_state['risk_manager']
+
+if 'exec_mgr' not in st.session_state:
+    st.session_state['exec_mgr'] = ExecutionManager(
+        api_key="TEyU8MQ4xWGsTq0bujMJxLs4qd0d4i1JCWtwwiy9W74taSIbi1Mor0m83DsCUu6u",
+        api_secret="DnIPgWcon8sQ51z2mjz1O67ElZcHr0RXCBEV9FpsGH3BUeVyl5AuLzEIMsyhIaTo",
+        testnet=True
+    )
+exec_mgr = st.session_state['exec_mgr']
 
 if 'backend_price' not in st.session_state:
     st.session_state['backend_price'] = {}
@@ -1058,6 +1068,72 @@ def get_engine(symbol):
 def process_signal_for_pair(res, symbol, token, chat_id):
     if res['signal'] in ('LONG', 'SHORT') and res.get('trade') and not trader.is_paused():
         trade = res['trade']
+        
+        # ═══════════════ AGENTE ML (MODO VETO) ═══════════════
+        try:
+            import ml_filter, json
+            from datetime import datetime as dt
+
+            phase_h1 = res.get('market_phase', 'neutral')
+            ci_dict = res.get('ci', {})
+            wr_dict = res.get('wr', {})
+            st_dict = res.get('st', {})
+            vol_ratio = res.get('vol_ratio', 1.0)
+            body_ratio_4h = 0.0
+
+            fib_label = extract_fib_label(res.get('explanation', ''))
+            fib_parts = fib_label.split('-')
+            fib_low_key = float(fib_parts[0]) if len(fib_parts) == 2 else None
+            fib_high_key = float(fib_parts[1]) if len(fib_parts) == 2 else None
+            fib_width = 0.0
+
+            features = {
+                'fib_low_key': fib_low_key,
+                'fib_high_key': fib_high_key,
+                'fib_width': fib_width,
+                'ci_value': ci_dict.get('value', 50),
+                'wr_5m': wr_dict.get('value_5m', -50),
+                'wr_15m': wr_dict.get('value_15m', -50),
+                'st_aligned': 1 if st_dict.get('aligned') else 0,
+                'st_bias_bullish': 1 if st_dict.get('bias') == 'bullish' else 0,
+                'st_bias_bearish': 1 if st_dict.get('bias') == 'bearish' else 0,
+                'mom_score': res.get('weighted_confidence', 0),
+                'vol_ratio_5m': vol_ratio,
+                'body_ratio_4h': body_ratio_4h,
+                'hour_of_day': dt.now().hour,
+                'direction_long': 1 if res['signal'] == 'LONG' else 0,
+                'phase_compressing': 1 if phase_h1 == 'compressing' else 0,
+                'phase_expanding': 1 if phase_h1 == 'expanding' else 0,
+                'phase_trending': 1 if phase_h1 == 'trending' else 0,
+                'phase_ranging': 1 if phase_h1 == 'ranging' else 0,
+                'phase_neutral': 1 if phase_h1 == 'neutral' else 0,
+                'mom_bullish': 1 if res.get('direction') == 'bullish' else 0,
+                'mom_bearish': 1 if res.get('direction') == 'bearish' else 0,
+                'mom_neutral': 1 if res.get('direction') == 'neutral' else 0
+            }
+
+            ejecutar, prob = ml_filter.debe_ejecutar(features)
+
+            log_entry = {
+                'timestamp': dt.now().isoformat(),
+                'symbol': symbol,
+                'signal': res['signal'],
+                'prob': round(prob, 4),
+                'veto': not ejecutar
+            }
+            with open('ml_veto_log.json', 'a') as log_f:
+                log_f.write(json.dumps(log_entry) + '\n')
+
+            if not ejecutar:
+                print(f"[ML VETO] {symbol} {res['signal']} RECHAZADA (prob={prob:.2f})")
+                return
+            else:
+                print(f"[ML VETO] {symbol} {res['signal']} APROBADA (prob={prob:.2f})")
+
+        except Exception as e:
+            print(f"[ML VETO] Error al evaluar señal: {e}")
+        # ═══════════════ FIN AGENTE ML ═══════════════
+
         signal = {
             'symbol': symbol,
             'side': res['signal'],
@@ -1072,6 +1148,35 @@ def process_signal_for_pair(res, symbol, token, chat_id):
         }
         success = trader.open_trade(signal)
         if success:
+            # ─── Auditoría de entrada ───
+            trade_id = f"{symbol}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            signal['trade_id'] = trade_id
+            log_signal_taken(
+                symbol=symbol,
+                side=res['signal'],
+                score=res.get('score', 0),
+                trade=trade,
+                explanation=res.get('explanation', ''),
+                fib_label=extract_fib_label(res.get('explanation', '')),
+                trade_id=trade_id
+            )
+
+            # ─── NUEVO: Enviar orden real a Binance Testnet ───
+            if enable_live_trading:
+                try:
+                    real_side = "BUY" if res['signal'] == "LONG" else "SELL"
+                    order = exec_mgr.execute_signal({
+                        "symbol": symbol,
+                        "side": real_side,
+                        "quantity": trade['contracts']
+                    })
+                    if order.get("error"):
+                        st.warning(f"⚠️ Orden real rechazada: {order['error']}")
+                    else:
+                        st.success(f"✅ Orden real ejecutada: ID {order.get('order_id')}")
+                except Exception as e:
+                    st.error(f"❌ Error al enviar orden real: {e}")
+
             risk_manager.update_daily_pnl(0)
             signal_id = f"{symbol}_{res['signal']}_{trade['entry']:.2f}"
             if st.session_state.get('last_telegram_signal_id') != signal_id:
@@ -1248,7 +1353,7 @@ if closed_trades:
     st.dataframe(df[[c for c in cols if c in df.columns]])
 
 # ══════════════════════════════════════════════════════════════════
-# NUEVAS SECCIONES: PERFORMANCE, AUDITORÍA, REJECTION LOG
+# NUEVAS SECCIONES: PERFORMANCE, AUDITORÍA, REJECTION LOG, ML AGENT
 # ══════════════════════════════════════════════════════════════════
 st.markdown("---")
 st.markdown('<div class="sec-title">Performance Overview</div>', unsafe_allow_html=True)
@@ -1332,5 +1437,24 @@ if os.path.exists(rejection_file):
         st.info("Error al leer el archivo de rechazos.")
 else:
     st.info("Archivo de rechazos no encontrado.")
+
+st.markdown('<div class="sec-title">ML Agent Decisions (last 15)</div>', unsafe_allow_html=True)
+veto_file = "ml_veto_log.json"
+if os.path.exists(veto_file):
+    try:
+        with open(veto_file, "r") as f:
+            lines = f.readlines()
+            vetos = [json.loads(line) for line in lines[-15:]]
+        if vetos:
+            df_vetos = pd.DataFrame(vetos)
+            df_vetos['timestamp'] = pd.to_datetime(df_vetos['timestamp'])
+            df_vetos = df_vetos.sort_values('timestamp', ascending=False)
+            st.dataframe(df_vetos[['timestamp', 'symbol', 'signal', 'prob', 'veto']])
+        else:
+            st.info("ML Agent activo, a la espera de señales.")
+    except:
+        st.info("Error al leer ml_veto_log.json.")
+else:
+    st.info("ML Agent activo. El registro de veto se creará al evaluar la primera señal.")
 
 st.caption(f"WebSocket live · Analysis every 60s · Risk fixed 1% · {datetime.datetime.now().strftime('%H:%M:%S')}")
