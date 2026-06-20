@@ -41,7 +41,7 @@ class ExecutionManager:
     def set_isolated_margin(self, symbol):
         """Establece el modo de margen aislado para el símbolo."""
         try:
-            resp = self.session.set_margin_type(
+            resp = self.session.change_margin_type(
                 category="linear",
                 symbol=symbol,
                 marginType="ISOLATED"

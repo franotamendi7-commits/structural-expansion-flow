@@ -1228,7 +1228,7 @@ def process_signal_for_pair(res, symbol, token, chat_id):
                 trade_id=trade_id
             )
 
-            # ─── NUEVO: Enviar orden real a Binance Testnet ───
+                       # ─── NUEVO: Enviar orden real a Binance Testnet ───
             if enable_live_trading:
                 try:
                     real_side = "BUY" if res['signal'] == "LONG" else "SELL"
@@ -1237,6 +1237,10 @@ def process_signal_for_pair(res, symbol, token, chat_id):
                         "side": real_side,
                         "quantity": trade['contracts']
                     })
+                    # ─── Registrar respuesta del exchange ───
+                    with open("exchange_log.json", "a") as log_ex:
+                        log_ex.write(json.dumps({"timestamp": datetime.datetime.now().isoformat(), "symbol": symbol, "side": real_side, "response": order}) + "\n")
+                    # ─── Fin del registro ───
                     if order.get("error"):
                         st.warning(f"⚠️ Orden real rechazada: {order['error']}")
                     else:
@@ -1256,7 +1260,6 @@ def process_signal_for_pair(res, symbol, token, chat_id):
                     explanation=res.get('explanation', '')
                 )
                 st.session_state['last_telegram_signal_id'] = signal_id
-
 def update_pair_state(pair, res, price):
     if trader.get_open_position(pair) is not None:
         if pair in st.session_state['pair_states']:
