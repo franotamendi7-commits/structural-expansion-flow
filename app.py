@@ -1535,6 +1535,65 @@ if os.path.exists(audit_file):
 else:
     st.info("Archivo de auditoría no encontrado.")
 
+ # ══════════════════════════════════════════════════════════════════
+## ══════════════════════════════════════════════════════════════════
+# AUDITOR DE ENTRADA (log_signal_taken)
+# ══════════════════════════════════════════════════════════════════
+AUDIT_FILE = "audit_log.csv"
+FIELDS = ["trade_id","timestamp_entry","symbol","side","score",
+          "entry","sl","tp1","tp2","fib_label","phase",
+          "ci","wr","st","veto","explanation_raw","exit_reason",
+          "exit_price","pnl_final","duration_min"]
+
+def _ensure_audit_file():
+    if not os.path.exists(AUDIT_FILE):
+        with open(AUDIT_FILE, "w", newline="") as f:
+            csv.DictWriter(f, fieldnames=FIELDS).writeheader()
+
+def _parse_explanation(explanation):
+    def grab(p):
+        m = re.search(p, explanation)
+        return m.group(1) if m else "?"
+    return {
+        "ci": grab(r'CI=(\S+)'),
+        "wr": grab(r'WR=(\S+)'),
+        "st": grab(r'ST=(\S+)'),
+        "phase": grab(r'Phase=(\S+)'),
+        "veto": grab(r'Veto=(\S+)')
+    }
+
+def log_signal_taken(symbol, side, score, trade, explanation, fib_label, trade_id=None):
+    _ensure_audit_file()
+    p = _parse_explanation(explanation)
+    if trade_id is None:
+        trade_id = f"{symbol}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    
+    row = {
+        "trade_id": trade_id,
+        "timestamp_entry": datetime.datetime.now().isoformat(),
+        "symbol": symbol,
+        "side": side,
+        "score": score,
+        "entry": trade.get("entry"),
+        "sl": trade.get("sl"),
+        "tp1": trade.get("tp1"),
+        "tp2": trade.get("tp2", ""),
+        "fib_label": fib_label,
+        "phase": p["phase"],
+        "ci": p["ci"],
+        "wr": p["wr"],
+        "st": p["st"],
+        "veto": p["veto"],
+        "explanation_raw": explanation,
+        "exit_reason": "",
+        "exit_price": "",
+        "pnl_final": "",
+        "duration_min": ""
+    }
+    with open(AUDIT_FILE, "a", newline="") as f:
+        csv.DictWriter(f, fieldnames=FIELDS).writerow(row)
+    return trade_id
+
 # ============================================================
 # FOOTER
 # ============================================================
