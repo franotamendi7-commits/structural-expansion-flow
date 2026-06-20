@@ -7,6 +7,7 @@ from scipy.stats import linregress
 from datetime import datetime, timezone, timedelta
 from data.binance_feed import get_klines, get_ticker
 from system_logger import market_logger, signals_logger, errors_logger
+from risk_manager import RiskManager   # <-- NUEVO IMPORT
 
 # ------------------------------------------------------------
 # CONFIGURACIÓN POR ACTIVO (FASE 5 – 5 PARES)
@@ -436,7 +437,7 @@ class TradeSetupBuilder:
                 'liq_price': liq_price, 'contrarian': contrarian}
 
 # ------------------------------------------------------------
-# MOTOR UNIFICADO (FASE 5 – 5 PARES)
+# MOTOR UNIFICADO (FASE 5 – 5 PARES) CON RISK MANAGER DINÁMICO
 # ------------------------------------------------------------
 class ScalpingEngine:
     def __init__(self, symbol, capital=100.0, risk_pct=0.01, debug_filters=True):
@@ -451,6 +452,7 @@ class ScalpingEngine:
             supertrend_multiplier=self.config['supertrend_multiplier']
         )
         self.debug_filters = debug_filters
+        self.risk_manager = RiskManager()   # <-- NUEVO: risk manager dinámico
 
     def _calculate_dynamic_score(self, direction, fib_block, enhanced, mom, klines_4h, klines_15m):
         score = 70
@@ -547,8 +549,14 @@ class ScalpingEngine:
                     direction=direction, fib_block=fib_block, enhanced=enhanced,
                     mom=mom, klines_4h=klines['4h'], klines_15m=klines['15m']
                 )
+
+                # ─── RIESGO DINÁMICO ───
+                atr_val = indicators['1h']['atr14'] if indicators.get('1h') and indicators['1h'].get('atr14') else entry * 0.005
+                dynamic_risk_pct = self.risk_manager.get_risk_pct(dynamic_score, atr_val, entry)
+                # ────────────────────────
+
                 trade = TradeSetupBuilder(
-                    entry, sl, capital=self.capital, risk_pct=self.risk_pct,
+                    entry, sl, capital=self.capital, risk_pct=dynamic_risk_pct,
                     trend_h4=struct_h4.get('trend', 'neutral'),
                     signal_direction=direction,
                     tp_ratio=self.config['tp_ratio'],

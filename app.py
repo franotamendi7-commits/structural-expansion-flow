@@ -1119,7 +1119,8 @@ def process_signal_for_pair(res, symbol, token, chat_id):
                 'symbol': symbol,
                 'signal': res['signal'],
                 'prob': round(prob, 4),
-                'veto': not ejecutar
+                'veto': not ejecutar,
+                'features': features ,
             }
             with open('ml_veto_log.json', 'a') as log_f:
                 log_f.write(json.dumps(log_entry) + '\n')
@@ -1353,108 +1354,188 @@ if closed_trades:
     st.dataframe(df[[c for c in cols if c in df.columns]])
 
 # ══════════════════════════════════════════════════════════════════
-# NUEVAS SECCIONES: PERFORMANCE, AUDITORÍA, REJECTION LOG, ML AGENT
+# NUEVAS SECCIONES: PERFORMANCE, REJECTION LOG, ML AGENT, DRAWDOWN ALERT
 # ══════════════════════════════════════════════════════════════════
+
 st.markdown("---")
 st.markdown('<div class="sec-title">Performance Overview</div>', unsafe_allow_html=True)
+
+# Leer paper_state.json para obtener métricas actualizadas
 paper_state = {}
 if os.path.exists("paper_state.json"):
     with open("paper_state.json", "r") as f:
-        try: paper_state = json.load(f)
-        except: paper_state = {}
-total_pnl = 0.0; drawdown_percent = 0.0; peak_balance = 0.0
+        try:
+            paper_state = json.load(f)
+        except:
+            paper_state = {}
+
 if paper_state:
     balance_ps = paper_state.get('balance', 100.0)
     peak_balance = paper_state.get('peak_balance', balance_ps)
-    if peak_balance > 0: drawdown_percent = (peak_balance - balance_ps) / peak_balance * 100
     total_pnl = sum(t.get('pnl', 0) for t in paper_state.get('closed_trades', []))
+    if peak_balance > 0:
+        drawdown_percent = (peak_balance - balance_ps) / peak_balance * 100
+    else:
+        drawdown_percent = 0.0
 else:
     balance_ps = trader.get_balance()
     peak_balance = trader.get_peak_balance()
-    if peak_balance > 0: drawdown_percent = (peak_balance - balance_ps) / peak_balance * 100
     total_pnl = sum(t['pnl'] for t in closed_trades) if closed_trades else 0.0
+    if peak_balance > 0:
+        drawdown_percent = (peak_balance - balance_ps) / peak_balance * 100
+    else:
+        drawdown_percent = 0.0
+
+# --- 3 celdas de Performance (sin gráfico) ---
 st.markdown(f"""
 <div class="perf-row">
   <div class="perf-cell"><div class="perf-label">Balance</div><div class="perf-value" style="color: var(--neon-cyan)">${balance_ps:,.2f}</div></div>
-  <div class="perf-cell"><div class="perf-label">PnL Neto</div><div class="perf-value" style="color: {'var(--neon-green)' if total_pnl >= 0 else 'var(--neon-red)'}">${total_pnl:,.2f}</div></div>
+  <div class="perf-cell"><div class="perf-label">PnL Neto</div><div class="perf-value" style="color: {'var(--neon-green)' if total_pnl >= 0 else 'var(--neon-red)'}">${total_pnl:+.2f}</div></div>
   <div class="perf-cell"><div class="perf-label">Drawdown</div><div class="perf-value" style="color: var(--neon-red)">{drawdown_percent:.1f}%</div></div>
 </div>
 """, unsafe_allow_html=True)
 
-if paper_state and 'closed_trades' in paper_state and paper_state['closed_trades']:
-    import matplotlib.pyplot as plt
-    import matplotlib.dates as mdates
-    df_hist = pd.DataFrame(paper_state['closed_trades'])
-    df_hist['exit_time'] = pd.to_datetime(df_hist['exit_time'])
-    df_hist = df_hist.sort_values('exit_time')
-    initial_balance = 100.0
-    df_hist['cum_pnl'] = df_hist['pnl'].cumsum() + initial_balance
-    now_row = pd.DataFrame({'exit_time': [datetime.datetime.now()], 'cum_pnl': [balance_ps]})
-    df_hist = pd.concat([df_hist, now_row], ignore_index=True)
-    fig, ax = plt.subplots(figsize=(8, 2.5))
-    fig.patch.set_facecolor('#020408')
-    ax.set_facecolor('#020408')
-    ax.plot(df_hist['exit_time'], df_hist['cum_pnl'], color='#00d4ff', linewidth=1.5)
-    ax.fill_between(df_hist['exit_time'], df_hist['cum_pnl'], initial_balance, color='#00d4ff', alpha=0.1)
-    ax.axhline(y=initial_balance, color='#5a7a99', linestyle='--', linewidth=0.8)
-    ax.set_ylabel('Balance (USDT)', color='#5a7a99')
-    ax.tick_params(colors='#5a7a99')
-    ax.grid(color='#2a3d52', linestyle='--', alpha=0.5)
-    ax.spines['bottom'].set_color('#2a3d52')
-    ax.spines['left'].set_color('#2a3d52')
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
-    st.pyplot(fig, use_container_width=True)
+# --- Alerta de Drawdown (barra de progreso) ---
+DRAWDOWN_THRESHOLD = 10.0
+dd_ratio = min(drawdown_percent / DRAWDOWN_THRESHOLD, 1.0)
+bar_color = "#00ff88" if drawdown_percent < DRAWDOWN_THRESHOLD else "#ff2d6b"
+st.markdown(f"""
+<div style="margin: 0 0 1.2rem 0;">
+  <div style="display:flex; justify-content:space-between; font-family: 'Share Tech Mono', monospace; font-size:10px; color: #5a7a99; letter-spacing:0.1em;">
+    <span>DRAWDOWN</span>
+    <span>{drawdown_percent:.1f}% / {DRAWDOWN_THRESHOLD:.0f}%</span>
+  </div>
+  <div style="height:4px; background: #2a3d52; border-radius:4px; overflow:hidden; margin-top:4px;">
+    <div style="width:{dd_ratio*100:.1f}%; height:100%; background:{bar_color}; border-radius:4px; transition:width 0.5s;"></div>
+  </div>
+  <div style="margin-top:4px; font-family:'Share Tech Mono', monospace; font-size:9px; color:{bar_color};">
+    {"⚠️ DRAWDOWN SUPERIOR AL UMBRAL" if drawdown_percent >= DRAWDOWN_THRESHOLD else "✅ DRAWDOWN BAJO CONTROL"}
+  </div>
+</div>
+""", unsafe_allow_html=True)
 
+# ============================================================
+# REJECTION LOG (mejorado)
+# ============================================================
+st.markdown('<div class="sec-title">Rejection Log (last 10)</div>', unsafe_allow_html=True)
+
+rejection_file = "rejection_log.json"
+if os.path.exists(rejection_file):
+    try:
+        with open(rejection_file, "r") as f:
+            rejections = json.load(f)
+        if rejections:
+            rows = []
+            for r in rejections[-10:]:
+                reasons = r.get('reasons', {})
+                # Reemplazar "?" por "N/D" o "—"
+                ci_val = reasons.get('ci', 'N/D')
+                wr_val = reasons.get('wr', 'N/D')
+                st_val = reasons.get('st', 'N/D')
+                if ci_val in (None, '?'): ci_val = '—'
+                if wr_val in (None, '?'): wr_val = '—'
+                if st_val in (None, '?'): st_val = '—'
+
+                # Construir motivo principal
+                phase = reasons.get('phase', '')
+                veto_reason = reasons.get('veto_reason', '')
+                if veto_reason:
+                    motivo = veto_reason
+                elif phase:
+                    motivo = f"Fase: {phase}"
+                else:
+                    motivo = "Sin motivo especificado"
+
+                rows.append({
+                    "Hora": r.get('timestamp', '')[-8:] if r.get('timestamp') else '',
+                    "Par": r.get('symbol', ''),
+                    "Fase": phase if phase else '—',
+                    "CI": ci_val,
+                    "WR": wr_val,
+                    "ST": st_val,
+                    "Motivo": motivo
+                })
+            st.dataframe(pd.DataFrame(rows), use_container_width=True)
+        else:
+            st.info("Sin rechazos registrados.")
+    except Exception as e:
+        st.info(f"Error al leer el archivo de rechazos: {e}")
+else:
+    st.info("Archivo de rechazos no encontrado.")
+
+# ============================================================
+# ML AGENT (mejorado)
+# ============================================================
+st.markdown('<div class="sec-title">ML Agent</div>', unsafe_allow_html=True)
+
+veto_file = "ml_veto_log.json"
+total_signals = 0
+executed = 0
+vetoed = 0
+latest_decisions = []
+
+if os.path.exists(veto_file):
+    try:
+        with open(veto_file, "r") as f:
+            lines = f.readlines()
+            if lines:
+                # Procesar todas las líneas para estadísticas
+                all_decisions = []
+                for line in lines:
+                    try:
+                        entry = json.loads(line)
+                        all_decisions.append(entry)
+                    except:
+                        continue
+                total_signals = len(all_decisions)
+                executed = sum(1 for d in all_decisions if not d.get('veto', False))
+                vetoed = sum(1 for d in all_decisions if d.get('veto', False))
+                # Últimas 10 decisiones (más recientes primero)
+                latest_decisions = sorted(all_decisions, key=lambda x: x.get('timestamp', ''), reverse=True)[:10]
+    except Exception as e:
+        st.warning(f"Error al leer ml_veto_log.json: {e}")
+
+# Métricas del ML Agent
+col_ml1, col_ml2, col_ml3 = st.columns(3)
+col_ml1.metric("Total Señales Evaluadas", total_signals)
+col_ml2.metric("Ejecutadas", executed, delta=None, delta_color="normal")
+col_ml3.metric("Vetadas", vetoed, delta=None, delta_color="inverse")
+
+if latest_decisions:
+    # Convertir a DataFrame y formatear
+    df_ml = pd.DataFrame(latest_decisions)
+    # Renombrar columnas para claridad
+    df_ml_display = df_ml[['timestamp', 'symbol', 'signal', 'prob', 'veto']].copy()
+    df_ml_display['timestamp'] = pd.to_datetime(df_ml_display['timestamp']).dt.strftime('%H:%M:%S')
+    df_ml_display['veto'] = df_ml_display['veto'].apply(lambda x: '❌ VETADO' if x else '✅ EJECUTADO')
+    # Colorear según veto
+    def style_ml(row):
+        if row['veto'] == '❌ VETADO':
+            return ['color: #ff2d6b;'] * len(row)
+        else:
+            return ['color: #00ff88;'] * len(row)
+    st.dataframe(df_ml_display.style.apply(style_ml, axis=1), use_container_width=True)
+else:
+    st.info("ML Agent activo, a la espera de señales.")
+
+# ============================================================
+# AUDIT LOG (se mantiene igual)
+# ============================================================
 st.markdown('<div class="sec-title">Audit Log (last 10)</div>', unsafe_allow_html=True)
 audit_file = "audit_log.csv"
 if os.path.exists(audit_file):
     try:
         audit_df = pd.read_csv(audit_file)
         if not audit_df.empty:
-            st.dataframe(audit_df.tail(10)[['trade_id','timestamp_entry','symbol','side','entry','exit_price','pnl_final','exit_reason']])
+            st.dataframe(audit_df.tail(10)[['trade_id','timestamp_entry','symbol','side','entry','exit_price','pnl_final','exit_reason']], use_container_width=True)
         else:
             st.info("Sin registros de auditoría aún.")
-    except:
-        st.info("Error al leer el archivo de auditoría.")
+    except Exception as e:
+        st.info(f"Error al leer el archivo de auditoría: {e}")
 else:
     st.info("Archivo de auditoría no encontrado.")
 
-st.markdown('<div class="sec-title">Rejection Log (last 10)</div>', unsafe_allow_html=True)
-rejection_file = "rejection_log.json"
-if os.path.exists(rejection_file):
-    try:
-        with open(rejection_file, "r") as f: rejections = json.load(f)
-        if rejections:
-            rows = []
-            for r in rejections[-10:]:
-                reasons = r.get('reasons', {})
-                rows.append({"Hora": r.get('timestamp', '')[-8:], "Par": r.get('symbol', ''), "Fase": reasons.get('phase', '?'), "CI": reasons.get('ci', '?'), "WR": reasons.get('wr', '?'), "ST": reasons.get('st', '?'), "Veto": reasons.get('veto_reason', '')})
-            st.dataframe(pd.DataFrame(rows))
-        else:
-            st.info("Sin rechazos registrados.")
-    except:
-        st.info("Error al leer el archivo de rechazos.")
-else:
-    st.info("Archivo de rechazos no encontrado.")
-
-st.markdown('<div class="sec-title">ML Agent Decisions (last 15)</div>', unsafe_allow_html=True)
-veto_file = "ml_veto_log.json"
-if os.path.exists(veto_file):
-    try:
-        with open(veto_file, "r") as f:
-            lines = f.readlines()
-            vetos = [json.loads(line) for line in lines[-15:]]
-        if vetos:
-            df_vetos = pd.DataFrame(vetos)
-            df_vetos['timestamp'] = pd.to_datetime(df_vetos['timestamp'])
-            df_vetos = df_vetos.sort_values('timestamp', ascending=False)
-            st.dataframe(df_vetos[['timestamp', 'symbol', 'signal', 'prob', 'veto']])
-        else:
-            st.info("ML Agent activo, a la espera de señales.")
-    except:
-        st.info("Error al leer ml_veto_log.json.")
-else:
-    st.info("ML Agent activo. El registro de veto se creará al evaluar la primera señal.")
-
+# ============================================================
+# FOOTER
+# ============================================================
 st.caption(f"WebSocket live · Analysis every 60s · Risk fixed 1% · {datetime.datetime.now().strftime('%H:%M:%S')}")
