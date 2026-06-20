@@ -1229,7 +1229,44 @@ def process_signal_for_pair(res, symbol, token, chat_id):
         except Exception as e:
             print(f"[ML VETO] Error al evaluar señal: {e}")
         # ═══════════════ FIN AGENTE ML ═══════════════
+      
+        # ═══════════════ GUARD AGENT (REVIVE/VETO) ═══════════════
+        try:
+            import guard_filter
 
+            # Extraer features para el Guard Agent
+            guard_features = {
+                'ci_value': ci_dict.get('value', 50),
+                'wr_5m': wr_dict.get('value_5m', -50),
+                'wr_15m': wr_dict.get('value_15m', -50),
+                'st_aligned': 1 if st_dict.get('aligned') else 0,
+                'st_bias_bullish': 1 if st_dict.get('bias') == 'bullish' else 0,
+                'st_bias_bearish': 1 if st_dict.get('bias') == 'bearish' else 0,
+                'mom_score': res.get('weighted_confidence', 0),
+                'vol_ratio_5m': vol_ratio,
+                'body_ratio_4h': body_ratio_4h,
+                'hour_of_day': dt.now().hour,
+                'direction_long': 1 if res['signal'] == 'LONG' else 0,
+                'fib_width': fib_width
+            }
+
+            # ¿Qué decidieron los filtros fijos?
+            filtro_fijo_aprobo = not enhanced.get('veto', False)
+
+            # El Guard Agent decide si revertir esa decisión
+            decision_final = guard_filter.debe_revivir(guard_features, filtro_fijo_aprobo)
+
+            if not decision_final:
+                print(f"[GUARD] {symbol} {res['signal']} BLOQUEADA por Guard Agent")
+                return  # No se ejecuta la orden
+            else:
+                print(f"[GUARD] {symbol} {res['signal']} APROBADA por Guard Agent")
+
+        except Exception as e:
+            print(f"[GUARD] Error al evaluar: {e}")
+       
+        # ═══════════════ FIN GUARD AGENT ═══════════════
+       
         signal = {
             'symbol': symbol,
             'side': res['signal'],
