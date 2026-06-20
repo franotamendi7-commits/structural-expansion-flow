@@ -1068,31 +1068,58 @@ cols_metrics[3].metric("P&L ABIERTO", f"${pnl_abierto_total:,.2f}")
 cols_metrics[4].metric("OPEN OPS", f"{posiciones_abiertas} / {len(ACTIVE_PAIRS)}")
 cols_metrics[5].metric("P&L CERRADO", f"${pnl_cerrado:,.2f}")
 
-# ========== PANEL DE ESTADO MULTI-PAR ==========
+# ========== PANEL DE ESTADO MULTI-PAR (CON P&L LIVE) ==========
 pair_status_data = []
 color_map = {'FORMING':'#ffb800', 'EXECUTE':'#00ff88', 'READY':'#4d7cff', 'INVALID':'#ff2d6b'}
 for p in ACTIVE_PAIRS:
     open_pos = trader.get_open_position(p)
+    state = st.session_state['pair_states'].get(p, {})
+    
     if open_pos is not None:
         setup_state = 'EXECUTE'
         signal_val = open_pos['side']
-        state = st.session_state['pair_states'].get(p, {})
         score_val = state.get('score', 0)
         price_val = state.get('price')
+
+        # ─── Cálculo de P&L Live ───
+        pnl = open_pos.get('pnl', 0.0)
+        current_price = open_pos.get('current_price', price_val)
+        stop_loss = open_pos.get('stop_loss', 0)
+        if current_price and stop_loss and current_price > 0:
+            if signal_val == 'LONG':
+                distance_pct = ((current_price - stop_loss) / current_price) * 100
+            else:
+                distance_pct = ((stop_loss - current_price) / current_price) * 100
+            bar_pct = max(0, min(100, 100 - distance_pct * 10))
+            color_bar = '#00ff88' if pnl >= 0 else '#ff2d6b'
+            pnl_str = f"{'+' if pnl >= 0 else ''}{pnl:.2f}"
+            pnl_color = '#00ff88' if pnl >= 0 else '#ff2d6b'
+            live_html = f"""
+            <div style="margin: 0;">
+              <div style="height:4px; background: #2a3d52; border-radius:4px; overflow:hidden; margin-bottom:4px;">
+                <div style="width:{bar_pct:.1f}%; height:100%; background:{color_bar}; border-radius:4px; transition:width 0.5s;"></div>
+              </div>
+              <div style="font-family:'Share Tech Mono', monospace; font-size:9px; color:{pnl_color}; letter-spacing:0.05em;">
+                ${pnl_str} &nbsp;|&nbsp; <span style="color:#5a7a99;">SL a {distance_pct:.1f}%</span>
+              </div>
+            </div>
+            """
+        else:
+            live_html = "—"
     else:
-        state = st.session_state['pair_states'].get(p, {})
         setup_state = state.get('setup_state', 'INVALID')
         signal_val = state.get('signal', 'WAIT')
         score_val = state.get('score', 0)
         price_val = state.get('price')
-    
+        live_html = "—"
+
     price_display = f"${price_val:,.2f}" if price_val else "—"
     fib = state.get('fib_label', 'N/A')
     trend = state.get('trend_h4', 'neutral')
     phase = state.get('market_phase', 'unknown')
     extra = "Formando setup" if setup_state == 'FORMING' else ("Setup inválido" if setup_state == 'INVALID' else "Listo para ejecutar")
     description = f"Fib {fib} | H4: {trend} | Phase: {phase} | {extra}"
-    pair_status_data.append([p, price_display, setup_state, f"{score_val}%", signal_val, description])
+    pair_status_data.append([p, price_display, setup_state, f"{score_val}%", signal_val, description, live_html])
 
 st.markdown("""
 <table style="width:100%; border-collapse: collapse; background: var(--glass); border-radius: 12px; overflow: hidden;">
@@ -1104,6 +1131,7 @@ st.markdown("""
       <th style="padding: 12px; font-family: 'Orbitron'; font-size: 11px; letter-spacing: 0.1em; color: var(--neon-cyan);">Score</th>
       <th style="padding: 12px; font-family: 'Orbitron'; font-size: 11px; letter-spacing: 0.1em; color: var(--neon-cyan);">Signal</th>
       <th style="padding: 12px; font-family: 'Orbitron'; font-size: 11px; letter-spacing: 0.1em; color: var(--neon-cyan);">Description</th>
+      <th style="padding: 12px; font-family: 'Orbitron'; font-size: 11px; letter-spacing: 0.1em; color: var(--neon-cyan);">P&L Live</th>
     </tr>
   </thead>
   <tbody>
@@ -1118,6 +1146,7 @@ for row in pair_status_data:
       <td style="padding: 10px; font-family: 'Orbitron'; font-size: 11px;">{row[3]}</td>
       <td style="padding: 10px; font-family: 'Orbitron'; font-size: 11px; font-weight: bold;">{row[4]}</td>
       <td style="padding: 10px; font-family: 'Rajdhani'; font-size: 11px; color: var(--text-dim);">{row[5]}</td>
+      <td style="padding: 10px; font-family: 'Share Tech Mono'; font-size: 11px;">{row[6]}</td>
     </tr>
     """, unsafe_allow_html=True)
 st.markdown("</tbody></table>", unsafe_allow_html=True)
@@ -1341,18 +1370,44 @@ dynamic_score = res.get('score', 0)
 explanation = res.get('explanation', 'No analysis yet')
 pos = trader.get_open_position(pair)
 
-# ---------- TARJETAS DE AGENTES ----------
-st.markdown('<div class="sec-title">Neural Agents — Nodes 01 → 05</div>', unsafe_allow_html=True)
-ag_cols = st.columns(5)
+# ========== CALCULAR CONFIANZA DEL ML AGENT ==========
+ml_confidence = 0
+veto_file_ml = "ml_veto_log.json"
+if os.path.exists(veto_file_ml):
+    try:
+        with open(veto_file_ml, "r") as f:
+            lines = f.readlines()
+            total = 0
+            aprobadas = 0
+            for line in lines:
+                try:
+                    entry = json.loads(line)
+                    total += 1
+                    if not entry.get('veto', False):
+                        aprobadas += 1
+                except:
+                    continue
+            if total > 0:
+                ml_confidence = int(round((aprobadas / total) * 100))
+    except Exception as e:
+        ml_confidence = 0
+
+# ---------- TARJETAS DE AGENTES (6 agentes) ----------
+st.markdown('<div class="sec-title">Neural Agents — Nodes 01 → 06</div>', unsafe_allow_html=True)
+ag_cols = st.columns(6)
 agent_labels = {
     'scanner': ('MARKET SCANNER', 'Setup detection · multi‑TF', '#00ff88', 'rgba(0,255,136,0.08)'),
     'risk': ('RISK MANAGER', 'Capital control · 20x exp', '#4d7cff', 'rgba(77,124,255,0.08)'),
     'technical': ('TECHNICAL ANALYST', 'Price action · estructura', '#bf5fff', 'rgba(191,95,255,0.08)'),
     'momentum': ('MOMENTUM TRACKER', 'Volumen · fuerza direccional', '#ffb800', 'rgba(255,184,0,0.08)'),
-    'guard': ('EXECUTION GUARD', 'Validación de entrada', '#ff2d6b', 'rgba(255,45,107,0.08)')
+    'guard': ('EXECUTION GUARD', 'Validación de entrada', '#ff2d6b', 'rgba(255,45,107,0.08)'),
+    'ml': ('ML AGENT', 'Señal quality filter · 55% threshold', '#ffb800', 'rgba(255,184,0,0.08)')
 }
 for i, (key, (name, role, color, glow)) in enumerate(agent_labels.items()):
-    score_val = agent_scores.get(key, 0)
+    if key == 'ml':
+        score_val = ml_confidence
+    else:
+        score_val = agent_scores.get(key, 0)
     with ag_cols[i]:
         st.markdown(f"""
         <div class="agent-card" style="--accent-color:{color};--accent-glow:{glow};">
@@ -1423,7 +1478,7 @@ if closed_trades:
     st.dataframe(df[[c for c in cols if c in df.columns]])
 
 # ══════════════════════════════════════════════════════════════════
-# NUEVAS SECCIONES: PERFORMANCE, REJECTION LOG, ML AGENT, DRAWDOWN ALERT
+# NUEVAS SECCIONES: PERFORMANCE, REJECTION LOG, DRAWDOWN ALERT, AUDIT LOG
 # ══════════════════════════════════════════════════════════════════
 
 st.markdown("---")
@@ -1484,7 +1539,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # ============================================================
-# REJECTION LOG (mejorado)
+# REJECTION LOG (con hora ARG)
 # ============================================================
 st.markdown('<div class="sec-title">Rejection Log (last 10)</div>', unsafe_allow_html=True)
 
@@ -1497,7 +1552,6 @@ if os.path.exists(rejection_file):
             rows = []
             for r in rejections[-10:]:
                 reasons = r.get('reasons', {})
-                # Reemplazar "?" por "N/D" o "—"
                 ci_val = reasons.get('ci', 'N/D')
                 wr_val = reasons.get('wr', 'N/D')
                 st_val = reasons.get('st', 'N/D')
@@ -1505,7 +1559,6 @@ if os.path.exists(rejection_file):
                 if wr_val in (None, '?'): wr_val = '—'
                 if st_val in (None, '?'): st_val = '—'
 
-                # Construir motivo principal
                 phase = reasons.get('phase', '')
                 veto_reason = reasons.get('veto_reason', '')
                 if veto_reason:
@@ -1515,8 +1568,20 @@ if os.path.exists(rejection_file):
                 else:
                     motivo = "Sin motivo especificado"
 
+                # Convertir timestamp a hora Argentina (UTC-3)
+                ts = r.get('timestamp', '')
+                if ts and len(ts) >= 16:
+                    try:
+                        hora_utc = int(ts[11:13])
+                        hora_arg = (hora_utc - 3) % 24
+                        hora_str = f"{hora_arg:02d}:{ts[14:16]}"
+                    except:
+                        hora_str = ts[-8:] if len(ts) >= 8 else "—"
+                else:
+                    hora_str = "—"
+
                 rows.append({
-                    "Hora": r.get('timestamp', '')[-8:] if r.get('timestamp') else '',
+                    "Hora": hora_str,
                     "Par": r.get('symbol', ''),
                     "Fase": phase if phase else '—',
                     "CI": ci_val,
@@ -1531,61 +1596,6 @@ if os.path.exists(rejection_file):
         st.info(f"Error al leer el archivo de rechazos: {e}")
 else:
     st.info("Archivo de rechazos no encontrado.")
-
-# ============================================================
-# ML AGENT (mejorado)
-# ============================================================
-st.markdown('<div class="sec-title">ML Agent</div>', unsafe_allow_html=True)
-
-veto_file = "ml_veto_log.json"
-total_signals = 0
-executed = 0
-vetoed = 0
-latest_decisions = []
-
-if os.path.exists(veto_file):
-    try:
-        with open(veto_file, "r") as f:
-            lines = f.readlines()
-            if lines:
-                # Procesar todas las líneas para estadísticas
-                all_decisions = []
-                for line in lines:
-                    try:
-                        entry = json.loads(line)
-                        all_decisions.append(entry)
-                    except:
-                        continue
-                total_signals = len(all_decisions)
-                executed = sum(1 for d in all_decisions if not d.get('veto', False))
-                vetoed = sum(1 for d in all_decisions if d.get('veto', False))
-                # Últimas 10 decisiones (más recientes primero)
-                latest_decisions = sorted(all_decisions, key=lambda x: x.get('timestamp', ''), reverse=True)[:10]
-    except Exception as e:
-        st.warning(f"Error al leer ml_veto_log.json: {e}")
-
-# Métricas del ML Agent
-col_ml1, col_ml2, col_ml3 = st.columns(3)
-col_ml1.metric("Total Señales Evaluadas", total_signals)
-col_ml2.metric("Ejecutadas", executed, delta=None, delta_color="normal")
-col_ml3.metric("Vetadas", vetoed, delta=None, delta_color="inverse")
-
-if latest_decisions:
-    # Convertir a DataFrame y formatear
-    df_ml = pd.DataFrame(latest_decisions)
-    # Renombrar columnas para claridad
-    df_ml_display = df_ml[['timestamp', 'symbol', 'signal', 'prob', 'veto']].copy()
-    df_ml_display['timestamp'] = pd.to_datetime(df_ml_display['timestamp']).dt.strftime('%H:%M:%S')
-    df_ml_display['veto'] = df_ml_display['veto'].apply(lambda x: '❌ VETADO' if x else '✅ EJECUTADO')
-    # Colorear según veto
-    def style_ml(row):
-        if row['veto'] == '❌ VETADO':
-            return ['color: #ff2d6b;'] * len(row)
-        else:
-            return ['color: #00ff88;'] * len(row)
-    st.dataframe(df_ml_display.style.apply(style_ml, axis=1), use_container_width=True)
-else:
-    st.info("ML Agent activo, a la espera de señales.")
 
 # ============================================================
 # AUDIT LOG (se mantiene igual)
