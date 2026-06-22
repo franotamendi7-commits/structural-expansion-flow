@@ -1,11 +1,44 @@
+# Datos y logs
+*.csv
+*.md
+!README.md
+*.log
+*.jsonl
+*.json
+!package.json
+logs/
+
+# Modelos (excepto el definitivo)
+*.pkl
+!ml_model.pkl
+
+# Python
 __pycache__/
 *.pyc
-*.pyo
 .env
-.streamlit/secrets.toml
-venv/
 .venv/
-*.csv
-*.json
-!requirements.txt
-paper_state.json
+
+# Backups y experimentos
+backups/
+backtest_cache/
+data/
+engine/
+
+# Scripts temporales y de validación
+agente_ml_multi.py
+evaluar_umbral.py
+merge_3years.py
+simulador_compuesto.py
+train_3years.py
+walkforward_3years.py
+backtest_6m_ML.py
+backtest_final.py
+backtest_full.py
+
+# Streamlit y config
+.streamlit/
+
+# IDE y sistema
+.vscode/
+.idea/
+.DS_Store
