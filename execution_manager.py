@@ -7,7 +7,9 @@ from typing import Dict, Optional
 class ExecutionManager:
     """
     Ejecuta órdenes de mercado en Binance Futures (REST, sin librerías externas).
+    Extrae el precio real de ejecución usando avgPrice o fills.
     """
+
     def __init__(self, api_key: str, api_secret: str, testnet: bool = True):
         self.api_key = api_key
         self.api_secret = api_secret
@@ -39,31 +41,61 @@ class ExecutionManager:
             return {'error': str(e)}
 
     def set_isolated_margin(self, symbol):
-        """Establece el modo de margen aislado para el símbolo."""
+        """Establece el modo de margen aislado para el símbolo. No interrumpe la ejecución si falla."""
         try:
-            resp = self.session.change_margin_type(
-                category="linear",
-                symbol=symbol,
-                marginType="ISOLATED"
-            )
-            if resp.get("retCode") == 0:
-                print(f"[ExecutionManager] Margen aislado activado para {symbol}")
+            params = self._sign_request({
+                'symbol': symbol,
+                'marginType': 'ISOLATED'
+            })
+            resp = self._send_request('POST', '/fapi/v1/marginType', params)
+            if resp.get('code') == 200 or resp.get('msg') == 'success':
+                return True
+            elif resp.get('retCode') == 0 or resp.get('code') == -4046:
                 return True
             else:
-                print(f"[ExecutionManager] Error al activar margen aislado: {resp.get('retMsg')}")
+                print(f"[ExecutionManager] Aviso: no se pudo confirmar margen aislado: {resp}")
                 return False
         except Exception as e:
             print(f"[ExecutionManager] Excepción al activar margen aislado: {e}")
             return False
 
-    def execute_signal(self, signal_dict: dict) -> dict:
+    def _extract_price(self, resp: dict) -> float:
+        """Extrae el precio de ejecución de una respuesta de orden (inicial o polling)."""
+        # 1) Intentar desde fills (viene en respuestas FULL cuando la orden se ejecuta de inmediato)
+        fills = resp.get('fills', [])
+        if fills:
+            total_qty = sum(float(f['qty']) for f in fills)
+            total_cost = sum(float(f['price']) * float(f['qty']) for f in fills)
+            if total_qty > 0:
+                return total_cost / total_qty
+        # 2) Usar avgPrice (viene en el endpoint de consulta de orden)
+        avg_price = resp.get('avgPrice')
+        if avg_price is not None and float(avg_price) > 0:
+            return float(avg_price)
+        # 3) Último recurso: price (puede ser 0 en mercado)
+        return float(resp.get('price', 0))
+
+    def _poll_order(self, symbol: str, order_id: int, timeout: float = 5.0) -> Optional[dict]:
+        """Espera hasta que la orden esté FILLED y devuelve la respuesta completa."""
+        start = time.time()
+        while time.time() - start < timeout:
+            params = self._sign_request({
+                'symbol': symbol,
+                'orderId': str(order_id)
+            })
+            resp = self._send_request('GET', '/fapi/v1/order', params)
+            if isinstance(resp, dict) and resp.get('status') == 'FILLED':
+                return resp
+            time.sleep(0.5)
+        return resp
+
+    def execute_signal(self, signal_dict: dict, reduce_only: bool = False) -> dict:
         """
-        Ejecuta una orden de mercado simple.
-        signal_dict debe contener: symbol, side, quantity.
-        side: 'BUY' o 'SELL'
-        quantity: cantidad en contratos (float)
+        Ejecuta una orden de mercado.
+        signal_dict: {symbol, side, quantity}
+        reduce_only=True para cerrar posiciones.
+        Devuelve order_id, status, executed_price (precio real), error.
         """
-        # Activar margen aislado
         self.set_isolated_margin(signal_dict.get("symbol"))
 
         side = signal_dict.get('side', 'BUY').upper()
@@ -73,21 +105,60 @@ class ExecutionManager:
         if not all([symbol, quantity]):
             return {'error': 'Missing required fields: symbol, quantity'}
 
+        # Usamos FULL para obtener fills si la ejecución es instantánea
         order_params = self._sign_request({
             'symbol': symbol,
             'side': side,
             'type': 'MARKET',
             'quantity': str(quantity),
-            'newOrderRespType': 'RESULT'
+            'reduceOnly': 'true' if reduce_only else 'false',
+            'newOrderRespType': 'FULL'
         })
-        market_resp = self._send_request('POST', '/fapi/v1/order', order_params)
+        initial_resp = self._send_request('POST', '/fapi/v1/order', order_params)
 
-        if 'error' in market_resp:
-            return {'error': f"Market order failed: {market_resp.get('msg', market_resp['error'])}"}
+        if 'error' in initial_resp:
+            return {'error': f"Market order failed: {initial_resp.get('msg', initial_resp['error'])}"}
 
-        return {
-            'order_id': market_resp.get('orderId'),
-            'status': market_resp.get('status'),
-            'executed_price': float(market_resp.get('avgPrice', 0)),
-            'error': None
-        }
+        order_id = initial_resp.get('orderId')
+
+        # Si la respuesta inicial ya tiene estado FILLED, extraemos el precio de inmediato
+        if initial_resp.get('status') == 'FILLED':
+            price = self._extract_price(initial_resp)
+            return {
+                'order_id': order_id,
+                'status': 'FILLED',
+                'executed_price': round(price, 4),
+                'error': None
+            }
+
+        # Si no, hacemos polling hasta que esté FILLED
+        final_resp = self._poll_order(symbol, order_id)
+        if isinstance(final_resp, dict) and final_resp.get('status') == 'FILLED':
+            price = self._extract_price(final_resp)
+            return {
+                'order_id': order_id,
+                'status': 'FILLED',
+                'executed_price': round(price, 4),
+                'error': None
+            }
+        else:
+            return {
+                'order_id': order_id,
+                'status': final_resp.get('status', 'UNKNOWN') if final_resp else 'UNKNOWN',
+                'executed_price': 0.0,
+                'error': 'Order not filled within timeout'
+            }
+
+    def get_balance(self, asset="USDT"):
+        """Obtiene el balance de un activo en la cuenta de futuros."""
+        try:
+            params = self._sign_request({})
+            resp = self._send_request('GET', '/fapi/v2/balance', params)
+            if isinstance(resp, list):
+                for item in resp:
+                    if item.get('asset') == asset:
+                        return float(item.get('balance', 0.0))
+            return 0.0
+        except Exception as e:
+            print(f"[ExecutionManager] Error al obtener balance: {e}")
+            return 0.0

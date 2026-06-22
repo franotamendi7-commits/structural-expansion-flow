@@ -507,7 +507,10 @@ class ScalpingEngine:
             elif PatternDetector.is_bullish_engulfing(klines['4h']):
                 signal = 'LONG'; direction = 'bullish'; setup_state = 'EXECUTE'
 
-            if phase_h1 in ('ranging', 'neutral'): signal = 'WAIT'; setup_state = 'INVALID'
+            # ⚡ CORRECCIÓN: 'unknown' también invalida la señal
+            if phase_h1 in ('ranging', 'neutral', 'unknown'):
+                signal = 'WAIT'
+                setup_state = 'INVALID'
 
             enhanced = {'veto': False, 'add_score': 0, 'ci': {}, 'wr': {}, 'st': {}}
             if signal in ('LONG', 'SHORT'):

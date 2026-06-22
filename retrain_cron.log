@@ -1,0 +1,6 @@
+============================================================
+🔄 REENTRENAMIENTO AUTOMÁTICO DEL MODELO ML
+============================================================
+✔ Datos históricos cargados: 515 trades.
+⚠️  Solo 0 señales nuevas (mínimo 15). No se reentrenará.
+❌ No hay suficientes trades nuevos. Se conserva el modelo actual.

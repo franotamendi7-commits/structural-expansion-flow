@@ -1027,6 +1027,10 @@ with st.sidebar:
     binance_secret_key = st.text_input("Secret Key", type="password", value="DnIPgWcon8sQ51z2mjz1O67ElZcHr0RXCBEV9FpsGH3BUeVyl5AuLzEIMsyhIaTo")
     use_testnet = st.checkbox("Usar Testnet", value=True)
     enable_live_trading = st.checkbox("Activar ejecución real (riesgo real)", value=False)
+
+    # ── CHECKBOX: USAR BALANCE REAL (TESTNET) ──
+    use_real_balance = st.checkbox("Usar balance real (Testnet)", value=False)
+
     if enable_live_trading and (not binance_api_key or not binance_secret_key):
         st.warning("⚠️ Las credenciales de API son necesarias para activar ejecución real")
     elif enable_live_trading:
@@ -1054,7 +1058,15 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # ---------- MÉTRICAS DE BALANCE ----------
-balance = trader.get_balance()
+# ─── BALANCE REAL SI EL CHECKBOX ESTÁ ACTIVO ───
+if use_real_balance:
+    try:
+        balance = exec_mgr.get_balance("USDT")
+    except:
+        balance = trader.get_balance()
+else:
+    balance = trader.get_balance()
+
 posiciones_abiertas = len(trader.get_all_open_positions())
 pnl_abierto_total = sum(pos.get('pnl', 0) for pos in trader.get_all_open_positions().values())
 closed_trades = trader.get_closed_trades()
@@ -1164,35 +1176,44 @@ def process_signal_for_pair(res, symbol, token, chat_id):
     if res['signal'] in ('LONG', 'SHORT') and res.get('trade') and not trader.is_paused():
         trade = res['trade']
         
-        # ═══════════════ AGENTE ML (MODO VETO) ═══════════════
+        # ═══════════════ AGENTE ML (MODO VETO) ══════════════
+              
         try:
             import ml_filter, json
             from datetime import datetime as dt
 
+            # Extraer características directamente del motor (nivel principal de res)
             phase_h1 = res.get('market_phase', 'neutral')
             ci_dict = res.get('ci', {})
             wr_dict = res.get('wr', {})
             st_dict = res.get('st', {})
             vol_ratio = res.get('vol_ratio', 1.0)
+            # body_ratio_4h no está disponible en vivo; usamos 0.0
             body_ratio_4h = 0.0
 
+            # Datos de Fibonacci (pueden no estar disponibles)
             fib_label = extract_fib_label(res.get('explanation', ''))
             fib_parts = fib_label.split('-')
             fib_low_key = float(fib_parts[0]) if len(fib_parts) == 2 else None
             fib_high_key = float(fib_parts[1]) if len(fib_parts) == 2 else None
             fib_width = 0.0
 
+            # El motor no expone mom_score directamente; usamos weighted_confidence como proxy
+            mom_score = res.get('weighted_confidence', 0.0)
+
+            direction = res.get('direction', 'neutral')
+
             features = {
-                'fib_low_key': fib_low_key,
-                'fib_high_key': fib_high_key,
+                'fib_low_key': fib_low_key if fib_low_key is not None else 0.0,
+                'fib_high_key': fib_high_key if fib_high_key is not None else 0.0,
                 'fib_width': fib_width,
-                'ci_value': ci_dict.get('value', 50),
-                'wr_5m': wr_dict.get('value_5m', -50),
-                'wr_15m': wr_dict.get('value_15m', -50),
+                'ci_value': ci_dict.get('value', 50.0),
+                'wr_5m': wr_dict.get('value_5m', -50.0),
+                'wr_15m': wr_dict.get('value_15m', -50.0),
                 'st_aligned': 1 if st_dict.get('aligned') else 0,
                 'st_bias_bullish': 1 if st_dict.get('bias') == 'bullish' else 0,
                 'st_bias_bearish': 1 if st_dict.get('bias') == 'bearish' else 0,
-                'mom_score': res.get('weighted_confidence', 0),
+                'mom_score': mom_score,
                 'vol_ratio_5m': vol_ratio,
                 'body_ratio_4h': body_ratio_4h,
                 'hour_of_day': dt.now().hour,
@@ -1202,9 +1223,9 @@ def process_signal_for_pair(res, symbol, token, chat_id):
                 'phase_trending': 1 if phase_h1 == 'trending' else 0,
                 'phase_ranging': 1 if phase_h1 == 'ranging' else 0,
                 'phase_neutral': 1 if phase_h1 == 'neutral' else 0,
-                'mom_bullish': 1 if res.get('direction') == 'bullish' else 0,
-                'mom_bearish': 1 if res.get('direction') == 'bearish' else 0,
-                'mom_neutral': 1 if res.get('direction') == 'neutral' else 0
+                'mom_bullish': 1 if direction == 'bullish' else 0,
+                'mom_bearish': 1 if direction == 'bearish' else 0,
+                'mom_neutral': 1 if direction == 'neutral' else 0
             }
 
             ejecutar, prob = ml_filter.debe_ejecutar(features)
@@ -1228,45 +1249,9 @@ def process_signal_for_pair(res, symbol, token, chat_id):
 
         except Exception as e:
             print(f"[ML VETO] Error al evaluar señal: {e}")
+            
         # ═══════════════ FIN AGENTE ML ═══════════════
-      
-        # ═══════════════ GUARD AGENT (REVIVE/VETO) ═══════════════
-        try:
-            import guard_filter
 
-            # Extraer features para el Guard Agent
-            guard_features = {
-                'ci_value': ci_dict.get('value', 50),
-                'wr_5m': wr_dict.get('value_5m', -50),
-                'wr_15m': wr_dict.get('value_15m', -50),
-                'st_aligned': 1 if st_dict.get('aligned') else 0,
-                'st_bias_bullish': 1 if st_dict.get('bias') == 'bullish' else 0,
-                'st_bias_bearish': 1 if st_dict.get('bias') == 'bearish' else 0,
-                'mom_score': res.get('weighted_confidence', 0),
-                'vol_ratio_5m': vol_ratio,
-                'body_ratio_4h': body_ratio_4h,
-                'hour_of_day': dt.now().hour,
-                'direction_long': 1 if res['signal'] == 'LONG' else 0,
-                'fib_width': fib_width
-            }
-
-            # ¿Qué decidieron los filtros fijos?
-            filtro_fijo_aprobo = not enhanced.get('veto', False)
-
-            # El Guard Agent decide si revertir esa decisión
-            decision_final = guard_filter.debe_revivir(guard_features, filtro_fijo_aprobo)
-
-            if not decision_final:
-                print(f"[GUARD] {symbol} {res['signal']} BLOQUEADA por Guard Agent")
-                return  # No se ejecuta la orden
-            else:
-                print(f"[GUARD] {symbol} {res['signal']} APROBADA por Guard Agent")
-
-        except Exception as e:
-            print(f"[GUARD] Error al evaluar: {e}")
-       
-        # ═══════════════ FIN GUARD AGENT ═══════════════
-       
         signal = {
             'symbol': symbol,
             'side': res['signal'],
@@ -1366,7 +1351,14 @@ if auto and now - st.session_state['last_analysis'] > 60:
             if price:
                 st.session_state['backend_price'][current_pair] = price
             engine = get_engine(current_pair)
-            engine.capital = trader.get_balance()
+            # ─── USAR BALANCE REAL SI EL CHECKBOX ESTÁ ACTIVO ───
+            if use_real_balance:
+                try:
+                    engine.capital = exec_mgr.get_balance("USDT")
+                except:
+                    engine.capital = trader.get_balance()
+            else:
+                engine.capital = trader.get_balance()
             engine.risk_pct = FIXED_RISK_PCT
             res = engine.run()
             update_pair_state(current_pair, res, price)
@@ -1384,7 +1376,14 @@ if run_btn:
         if price:
             st.session_state['backend_price'][pair] = price
         engine = get_engine(pair)
-        engine.capital = trader.get_balance()
+        # ─── USAR BALANCE REAL SI EL CHECKBOX ESTÁ ACTIVO ───
+        if use_real_balance:
+            try:
+                engine.capital = exec_mgr.get_balance("USDT")
+            except:
+                engine.capital = trader.get_balance()
+        else:
+            engine.capital = trader.get_balance()
         engine.risk_pct = FIXED_RISK_PCT
         res = engine.run()
         st.session_state['last_signal'] = res
@@ -1521,7 +1520,16 @@ if closed_trades:
 st.markdown("---")
 st.markdown('<div class="sec-title">Performance Overview</div>', unsafe_allow_html=True)
 
-# Leer paper_state.json para obtener métricas actualizadas
+# ─── USAR BALANCE REAL SI EL CHECKBOX ESTÁ ACTIVO ───
+if use_real_balance:
+    try:
+        balance_ps = exec_mgr.get_balance("USDT")
+    except:
+        balance_ps = trader.get_balance()
+else:
+    balance_ps = trader.get_balance()
+
+# Para el cálculo de drawdown en modo real usamos el peak del paper_state o el balance actual
 paper_state = {}
 if os.path.exists("paper_state.json"):
     with open("paper_state.json", "r") as f:
@@ -1530,24 +1538,18 @@ if os.path.exists("paper_state.json"):
         except:
             paper_state = {}
 
-if paper_state:
-    balance_ps = paper_state.get('balance', 100.0)
-    peak_balance = paper_state.get('peak_balance', balance_ps)
+if use_real_balance:
+    peak_balance = max(balance_ps, paper_state.get('peak_balance', balance_ps))
     total_pnl = sum(t.get('pnl', 0) for t in paper_state.get('closed_trades', []))
-    if peak_balance > 0:
-        drawdown_percent = (peak_balance - balance_ps) / peak_balance * 100
-    else:
-        drawdown_percent = 0.0
 else:
-    balance_ps = trader.get_balance()
-    peak_balance = trader.get_peak_balance()
-    total_pnl = sum(t['pnl'] for t in closed_trades) if closed_trades else 0.0
-    if peak_balance > 0:
-        drawdown_percent = (peak_balance - balance_ps) / peak_balance * 100
-    else:
-        drawdown_percent = 0.0
+    peak_balance = paper_state.get('peak_balance', balance_ps) if paper_state else balance_ps
+    total_pnl = sum(t.get('pnl', 0) for t in paper_state.get('closed_trades', [])) if paper_state else 0.0
 
-# --- 3 celdas de Performance (sin gráfico) ---
+if peak_balance > 0:
+    drawdown_percent = (peak_balance - balance_ps) / peak_balance * 100
+else:
+    drawdown_percent = 0.0
+
 st.markdown(f"""
 <div class="perf-row">
   <div class="perf-cell"><div class="perf-label">Balance</div><div class="perf-value" style="color: var(--neon-cyan)">${balance_ps:,.2f}</div></div>
