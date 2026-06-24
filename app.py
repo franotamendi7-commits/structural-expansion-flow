@@ -1,10 +1,9 @@
 import streamlit as st
 import time, datetime, pandas as pd, json, requests, re, csv, os
-from engine.scalping_engine import ScalpingEngine
+from adaptive_agent import AdaptiveAgent
 from paper_trader import PaperTrader
 from data.binance_feed import get_ticker
 from execution_manager import ExecutionManager
-import ml_filter
 
 # ======================================================
 # AUDITOR DE ENTRADA (DEFINIDO ANTES DE CUALQUIER LLAMADA)
@@ -1170,88 +1169,12 @@ risk_manager.base_risk_pct = FIXED_RISK_PCT
 
 @st.cache_resource(ttl=3600)
 def get_engine(symbol):
-    return ScalpingEngine(symbol=symbol, capital=100.0, risk_pct=FIXED_RISK_PCT, debug_filters=False)
+    return AdaptiveAgent(symbol=symbol, capital=100.0, risk_pct=FIXED_RISK_PCT)
 
 def process_signal_for_pair(res, symbol, token, chat_id):
     if res['signal'] in ('LONG', 'SHORT') and res.get('trade') and not trader.is_paused():
         trade = res['trade']
         
-        # ═══════════════ AGENTE ML (MODO VETO) ══════════════
-              
-        try:
-            import ml_filter, json
-            from datetime import datetime as dt
-
-            # Extraer características directamente del motor (nivel principal de res)
-            phase_h1 = res.get('market_phase', 'neutral')
-            ci_dict = res.get('ci', {})
-            wr_dict = res.get('wr', {})
-            st_dict = res.get('st', {})
-            vol_ratio = res.get('vol_ratio', 1.0)
-            # body_ratio_4h no está disponible en vivo; usamos 0.0
-            body_ratio_4h = 0.0
-
-            # Datos de Fibonacci (pueden no estar disponibles)
-            fib_label = extract_fib_label(res.get('explanation', ''))
-            fib_parts = fib_label.split('-')
-            fib_low_key = float(fib_parts[0]) if len(fib_parts) == 2 else None
-            fib_high_key = float(fib_parts[1]) if len(fib_parts) == 2 else None
-            fib_width = 0.0
-
-            # El motor no expone mom_score directamente; usamos weighted_confidence como proxy
-            mom_score = res.get('weighted_confidence', 0.0)
-
-            direction = res.get('direction', 'neutral')
-
-            features = {
-                'fib_low_key': fib_low_key if fib_low_key is not None else 0.0,
-                'fib_high_key': fib_high_key if fib_high_key is not None else 0.0,
-                'fib_width': fib_width,
-                'ci_value': ci_dict.get('value', 50.0),
-                'wr_5m': wr_dict.get('value_5m', -50.0),
-                'wr_15m': wr_dict.get('value_15m', -50.0),
-                'st_aligned': 1 if st_dict.get('aligned') else 0,
-                'st_bias_bullish': 1 if st_dict.get('bias') == 'bullish' else 0,
-                'st_bias_bearish': 1 if st_dict.get('bias') == 'bearish' else 0,
-                'mom_score': mom_score,
-                'vol_ratio_5m': vol_ratio,
-                'body_ratio_4h': body_ratio_4h,
-                'hour_of_day': dt.now().hour,
-                'direction_long': 1 if res['signal'] == 'LONG' else 0,
-                'phase_compressing': 1 if phase_h1 == 'compressing' else 0,
-                'phase_expanding': 1 if phase_h1 == 'expanding' else 0,
-                'phase_trending': 1 if phase_h1 == 'trending' else 0,
-                'phase_ranging': 1 if phase_h1 == 'ranging' else 0,
-                'phase_neutral': 1 if phase_h1 == 'neutral' else 0,
-                'mom_bullish': 1 if direction == 'bullish' else 0,
-                'mom_bearish': 1 if direction == 'bearish' else 0,
-                'mom_neutral': 1 if direction == 'neutral' else 0
-            }
-
-            ejecutar, prob = ml_filter.debe_ejecutar(features)
-
-            log_entry = {
-                'timestamp': dt.now().isoformat(),
-                'symbol': symbol,
-                'signal': res['signal'],
-                'prob': round(prob, 4),
-                'veto': not ejecutar,
-                'features': features ,
-            }
-            with open('ml_veto_log.json', 'a') as log_f:
-                log_f.write(json.dumps(log_entry) + '\n')
-
-            if not ejecutar:
-                print(f"[ML VETO] {symbol} {res['signal']} RECHAZADA (prob={prob:.2f})")
-                return
-            else:
-                print(f"[ML VETO] {symbol} {res['signal']} APROBADA (prob={prob:.2f})")
-
-        except Exception as e:
-            print(f"[ML VETO] Error al evaluar señal: {e}")
-            
-        # ═══════════════ FIN AGENTE ML ═══════════════
-
         signal = {
             'symbol': symbol,
             'side': res['signal'],
@@ -1279,7 +1202,7 @@ def process_signal_for_pair(res, symbol, token, chat_id):
                 trade_id=trade_id
             )
 
-                       # ─── NUEVO: Enviar orden real a Binance Testnet ───
+            # ─── Enviar orden real a Binance Testnet ───
             if enable_live_trading:
                 try:
                     real_side = "BUY" if res['signal'] == "LONG" else "SELL"
@@ -1288,10 +1211,8 @@ def process_signal_for_pair(res, symbol, token, chat_id):
                         "side": real_side,
                         "quantity": trade['contracts']
                     })
-                    # ─── Registrar respuesta del exchange ───
                     with open("exchange_log.json", "a") as log_ex:
                         log_ex.write(json.dumps({"timestamp": datetime.datetime.now().isoformat(), "symbol": symbol, "side": real_side, "response": order}) + "\n")
-                    # ─── Fin del registro ───
                     if order.get("error"):
                         st.warning(f"⚠️ Orden real rechazada: {order['error']}")
                     else:
@@ -1311,6 +1232,7 @@ def process_signal_for_pair(res, symbol, token, chat_id):
                     explanation=res.get('explanation', '')
                 )
                 st.session_state['last_telegram_signal_id'] = signal_id
+
 def update_pair_state(pair, res, price):
     if trader.get_open_position(pair) is not None:
         if pair in st.session_state['pair_states']:
@@ -1351,7 +1273,6 @@ if auto and now - st.session_state['last_analysis'] > 60:
             if price:
                 st.session_state['backend_price'][current_pair] = price
             engine = get_engine(current_pair)
-            # ─── USAR BALANCE REAL SI EL CHECKBOX ESTÁ ACTIVO ───
             if use_real_balance:
                 try:
                     engine.capital = exec_mgr.get_balance("USDT")
@@ -1376,7 +1297,6 @@ if run_btn:
         if price:
             st.session_state['backend_price'][pair] = price
         engine = get_engine(pair)
-        # ─── USAR BALANCE REAL SI EL CHECKBOX ESTÁ ACTIVO ───
         if use_real_balance:
             try:
                 engine.capital = exec_mgr.get_balance("USDT")
@@ -1520,7 +1440,6 @@ if closed_trades:
 st.markdown("---")
 st.markdown('<div class="sec-title">Performance Overview</div>', unsafe_allow_html=True)
 
-# ─── USAR BALANCE REAL SI EL CHECKBOX ESTÁ ACTIVO ───
 if use_real_balance:
     try:
         balance_ps = exec_mgr.get_balance("USDT")
@@ -1529,7 +1448,6 @@ if use_real_balance:
 else:
     balance_ps = trader.get_balance()
 
-# Para el cálculo de drawdown en modo real usamos el peak del paper_state o el balance actual
 paper_state = {}
 if os.path.exists("paper_state.json"):
     with open("paper_state.json", "r") as f:

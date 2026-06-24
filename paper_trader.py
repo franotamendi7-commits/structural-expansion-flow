@@ -227,7 +227,7 @@ class PaperTrader:
         # TP1 parcial (60%)
         if not partial_done and tp1:
             if (side == "LONG" and current_price >= tp1) or (side == "SHORT" and current_price <= tp1):
-                pnl_partial = self.close_position(symbol, exit_price=tp1, reason="take_profit_partial", close_percent=0.6)
+                pnl_partial = self.close_position(symbol, exit_price=tp1, reason="take_profit", close_percent=1.0)
                 if symbol in self.open_positions:
                     pos = self.open_positions[symbol]
                     pos["partial_tp1_done"] = True
