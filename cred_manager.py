@@ -181,11 +181,13 @@ def get_credentials_or_prompt(encrypted_path: Path = DEFAULT_ENCRYPTED_PATH,
         st.session_state[key_session_state] = creds
         st.sidebar.success("✅ Credenciales cargadas")
         return creds
-    except InvalidToken:
-        st.sidebar.error("❌ Password incorrecta")
-        return None
     except Exception as e:
-        st.sidebar.error(f"❌ Error: {e}")
+        # Wrong master password raises cryptography.fernet.InvalidToken.
+        # Match it without relying on the name being importable.
+        if type(e).__name__ == "InvalidToken" or "InvalidToken" in str(type(e)):
+            st.sidebar.error("❌ Password incorrecta")
+        else:
+            st.sidebar.error(f"❌ Error: {e}")
         return None
 
 
