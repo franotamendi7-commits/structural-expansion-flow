@@ -694,15 +694,22 @@ def init_session_state():
     st.session_state._prev_live_trading = live
 
     if rebuild:
-        # Build exchange client only if live trading is ON and creds are loaded
+        # Build exchange client only if live trading is ON and creds are available.
+        # Creds come from (1) decrypted credentials.enc, or (2) env vars
+        # (testnet) so keys never need to be pasted in chat.
         exchange_client = None
-        if live and CRED_MANAGER_AVAILABLE:
+        if live:
             ak = st.session_state.get("binance_api_key")
             sk = st.session_state.get("binance_api_secret")
+            use_testnet = bool(st.session_state.get("use_testnet", True))
+            if not (ak and sk):
+                ak = os.environ.get("BINANCE_TESTNET_API_KEY") or os.environ.get("BINANCE_API_KEY")
+                sk = os.environ.get("BINANCE_TESTNET_API_SECRET") or os.environ.get("BINANCE_API_SECRET")
+                if os.environ.get("USE_TESTNET") is not None:
+                    use_testnet = os.environ.get("USE_TESTNET", "true").lower() != "false"
             if ak and sk:
                 try:
                     from execution_manager import ExecutionManager
-                    use_testnet = bool(st.session_state.get("use_testnet", True))
                     exchange_client = ExecutionManager(ak, sk, testnet=use_testnet)
                     logger.info(f"ExecutionManager built (testnet={use_testnet})")
                 except Exception as e:
