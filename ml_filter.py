@@ -8,7 +8,8 @@ _features_cols = None
 def cargar_modelo():
     global _model, _features_cols
     with open('ml_model.pkl', 'rb') as f:
-        _model, _features_cols = pickle.load(f)
+        _model = pickle.load(f)                 # ✅ Solo cargamos el modelo
+        _features_cols = _model.feature_names_in_  # ✅ Las features las da el modelo
 
 def debe_ejecutar(signal_features):
     global _model, _features_cols

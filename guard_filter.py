@@ -7,7 +7,8 @@ _features_cols = None
 def cargar_modelo():
     global _model, _features_cols
     with open("guard_model.pkl", "rb") as f:
-        _model, _features_cols = pickle.load(f)
+        _model = pickle.load(f)                 # ✅ solo el modelo
+        _features_cols = _model.feature_names_in_  # ✅ features desde el modelo
 
 def debe_revivir(features, filtro_fijo_aprobo):
     global _model, _features_cols

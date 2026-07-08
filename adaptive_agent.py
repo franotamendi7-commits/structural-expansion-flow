@@ -1,24 +1,16 @@
 """
 Agente Adaptativo Multi‑Par para STRUCTURAL EXPANSION FLOW
 ===========================================================
-Reemplaza al motor Fase 5 original y al viejo ML Agent.
-Usa el detector de régimen y las micro‑estrategias desarrolladas
-por Z.ia, empaquetadas como un módulo reutilizable.
+CORRECCIONES FINALES:
+- SL en _range_signal: swing ± 1.5*ATR
+- TP en _range_signal: 3.0×rango (Variante G)
+- TP en _trend_signal: 3×ATR (Variante G)
 """
 
 import numpy as np
 import pandas as pd
 import requests
 from datetime import datetime, timezone
-
-# ----------------------------- CONFIG -----------------------------
-SYMBOL_CONFIG = {
-    'BTCUSDT': {'supertrend_multiplier': 2.8, 'choppiness_neutral_threshold': 74.0, 'fibonacci_days': 30, 'tp_ratio': 1.5},
-    'ETHUSDT': {'supertrend_multiplier': 2.6, 'choppiness_neutral_threshold': 72.0, 'fibonacci_days': 30, 'tp_ratio': 1.8},
-    'SOLUSDT': {'supertrend_multiplier': 2.3, 'choppiness_neutral_threshold': 70.0, 'fibonacci_days': 90, 'tp_ratio': 2.0},
-    'XRPUSDT': {'supertrend_multiplier': 2.3, 'choppiness_neutral_threshold': 68.0, 'fibonacci_days': 60, 'tp_ratio': 1.8},
-    'BNBUSDT': {'supertrend_multiplier': 2.8, 'choppiness_neutral_threshold': 68.0, 'fibonacci_days': 30, 'tp_ratio': 1.6},
-}
 
 # ------------------------- INDICADORES ----------------------------
 def _ema(series, period):
@@ -27,21 +19,37 @@ def _ema(series, period):
 def _atr(df, period=14):
     high, low, close = df['high'], df['low'], df['close']
     prev_close = close.shift(1)
-    tr = pd.concat([high - low, (high - prev_close).abs(), (low - prev_close).abs()], axis=1).max(axis=1)
+    tr = pd.concat([
+        high - low,
+        (high - prev_close).abs(),
+        (low - prev_close).abs()
+    ], axis=1).max(axis=1)
     return tr.rolling(period, min_periods=period).mean()
 
 def _adx(df, period=14):
     high, low, close = df['high'], df['low'], df['close']
+    prev_close = close.shift(1)
     up_move = high.diff()
     down_move = -low.diff()
-    plus_dm = np.where((up_move > down_move) & (up_move > 0), up_move, 0.0)
-    minus_dm = np.where((down_move > up_move) & (down_move > 0), down_move, 0.0)
-    tr = np.maximum(high - low, np.abs(high - close.shift(1)))
-    atr_w = pd.Series(tr).ewm(alpha=1/period, min_periods=period, adjust=False).mean()
-    plus_di = 100 * pd.Series(plus_dm).ewm(alpha=1/period, min_periods=period, adjust=False).mean() / atr_w.replace(0, np.nan)
-    minus_di = 100 * pd.Series(minus_dm).ewm(alpha=1/period, min_periods=period, adjust=False).mean() / atr_w.replace(0, np.nan)
-    dx = 100 * np.abs(plus_di - minus_di) / (plus_di + minus_di + 1e-9)
-    return pd.Series(dx).ewm(alpha=1/period, min_periods=2*period, adjust=False).mean()
+    plus_dm = pd.Series(
+        np.where((up_move > down_move) & (up_move > 0), up_move, 0.0),
+        index=df.index
+    )
+    minus_dm = pd.Series(
+        np.where((down_move > up_move) & (down_move > 0), down_move, 0.0),
+        index=df.index
+    )
+    # True Range completo (3 términos, alineado por índice)
+    tr = pd.concat([
+        high - low,
+        (high - prev_close).abs(),
+        (low - prev_close).abs()
+    ], axis=1).max(axis=1)
+    atr_w = tr.ewm(alpha=1/period, min_periods=period, adjust=False).mean()
+    plus_di = 100 * plus_dm.ewm(alpha=1/period, min_periods=period, adjust=False).mean() / atr_w.replace(0, np.nan)
+    minus_di = 100 * minus_dm.ewm(alpha=1/period, min_periods=period, adjust=False).mean() / atr_w.replace(0, np.nan)
+    dx = 100 * (plus_di - minus_di).abs() / (plus_di + minus_di + 1e-9)
+    return dx.ewm(alpha=1/period, min_periods=2*period, adjust=False).mean()
 
 def _bollinger_width(df, period=20, num_std=2.0):
     middle = df['close'].rolling(period, min_periods=period).mean()
@@ -54,7 +62,6 @@ def _volume_ratio(df, period=20):
 
 # ---------------------- DETECTOR DE RÉGIMEN -----------------------
 def _detect_regime(df_1h):
-    """Clasifica el régimen actual en RANGO, TENDENCIA_ALCISTA, TENDENCIA_BAJISTA o RUPTURA."""
     if len(df_1h) < 50:
         return 'INDEFINIDO'
     adx_val = _adx(df_1h).iloc[-1]
@@ -73,7 +80,7 @@ def _detect_regime(df_1h):
 
 # --------------------- MICRO‑ESTRATEGIAS --------------------------
 def _range_signal(df_1h, regime, atr_val):
-    """RANGO: rebote en swings recientes."""
+    """RANGO: SL = swing ± 1.5*ATR, TP = 3.0×rango."""
     if len(df_1h) < 7:
         return None
     close = df_1h['close'].iloc[-1]
@@ -85,14 +92,20 @@ def _range_signal(df_1h, regime, atr_val):
         return None
     tol = 0.002 * close
     rango = swing_h - swing_l
+    # LONG
     if abs(low - swing_l) < tol and close > swing_l:
-        return {'direction': 'LONG', 'entry': close, 'sl': swing_h, 'tp1': close + 0.5 * rango}
+        sl = swing_l - 1.5 * atr_val
+        tp = close + 3.0 * rango
+        return {'direction': 'LONG', 'entry': close, 'sl': sl, 'tp1': tp}
+    # SHORT
     if abs(high - swing_h) < tol and close < swing_h:
-        return {'direction': 'SHORT', 'entry': close, 'sl': swing_l, 'tp1': close - 0.5 * rango}
+        sl = swing_h + 1.5 * atr_val
+        tp = close - 3.0 * rango
+        return {'direction': 'SHORT', 'entry': close, 'sl': sl, 'tp1': tp}
     return None
 
 def _trend_signal(df_1h, regime, atr_val):
-    """TENDENCIA: corrección del 20‑30% del ATR del último impulso."""
+    """TENDENCIA: SL en swing contra, TP = 3×ATR."""
     if len(df_1h) < 20 or atr_val == 0:
         return None
     close = df_1h['close'].iloc[-1]
@@ -101,17 +114,17 @@ def _trend_signal(df_1h, regime, atr_val):
         recent_high = df_1h['high'].iloc[-20:-1].max()
         pullback = (recent_high - close) / atr_val
         if 0.2 <= pullback <= 0.3:
-            return {'direction': 'LONG', 'entry': close, 'sl': swing_against, 'tp1': close + 2 * atr_val}
+            return {'direction': 'LONG', 'entry': close, 'sl': swing_against, 'tp1': close + 3 * atr_val}
     else:
         swing_against = df_1h['high'].iloc[-10:-1].max()
         recent_low = df_1h['low'].iloc[-20:-1].min()
         pullback = (close - recent_low) / atr_val
         if 0.2 <= pullback <= 0.3:
-            return {'direction': 'SHORT', 'entry': close, 'sl': swing_against, 'tp1': close - 2 * atr_val}
+            return {'direction': 'SHORT', 'entry': close, 'sl': swing_against, 'tp1': close - 3 * atr_val}
     return None
 
 def _breakout_signal(df_1h, regime, atr_val, vol_ratio):
-    """RUPTURA: cierre fuera del rango de 6 velas con volumen > 1.5×."""
+    """RUPTURA: SL en centro del rango, TP = 1.5×rango."""
     if len(df_1h) < 7 or vol_ratio < 1.5:
         return None
     close = df_1h['close'].iloc[-1]
@@ -129,20 +142,12 @@ def _breakout_signal(df_1h, regime, atr_val, vol_ratio):
 
 # ------------------------- AGENTE PRINCIPAL -----------------------
 class AdaptiveAgent:
-    """
-    Agente adaptativo que reemplaza a ScalpingEngine + ML Agent.
-    Detecta el régimen y aplica la micro‑estrategia correcta.
-    """
     def __init__(self, symbol, capital=100.0, risk_pct=0.01):
         self.symbol = symbol
         self.capital = capital
         self.risk_pct = risk_pct
-        self.config = SYMBOL_CONFIG.get(symbol, SYMBOL_CONFIG['BTCUSDT'])
-        self._df_1h = pd.DataFrame()
-        self._df_15m = pd.DataFrame()
 
     def _fetch_klines(self, interval, limit=100):
-        """Descarga velas recientes desde Binance."""
         url = "https://api.binance.com/api/v3/klines"
         params = {"symbol": self.symbol, "interval": interval, "limit": limit}
         r = requests.get(url, params=params, timeout=10)
@@ -157,27 +162,21 @@ class AdaptiveAgent:
         } for k in data]
 
     def run(self):
-        """Ejecuta el análisis y devuelve una señal (o None)."""
-        # Obtener datos frescos
         klines_1h = self._fetch_klines('1h', 120)
         if not klines_1h:
             return {'signal': 'WAIT', 'setup_state': 'INVALID', 'explanation': 'Sin datos'}
 
-        # Construir DataFrames
         df_1h = pd.DataFrame(klines_1h)
         df_1h['datetime'] = pd.to_datetime(df_1h['timestamp'], unit='ms', utc=True)
         df_1h = df_1h.set_index('datetime').sort_index()
 
-        # Detectar régimen
         regime = _detect_regime(df_1h)
         if regime == 'INDEFINIDO':
             return {'signal': 'WAIT', 'setup_state': 'INVALID', 'explanation': 'Régimen indefinido'}
 
-        # Calcular ATR en 1h para las estrategias
         atr_val = _atr(df_1h).iloc[-1]
         vol_ratio = _volume_ratio(df_1h).iloc[-1] if len(df_1h) >= 20 else 1.0
 
-        # Generar señal según régimen
         trade = None
         if regime == 'RANGO':
             trade = _range_signal(df_1h, regime, atr_val)
@@ -189,19 +188,32 @@ class AdaptiveAgent:
         if trade is None:
             return {'signal': 'WAIT', 'setup_state': 'FORMING', 'explanation': f'Régimen {regime} sin señal válida'}
 
-        # Construir respuesta compatible con el resto del bot
+        entry = trade['entry']
+        sl = trade['sl']
+        risk_distance = abs(entry - sl)
+        if risk_distance < 1e-9:
+            return {'signal': 'WAIT', 'setup_state': 'INVALID', 'explanation': f'Régimen {regime}: SL coincide con entry'}
+
+        direction = trade['direction']
+        if direction == 'LONG' and sl >= entry:
+            return {'signal': 'WAIT', 'setup_state': 'INVALID', 'explanation': f'Régimen {regime}: SL inválido'}
+        if direction == 'SHORT' and sl <= entry:
+            return {'signal': 'WAIT', 'setup_state': 'INVALID', 'explanation': f'Régimen {regime}: SL inválido'}
+
+        contracts = (self.capital * self.risk_pct) / risk_distance
+
         return {
-            'signal': trade['direction'],
-            'direction': trade['direction'].lower(),
+            'signal': direction,
+            'direction': direction.lower(),
             'setup_state': 'EXECUTE',
             'score': 85,
             'trade': {
-                'entry': trade['entry'],
-                'sl': trade['sl'],
+                'entry': entry,
+                'sl': sl,
                 'tp1': trade['tp1'],
                 'tp2': None,
                 'risk_usd': self.capital * self.risk_pct,
-                'contracts': (self.capital * self.risk_pct) / abs(trade['entry'] - trade['sl'])
+                'contracts': contracts
             },
             'explanation': f"Régimen: {regime} | Entrada adaptativa",
             'market_phase': regime.lower(),
