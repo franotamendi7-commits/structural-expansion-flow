@@ -298,12 +298,14 @@ class BaseBot:
     """
 
     def __init__(self, symbol: str, risk_pct: float, min_order_size: float,
-                 initial_equity: float = INITIAL_EQUITY, name: str = None):
+                 initial_equity: float = INITIAL_EQUITY, name: str = None,
+                 exchange_client=None):
         self.name = name or symbol
         self.symbol = symbol
         self.risk_pct = risk_pct
         self.min_order_size = min_order_size
         self.initial_equity = initial_equity
+        self._exchange_client = exchange_client  # ExecutionManager or None (paper)
 
         # State
         self.equity = initial_equity
@@ -317,14 +319,69 @@ class BaseBot:
         # Thread safety
         self._lock = threading.RLock()
 
-    # ---- override these with your exchange adapter ----
-    def place_order(self, side: str, size: float, price: float) -> float:
-        """side='BUY'/'SELL', returns fill_price. Override with exchange adapter."""
-        return price
+    # ---- exchange adapter ----
+    def _round_size(self, size: float) -> float:
+        """Round order size to the symbol's min lot size (decimals)."""
+        if size is None or size <= 0:
+            return 0.0
+        step = self.min_order_size
+        if step <= 0:
+            return size
+        decimals = max(0, -int(math.floor(math.log10(step))))
+        rounded = round(size, decimals)
+        return rounded if rounded >= step else 0.0
 
-    def close_order(self, size: float, price: float) -> float:
-        """Closes position, returns fill_price. Override with exchange adapter."""
-        return price
+    def place_order(self, side: str, size: float, price: float) -> Optional[float]:
+        """
+        side='BUY'/'SELL'. Returns fill_price, or None if the order failed.
+        If no exchange_client is set (paper mode), returns the planned price.
+        """
+        if self._exchange_client is None:
+            return price
+        size = self._round_size(size)
+        if size <= 0:
+            logger.warning(f"[{self.name}] order skipped: size rounded to 0")
+            return None
+        try:
+            result = self._exchange_client.execute_signal({
+                "symbol": self.symbol,
+                "side": side,
+                "quantity": size,
+            })
+            if result.get("error"):
+                logger.error(f"[{self.name}] order error: {result['error']}")
+                return None
+            return float(result.get("executed_price", price) or price)
+        except Exception as e:
+            logger.error(f"[{self.name}] place_order exception: {e}")
+            return None
+
+    def close_order(self, size: float, price: float) -> Optional[float]:
+        """
+        Closes the open position (reduce_only). Returns fill_price, or None.
+        If no exchange_client is set (paper mode), returns the planned price.
+        """
+        if self._exchange_client is None:
+            return price
+        if self.position is None:
+            return price
+        size = self._round_size(size)
+        if size <= 0:
+            return None
+        close_side = "SELL" if self.position["dir"] == 1 else "BUY"
+        try:
+            result = self._exchange_client.execute_signal({
+                "symbol": self.symbol,
+                "side": close_side,
+                "quantity": size,
+            }, reduce_only=True)
+            if result.get("error"):
+                logger.error(f"[{self.name}] close error: {result['error']}")
+                return None
+            return float(result.get("executed_price", price) or price)
+        except Exception as e:
+            logger.error(f"[{self.name}] close_order exception: {e}")
+            return None
 
     def get_equity(self) -> float:
         """Returns current account equity in USD. Override to read real balance."""
@@ -394,6 +451,10 @@ class BaseBot:
                 if hit is not None:
                     raw_exit = pos["tp_raw"] if hit == "tp" else pos["stop_raw"]
                     exit_fill = apply_exit_slippage(raw_exit, pos["dir"], atr5)
+
+                    # Send real close order if live trading is enabled
+                    if self._exchange_client is not None:
+                        self.close_order(pos["size"], raw_exit)
                     if pos["dir"] == 1:
                         gross = pos["size"] * (exit_fill - pos["entry_fill"])
                     else:
@@ -454,25 +515,34 @@ class BaseBot:
                 return f"[{self.name}] size too small ({size:.6f} < {self.min_order_size})"
 
             entry_fill = apply_entry_slippage(sig["entry"], sig["dir"], atr5)
+            side = "BUY" if sig["dir"] == 1 else "SELL"
+
+            # Send real entry order if live trading is enabled
+            actual_fill = entry_fill
+            actual_size = size
+            if self._exchange_client is not None:
+                fill = self.place_order(side, size, entry_fill)
+                if fill is None:
+                    return f"[{self.name}] order rejected"
+                actual_fill = fill
+
             self.position = {
                 "dir": sig["dir"],
-                "size": size,
-                "entry_fill": entry_fill,
+                "size": actual_size,
+                "entry_fill": actual_fill,
                 "stop_raw": sig["stop"],
                 "tp_raw": sig["tp"],
                 "entry_time": now,
             }
-            side = "BUY" if sig["dir"] == 1 else "SELL"
             extra = ""
             if "regime" in sig:
                 extra = f" regime={sig['regime']}"
             if "dev" in sig:
                 extra += f" dev={sig['dev']:+.3f}%"
-            print(f"[{self.name}] ENTRY {side} size={size:.6f} "
-                  f"entry={entry_fill:.4f} stop={sig['stop']:.4f} "
+            print(f"[{self.name}] ENTRY {side} size={actual_size:.6f} "
+                  f"entry={actual_fill:.4f} stop={sig['stop']:.4f} "
                   f"tp={sig['tp']:.4f} equity={equity:.2f}{extra}")
-            # self.place_order(side, size, entry_fill)
-            return f"[{self.name}] entered {side} size={size:.6f}{extra}"
+            return f"[{self.name}] entered {side} size={actual_size:.6f}{extra}"
 
     def status(self) -> Dict[str, Any]:
         """Return current state snapshot."""
@@ -557,13 +627,14 @@ class BtcBot(BaseBot):
         "LATERAL": dict(vwap_n=15, dev_thr=0.75, sl_mult=1.5, tp_mult=1.0),
     }
 
-    def __init__(self, initial_equity: float = INITIAL_EQUITY):
+    def __init__(self, initial_equity: float = INITIAL_EQUITY, exchange_client=None):
         super().__init__(
             symbol="BTCUSDT",
             risk_pct=0.0075,            # adjusted for production (DD p95 mitigation)
             min_order_size=0.001,       # Binance Futures lot for BTCUSDT
             initial_equity=initial_equity,
             name="BTC",
+            exchange_client=exchange_client,
         )
 
     def _fetch_data(self):
@@ -626,13 +697,14 @@ get_recent_data = _cached_get_recent_data
 # ETH BOT — VWAP breakout, SL=2.0, TP=1.0
 # ============================================================
 class EthBot(BaseBot):
-    def __init__(self, initial_equity: float = INITIAL_EQUITY):
+    def __init__(self, initial_equity: float = INITIAL_EQUITY, exchange_client=None):
         super().__init__(
             symbol="ETHUSDT",
             risk_pct=0.0085,            # adjusted for production (DD p95 mitigation)
             min_order_size=0.001,
             initial_equity=initial_equity,
             name="ETH",
+            exchange_client=exchange_client,
         )
 
     def check_signal(self, df15: pd.DataFrame) -> Optional[Dict[str, Any]]:
@@ -646,13 +718,14 @@ class EthBot(BaseBot):
 # SOL BOT — VWAP breakout, SL=1.5, TP=0.5
 # ============================================================
 class SolBot(BaseBot):
-    def __init__(self, initial_equity: float = INITIAL_EQUITY):
+    def __init__(self, initial_equity: float = INITIAL_EQUITY, exchange_client=None):
         super().__init__(
             symbol="SOLUSDT",
             risk_pct=0.01,
             min_order_size=0.01,
             initial_equity=initial_equity,
             name="SOL",
+            exchange_client=exchange_client,
         )
 
     def check_signal(self, df15: pd.DataFrame) -> Optional[Dict[str, Any]]:
@@ -666,13 +739,14 @@ class SolBot(BaseBot):
 # XRP BOT — VWAP breakout, SL=1.5, TP=0.5
 # ============================================================
 class XrpBot(BaseBot):
-    def __init__(self, initial_equity: float = INITIAL_EQUITY):
+    def __init__(self, initial_equity: float = INITIAL_EQUITY, exchange_client=None):
         super().__init__(
             symbol="XRPUSDT",
             risk_pct=0.01,
             min_order_size=0.1,
             initial_equity=initial_equity,
             name="XRP",
+            exchange_client=exchange_client,
         )
 
     def check_signal(self, df15: pd.DataFrame) -> Optional[Dict[str, Any]]:
@@ -686,13 +760,14 @@ class XrpBot(BaseBot):
 # BNB BOT — VWAP breakout, SL=1.5, TP=1.0
 # ============================================================
 class BnbBot(BaseBot):
-    def __init__(self, initial_equity: float = INITIAL_EQUITY):
+    def __init__(self, initial_equity: float = INITIAL_EQUITY, exchange_client=None):
         super().__init__(
             symbol="BNBUSDT",
             risk_pct=0.01,
             min_order_size=0.01,
             initial_equity=initial_equity,
             name="BNB",
+            exchange_client=exchange_client,
         )
 
     def check_signal(self, df15: pd.DataFrame) -> Optional[Dict[str, Any]]:
@@ -717,13 +792,20 @@ class MultiBotSystem:
         system.stop()                 # stops all threads
     """
 
-    def __init__(self, initial_equity_per_bot: float = INITIAL_EQUITY):
+    def __init__(self, initial_equity_per_bot: float = INITIAL_EQUITY,
+                 exchange_client=None):
+        self.exchange_client = exchange_client
         self.bots = {
-            "BTC": BtcBot(initial_equity=initial_equity_per_bot),
-            "ETH": EthBot(initial_equity=initial_equity_per_bot),
-            "SOL": SolBot(initial_equity=initial_equity_per_bot),
-            "XRP": XrpBot(initial_equity=initial_equity_per_bot),
-            "BNB": BnbBot(initial_equity=initial_equity_per_bot),
+            "BTC": BtcBot(initial_equity=initial_equity_per_bot,
+                         exchange_client=exchange_client),
+            "ETH": EthBot(initial_equity=initial_equity_per_bot,
+                         exchange_client=exchange_client),
+            "SOL": SolBot(initial_equity=initial_equity_per_bot,
+                         exchange_client=exchange_client),
+            "XRP": XrpBot(initial_equity=initial_equity_per_bot,
+                         exchange_client=exchange_client),
+            "BNB": BnbBot(initial_equity=initial_equity_per_bot,
+                         exchange_client=exchange_client),
         }
         self._threads = {}
         self._stop_event = threading.Event()

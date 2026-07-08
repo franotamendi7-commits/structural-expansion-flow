@@ -685,10 +685,31 @@ def init_session_state():
       - #8: Start stop_monitor thread if available
     """
     # ---- Robust MultiBotSystem init (ajuste #5) ----
-    if "system" not in st.session_state:
+    # Rebuild the system when Live Trading is toggled, so the exchange client
+    # (ExecutionManager) is attached/detached accordingly.
+    live = st.session_state.get("live_trading", False)
+    prev_live = st.session_state.get("_prev_live_trading", None)
+    rebuild = ("system" not in st.session_state) or (
+        prev_live is not None and prev_live != live)
+    st.session_state._prev_live_trading = live
+
+    if rebuild:
+        # Build exchange client only if live trading is ON and creds are loaded
+        exchange_client = None
+        if live and CRED_MANAGER_AVAILABLE:
+            ak = st.session_state.get("binance_api_key")
+            sk = st.session_state.get("binance_api_secret")
+            if ak and sk:
+                try:
+                    from execution_manager import ExecutionManager
+                    use_testnet = bool(st.session_state.get("use_testnet", True))
+                    exchange_client = ExecutionManager(ak, sk, testnet=use_testnet)
+                    logger.info(f"ExecutionManager built (testnet={use_testnet})")
+                except Exception as e:
+                    logger.error(f"ExecutionManager build failed: {e}")
         if MULTI_BOT_AVAILABLE:
             try:
-                system = MultiBotSystem()
+                system = MultiBotSystem(exchange_client=exchange_client)
                 # Verify each bot individually
                 bot_errors = {}
                 for name, bot in list(system.bots.items()):
