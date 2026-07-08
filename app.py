@@ -745,10 +745,14 @@ def init_session_state():
             st.session_state.bot_errors = {}
 
     # ---- Toggles & UI state ----
+    # If testnet env creds are present, default Live Trading + Auto-refresh ON
+    # so the bot runs immediately (testnet only, fake money).
+    _env_creds = bool(os.environ.get("BINANCE_TESTNET_API_KEY")
+                     or os.environ.get("BINANCE_API_KEY"))
     if "auto_refresh" not in st.session_state:
-        st.session_state.auto_refresh = False
+        st.session_state.auto_refresh = _env_creds
     if "live_trading" not in st.session_state:
-        st.session_state.live_trading = False
+        st.session_state.live_trading = _env_creds
     if "use_real_balance" not in st.session_state:
         st.session_state.use_real_balance = False
     if "paused" not in st.session_state:
