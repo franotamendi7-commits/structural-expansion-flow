@@ -149,6 +149,19 @@ except Exception as e:
     RISK_MANAGER_AVAILABLE = False
     logger.warning(f"risk_manager not available: {e}")
 
+try:
+    from cred_manager import (
+        get_credentials_or_prompt as _get_creds,
+        clear_credentials as _clear_creds,
+        DEFAULT_ENCRYPTED_PATH as _CREDS_PATH,
+    )
+    CRED_MANAGER_AVAILABLE = True
+    logger.info("cred_manager loaded")
+except Exception as e:
+    MODULE_ERRORS["cred_manager"] = str(e)
+    CRED_MANAGER_AVAILABLE = False
+    logger.warning(f"cred_manager not available: {e}")
+
 
 # ============================================================
 # CONFIGURATION
@@ -1649,6 +1662,7 @@ def render_sidebar():
             ("paper_trader", PAPER_TRADER_AVAILABLE),
             ("execution_manager", EXECUTION_MANAGER_AVAILABLE),
             ("risk_manager", RISK_MANAGER_AVAILABLE),
+            ("cred_manager", CRED_MANAGER_AVAILABLE),
         ]
         for name, available in mods:
             icon = "✅" if available else "❌"
@@ -1698,6 +1712,25 @@ def render_sidebar():
                     st.error("Error enviando mensaje")
             else:
                 st.warning("Token y Chat ID requeridos")
+
+        st.markdown("---")
+
+        # ---- Credentials (Binance Testnet/Mainnet) — patrón de v2 ----
+        st.markdown("#### 🔐 Credentials")
+        if CRED_MANAGER_AVAILABLE:
+            creds = _get_creds()
+            if creds:
+                st.session_state.binance_api_key = creds.get("BINANCE_API_KEY", "")
+                st.session_state.binance_api_secret = creds.get("BINANCE_API_SECRET", "")
+                st.session_state.use_testnet = creds.get("USE_TESTNET", True)
+                if st.button("🔓 Cerrar sesión (logout)"):
+                    _clear_creds()
+                    st.rerun()
+            else:
+                st.caption("Sin credenciales. El bot corre en PAPER mode "
+                           "con saldo virtual.")
+        else:
+            st.caption("cred_manager no disponible (instalá `cryptography`).")
 
         st.markdown("---")
 
