@@ -685,13 +685,18 @@ def init_session_state():
       - #8: Start stop_monitor thread if available
     """
     # ---- Robust MultiBotSystem init (ajuste #5) ----
-    # Rebuild the system when Live Trading is toggled, so the exchange client
-    # (ExecutionManager) is attached/detached accordingly.
+    # Rebuild the system when Live Trading is toggled OR when credentials are
+    # newly unlocked, so the exchange client (ExecutionManager) attaches.
     live = st.session_state.get("live_trading", False)
+    has_creds = bool(st.session_state.get("binance_api_key")
+                     and st.session_state.get("binance_api_secret"))
     prev_live = st.session_state.get("_prev_live_trading", None)
+    prev_creds = st.session_state.get("_prev_has_creds", None)
     rebuild = ("system" not in st.session_state) or (
-        prev_live is not None and prev_live != live)
+        prev_live is not None and prev_live != live) or (
+        prev_creds is not None and prev_creds != has_creds)
     st.session_state._prev_live_trading = live
+    st.session_state._prev_has_creds = has_creds
 
     if rebuild:
         # Build exchange client only if live trading is ON and creds are available.
@@ -745,14 +750,16 @@ def init_session_state():
             st.session_state.bot_errors = {}
 
     # ---- Toggles & UI state ----
-    # If testnet env creds are present, default Live Trading + Auto-refresh ON
-    # so the bot runs immediately (testnet only, fake money).
+    # If testnet env creds or credentials.enc are present, default
+    # Live Trading + Auto-refresh ON so the bot runs immediately
+    # (testnet only, fake money).
     _env_creds = bool(os.environ.get("BINANCE_TESTNET_API_KEY")
                      or os.environ.get("BINANCE_API_KEY"))
+    _enc_exists = Path("credentials.enc").exists()
     if "auto_refresh" not in st.session_state:
-        st.session_state.auto_refresh = _env_creds
+        st.session_state.auto_refresh = _env_creds or _enc_exists
     if "live_trading" not in st.session_state:
-        st.session_state.live_trading = _env_creds
+        st.session_state.live_trading = _env_creds or _enc_exists
     if "use_real_balance" not in st.session_state:
         st.session_state.use_real_balance = False
     if "paused" not in st.session_state:
