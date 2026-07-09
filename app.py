@@ -31,6 +31,25 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 
+# Persistent equity history file
+_EQUITY_HISTORY_PATH = Path(__file__).parent / "equity_history.json"
+
+def _load_equity_history():
+    if _EQUITY_HISTORY_PATH.exists():
+        try:
+            with open(_EQUITY_HISTORY_PATH) as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return []
+
+def _save_equity_history(history: list):
+    try:
+        with open(_EQUITY_HISTORY_PATH, "w") as f:
+            json.dump(history[-2000:], f, indent=2)
+    except Exception:
+        pass
+
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -143,11 +162,40 @@ except Exception as e:
 try:
     import risk_manager
     RISK_MANAGER_AVAILABLE = True
+    _risk_manager_instance = risk_manager.RiskManager()
     logger.info("risk_manager loaded")
 except Exception as e:
     MODULE_ERRORS["risk_manager"] = str(e)
     RISK_MANAGER_AVAILABLE = False
+    _risk_manager_instance = None
     logger.warning(f"risk_manager not available: {e}")
+
+try:
+    import db
+    DB_AVAILABLE = True
+    logger.info("db (SQLite) loaded")
+except Exception as e:
+    MODULE_ERRORS["db"] = str(e)
+    DB_AVAILABLE = False
+    logger.warning(f"db not available: {e}")
+
+try:
+    import agent_dashboard
+    AGENT_DASHBOARD_AVAILABLE = True
+    logger.info("agent_dashboard loaded")
+except Exception as e:
+    MODULE_ERRORS["agent_dashboard"] = str(e)
+    AGENT_DASHBOARD_AVAILABLE = False
+    logger.warning(f"agent_dashboard not available: {e}")
+
+try:
+    import webhook_tradingview
+    WEBHOOK_AVAILABLE = True
+    logger.info("webhook_tradingview loaded")
+except Exception as e:
+    MODULE_ERRORS["webhook_tradingview"] = str(e)
+    WEBHOOK_AVAILABLE = False
+    logger.warning(f"webhook_tradingview not available: {e}")
 
 try:
     from cred_manager import (
@@ -660,6 +708,19 @@ def format_dd_alert(dd_pct: float, equity: float) -> str:
     )
 
 
+def format_trade_close_alert(trade: dict, bot_name: str) -> str:
+    dir_str = "LONG" if trade.get("dir") == 1 else "SHORT"
+    return (
+        f"📊 *TRADE CLOSED*\n"
+        f"`{bot_name}` {dir_str}\n"
+        f"Entry: `${trade.get('entry', 0):.4f}` → Exit: `${trade.get('exit', 0):.4f}`\n"
+        f"PnL: `{'🟢' if trade.get('net', 0) > 0 else '🔴'}${trade.get('net', 0):+.4f}`\n"
+        f"Reason: `{trade.get('exit_reason', '?')}` · Hold: `{trade.get('hold_minutes', 0):.1f}min`\n"
+        f"Equity: `${trade.get('equity_after', 0):.2f}`\n"
+        f"Time: `{datetime.now(timezone.utc).isoformat()}`"
+    )
+
+
 def format_daily_summary(system_status: Dict) -> str:
     ps = system_status.get("portfolio_summary", {})
     return (
@@ -773,7 +834,7 @@ def init_session_state():
     if "last_daily_summary" not in st.session_state:
         st.session_state.last_daily_summary = None
     if "equity_history" not in st.session_state:
-        st.session_state.equity_history = []
+        st.session_state.equity_history = _load_equity_history()
     if "price_cache" not in st.session_state:
         st.session_state.price_cache = {}
     if "last_alert_check" not in st.session_state:
@@ -802,6 +863,24 @@ def init_session_state():
         except Exception as e:
             logger.warning(f"WS feed start failed (will use REST): {e}")
             st.session_state.ws_feed_started = False
+
+    # ---- Migrate históricos a SQLite ----
+    if DB_AVAILABLE:
+        try:
+            db.migrate_trade_history()
+        except Exception as e:
+            logger.warning(f"Trade history migration failed: {e}")
+
+    # ---- Start webhook thread ----
+    if "webhook_started" not in st.session_state:
+        st.session_state.webhook_started = False
+    if WEBHOOK_AVAILABLE and not st.session_state.webhook_started:
+        try:
+            webhook_tradingview.start_webhook_thread()
+            st.session_state.webhook_started = True
+            logger.info("TradingView webhook thread started")
+        except Exception as e:
+            logger.warning(f"Webhook start failed: {e}")
 
     # ---- Start stop_monitor thread (ajuste #8) ----
     if "stop_monitor_started" not in st.session_state:
@@ -948,11 +1027,35 @@ def run_system_tick() -> Dict[str, str]:
                 "equity": ps["total_equity"],
                 "net_pnl": ps["net_pnl"],
             })
-            # Keep last 500 points
-            if len(st.session_state.equity_history) > 500:
-                st.session_state.equity_history = st.session_state.equity_history[-500:]
+            # Keep last 2000 points + persist
+            if len(st.session_state.equity_history) > 2000:
+                st.session_state.equity_history = st.session_state.equity_history[-2000:]
+            _save_equity_history(st.session_state.equity_history)
         except Exception as e:
             logger.warning(f"Equity history update failed: {e}")
+
+        # Record into DB + Risk Manager
+        if DB_AVAILABLE:
+            try:
+                for name, bot in system.bots.items():
+                    db.save_equity_snapshot(name, bot.equity)
+                    for t in bot.trade_log[-1:]:
+                        db.save_trade(t, name)
+            except Exception as e:
+                logger.warning(f"DB record failed: {e}")
+
+        if RISK_MANAGER_AVAILABLE and _risk_manager_instance:
+            try:
+                ps = system.portfolio_summary()
+                for name, bot in system.bots.items():
+                    if bot.trade_log:
+                        t = bot.trade_log[-1]
+                        _risk_manager_instance.record_result(
+                            t["net"], t.get("equity_before", ps["total_equity"]), t.get("equity_after", ps["total_equity"])
+                        )
+            except Exception as e:
+                logger.warning(f"Risk manager record failed: {e}")
+
         return results
     except Exception as e:
         logger.error(f"Tick failed: {e}", exc_info=True)
@@ -967,8 +1070,19 @@ def check_alerts():
     if system is None:
         return
     try:
+        # Trade closed alerts (recently closed trades not yet notified)
+        if "notified_trade_ids" not in st.session_state:
+            st.session_state.notified_trade_ids = set()
+        for name, bot in system.bots.items():
+            for t in bot.trade_log:
+                trade_id = (t.get("exit_time", ""), t.get("entry", 0), t.get("exit", 0))
+                if trade_id not in st.session_state.notified_trade_ids:
+                    send_telegram(st.session_state.tg_token, st.session_state.tg_chat_id,
+                                  format_trade_close_alert(t, name))
+                    st.session_state.notified_trade_ids.add(trade_id)
+
         ps = system.portfolio_summary()
-        # Drawdown alert (if DD > 5%)
+        # Drawdown alert (if < 5%)
         # We don't have real-time DD, use equity vs max equity in history
         if len(st.session_state.equity_history) > 5:
             equities = [h["equity"] for h in st.session_state.equity_history]
@@ -1587,6 +1701,47 @@ def render_risk_management():
             """)
 
 
+def render_persistent_history():
+    """Show the persistent trade history from trade_history.json
+    (survives dashboard restarts)."""
+    st.html('<div class="section-title">Trade History Persistido</div>')
+    try:
+        from multi_bot import _load_trade_history
+        trades = _load_trade_history()
+    except Exception:
+        trades = []
+    if trades:
+        df = pd.DataFrame(trades)
+        if "exit_time" in df.columns:
+            df = df.sort_values("exit_time", ascending=False).head(20)
+            df["exit_time"] = pd.to_datetime(df["exit_time"]).dt.strftime("%m-%d %H:%M")
+        if "dir" in df.columns:
+            df["Dir"] = df["dir"].apply(lambda x: "LONG" if x == 1 else "SHORT")
+        if "net" in df.columns:
+            df["Net PnL"] = df["net"].apply(lambda x: f"${x:+.4f}")
+        if "entry" in df.columns:
+            df["Entry"] = df["entry"].apply(lambda x: f"{x:.4f}")
+        if "exit" in df.columns:
+            df["Exit"] = df["exit"].apply(lambda x: f"{x:.4f}")
+        if "equity_after" in df.columns:
+            df["Equity"] = df["equity_after"].apply(lambda x: f"${x:.2f}")
+        cols = ["Time", "bot_name", "Dir", "Entry", "Exit", "Net PnL", "Equity", "exit_reason", "hold_minutes"]
+        cols = [c for c in cols if c in df.columns]
+        if cols:
+            st.dataframe(df[cols], use_container_width=True, hide_index=True)
+        total = len(trades)
+        wins = sum(1 for t in trades if t.get("net", 0) > 0)
+        wr = wins / total * 100 if total else 0
+        total_pnl = sum(t.get("net", 0) for t in trades)
+        st.caption(f"Total: {total} trades, WR: {wr:.1f}%, PnL: ${total_pnl:+.2f} (persistido en trade_history.json)")
+    else:
+        st.html("""
+        <div class="glass-card" style="text-align: center; padding: 20px; color: var(--text-muted);">
+            Historial persistente vacío. Aparecerán trades aquí cuando se cierren.
+        </div>
+        """)
+
+
 def _export_trades_csv():
     """Export the last 100 closed trades to CSV (ajuste #7)."""
     system = st.session_state.system
@@ -1702,6 +1857,9 @@ def render_sidebar():
             ("execution_manager", EXECUTION_MANAGER_AVAILABLE),
             ("risk_manager", RISK_MANAGER_AVAILABLE),
             ("cred_manager", CRED_MANAGER_AVAILABLE),
+            ("db (SQLite)", DB_AVAILABLE),
+            ("agent_dashboard", AGENT_DASHBOARD_AVAILABLE),
+            ("webhook_tradingview", WEBHOOK_AVAILABLE),
         ]
         for name, available in mods:
             icon = "✅" if available else "❌"
@@ -1960,9 +2118,50 @@ def main():
     render_header()
     render_metrics_row()
     render_pairs_table()
+
+    # Agent Dashboard (agentes vivos/muertos)
+    if AGENT_DASHBOARD_AVAILABLE:
+        try:
+            system = st.session_state.system
+            ps = system.portfolio_summary() if system else None
+            st.html(agent_dashboard.render_agent_html(ps))
+        except Exception:
+            pass
+
     render_charts()
     render_regime_and_activity()
+
+    # Risk Management (expandido)
     render_risk_management()
+
+    # Risk pasivo card
+    if RISK_MANAGER_AVAILABLE and _risk_manager_instance:
+        st.html('<div class="section-title">Risk Status (Pasivo)</div>')
+        st.html(_risk_manager_instance.get_risk_status_html())
+
+    # Agent detail table
+    if AGENT_DASHBOARD_AVAILABLE:
+        st.html(agent_dashboard.render_agent_detail())
+
+    # Webhook latest signal
+    if WEBHOOK_AVAILABLE:
+        sig = webhook_tradingview.get_latest_signal()
+        if sig:
+            dir_str = "LONG" if sig["dir"] == 1 else "SHORT"
+            st.html(f"""
+            <div class="section-title">Última Señal Webhook</div>
+            <div class="glass-card" style="padding: 14px 20px;">
+                <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
+                    <span style="color: var(--gold-light); font-weight: 600;">{sig['symbol']}</span>
+                    <span class="signal-badge {'signal-long' if sig['dir']==1 else 'signal-short'}">{dir_str}</span>
+                    <span style="font-family: 'JetBrains Mono', monospace;">${sig['price']:.4f}</span>
+                    <span style="color: var(--text-muted); font-size: 0.75rem;">{sig.get('strategy', '?')}</span>
+                    <span style="color: var(--text-muted); font-size: 0.75rem;">{sig.get('received_at', '')[:19]}</span>
+                </div>
+            </div>
+            """)
+    with st.expander("📁 Historial Persistido (trade_history.json)", expanded=False):
+        render_persistent_history()
     render_footer()
 
     # Show system error if any

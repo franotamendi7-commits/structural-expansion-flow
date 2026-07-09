@@ -33,12 +33,176 @@
 """
 import time
 import math
+import json
+import logging
 import threading
 import requests
 import numpy as np
 import pandas as pd
+from pathlib import Path
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, Any
+
+logger = logging.getLogger(__name__)
+
+# File path for persistent trade history
+TRADE_HISTORY_PATH = Path(__file__).parent / "trade_history.json"
+
+def _load_trade_history() -> list:
+    if TRADE_HISTORY_PATH.exists():
+        try:
+            with open(TRADE_HISTORY_PATH) as f:
+                return json.load(f)
+        except Exception as e:
+            logger.warning(f"Could not load trade history: {e}")
+    return []
+
+def _save_trade_history(trades: list):
+    try:
+        with open(TRADE_HISTORY_PATH, "w") as f:
+            json.dump(trades, f, indent=2, default=str)
+    except Exception as e:
+        logger.warning(f"Could not save trade history: {e}")
+
+
+# ─── ML Features computation (for ML Filter + Guard Agent) ────────
+def compute_ml_features(symbol: str, df15: pd.DataFrame, df5: pd.DataFrame,
+                        df1h: pd.DataFrame = None, direction: int = 1) -> dict:
+    """
+    Build feature dict for ML filter from the same data the bot uses.
+    Falls back to defaults for features that need additional data.
+    """
+    features = {}
+
+    # Choppiness Index (15m, period 14)
+    h15 = df15['high'].values[-14:]
+    l15 = df15['low'].values[-14:]
+    c15 = df15['close'].values[-14:]
+    if len(h15) >= 14:
+        tr = np.maximum(h15 - l15, np.abs(np.concatenate([[c15[0]], c15[:-1]]) - h15))
+        tr = np.maximum(tr, np.abs(np.concatenate([[c15[0]], c15[:-1]]) - l15))
+        atr_sum = tr.sum()
+        total_range = h15.max() - l15.min()
+        if total_range > 0:
+            features['ci_value'] = float(np.clip(100 * np.log10(atr_sum / total_range) / np.log10(14), 0, 100))
+        else:
+            features['ci_value'] = 50.0
+    else:
+        features['ci_value'] = 50.0
+
+    # Williams %R 5m
+    h5 = df5['high'].values[-14:]
+    l5 = df5['low'].values[-14:]
+    c5_close = float(df5['close'].values[-1]) if len(df5) > 0 else 0
+    if len(h5) >= 14 and (h5.max() - l5.min()) != 0:
+        features['wr_5m'] = float(np.clip(-100 * (h5.max() - c5_close) / (h5.max() - l5.min()), -100, 0))
+    else:
+        features['wr_5m'] = -50.0
+
+    # Williams %R 15m
+    if len(h15) >= 14 and (h15.max() - l15.min()) != 0:
+        c15_close = float(df15['close'].values[-1])
+        features['wr_15m'] = float(np.clip(-100 * (h15.max() - c15_close) / (h15.max() - l15.min()), -100, 0))
+    else:
+        features['wr_15m'] = -50.0
+
+    # Hour of day
+    features['hour_of_day'] = datetime.now(timezone.utc).hour
+
+    # Direction
+    features['direction_long'] = 1 if direction == 1 else 0
+
+    # Volume ratio 5m
+    vol5 = df5['volume'].values[-20:] if len(df5) >= 20 else df5['volume'].values
+    mean_vol = vol5.mean() if len(vol5) > 0 else 0
+    features['vol_ratio_5m'] = float(vol5[-1] / mean_vol) if mean_vol > 0 and len(vol5) > 0 else 1.0
+
+    # Body ratio 4h (try to build from 15m)
+    if len(df15) >= 4:
+        grp = df15.iloc[-4:]  # last 4 x 15m ≈ 1h
+        features['body_ratio_4h'] = float(abs(grp['close'].iloc[-1] - grp['open'].iloc[0]) /
+                                           max(grp['high'].max() - grp['low'].min(), 0.001))
+    else:
+        features['body_ratio_4h'] = 0.0
+
+    # Fibonacci defaults
+    features['fib_low_key'] = 0.0
+    features['fib_high_key'] = 0.5
+    features['fib_width'] = 0.0
+
+    # Supertrend defaults
+    features['st_aligned'] = 0
+    features['st_bias_bullish'] = 0
+    features['st_bias_bearish'] = 0
+
+    # Momentum defaults
+    features['mom_score'] = 0.0
+
+    # Phase defaults
+    features['phase_compressing'] = 0
+    features['phase_expanding'] = 0
+    features['phase_trending'] = 0
+
+    # Mom direction defaults
+    features['mom_bullish'] = 0
+    features['mom_bearish'] = 0
+    features['mom_neutral'] = 1
+
+    return features
+
+
+_ml_filter_loaded = False
+_guard_model_loaded = False
+
+def _load_ml_models():
+    global _ml_filter_loaded, _guard_model_loaded
+    try:
+        from ml_filter import cargar_modelo as cargar_ml
+        cargar_ml()
+        _ml_filter_loaded = True
+    except Exception:
+        pass
+    try:
+        from guard_filter import cargar_modelo as cargar_guard
+        cargar_guard()
+        _guard_model_loaded = True
+    except Exception:
+        pass
+
+
+def should_execute_trade(features: dict, df15: pd.DataFrame, df5: pd.DataFrame,
+                         df1h: pd.DataFrame = None) -> tuple:
+    """
+    Returns (execute: bool, reason: str, ml_prob: float or None).
+    Applies ML Filter + Guard Agent if models are available.
+    """
+    execute = True
+    reason = "no_ml"
+    ml_prob = None
+
+    if _ml_filter_loaded:
+        try:
+            from ml_filter import debe_ejecutar
+            execute, prob = debe_ejecutar(features)
+            ml_prob = prob
+            if not execute:
+                reason = f"ml_veto(p={prob:.3f})"
+            else:
+                reason = f"ml_approve(p={prob:.3f})"
+        except Exception as e:
+            logger.warning(f"ML filter error: {e}")
+
+    if execute and _guard_model_loaded:
+        try:
+            from guard_filter import debe_revivir
+            guard_ok = debe_revivir(features, True)
+            if not guard_ok:
+                execute = False
+                reason = f"guard_veto"
+        except Exception as e:
+            logger.warning(f"Guard filter error: {e}")
+
+    return execute, reason, ml_prob
 
 
 # ============================================================
@@ -319,6 +483,9 @@ class BaseBot:
         # Thread safety
         self._lock = threading.RLock()
 
+        # Load persistent trade history at boot
+        self._all_trades = _load_trade_history()
+
     # ---- exchange adapter ----
     def _round_size(self, size: float) -> float:
         """Round order size to the symbol's min lot size (decimals)."""
@@ -489,6 +656,27 @@ class BaseBot:
                               f"pause until {self.cooldown_until.isoformat()}")
 
                     self.position = None
+
+                    # Persist to global trade history
+                    trade_record = {
+                        "exit_time": now.isoformat(),
+                        "dir": pos["dir"],
+                        "entry": pos["entry_fill"],
+                        "exit": exit_fill,
+                        "outcome": "win" if net > 0 else "loss",
+                        "net": round(net, 4),
+                        "equity_after": round(self.equity, 2),
+                        "hold_minutes": round((now - pos["entry_time"]).total_seconds() / 60, 1),
+                        "exit_reason": hit,
+                        "regime": getattr(self, "last_regime", None) or "single",
+                        "symbol": self.symbol,
+                        "bot_name": self.name,
+                        "entry_time": pos["entry_time"].isoformat(),
+                        "size": pos["size"],
+                    }
+                    self._all_trades.append(trade_record)
+                    _save_trade_history(self._all_trades)
+
                     return f"[{self.name}] exited via {hit}, net={net:+.4f}"
                 return f"[{self.name}] in position, no exit this bar"
 
@@ -503,6 +691,15 @@ class BaseBot:
                 return f"[{self.name}] no signal"
 
             self.last_signal = sig
+
+            # ML Filter + Guard Agent check
+            df1h_ml = getattr(self, "_df1h", None)
+            features = compute_ml_features(self.symbol, df15, df5, df1h_ml, sig.get("dir", 1))
+            execute, ml_reason, ml_prob = should_execute_trade(features, df15, df5, df1h_ml)
+            if not execute:
+                print(f"[{self.name}] ML BLOCKED: {ml_reason} (prob={ml_prob:.3f})" if ml_prob is not None
+                      else f"[{self.name}] ML BLOCKED: {ml_reason}")
+                return f"[{self.name}] blocked by {ml_reason}"
 
             # Enter
             equity = self.get_equity()
@@ -795,6 +992,7 @@ class MultiBotSystem:
     def __init__(self, initial_equity_per_bot: float = INITIAL_EQUITY,
                  exchange_client=None):
         self.exchange_client = exchange_client
+        _load_ml_models()
         self.bots = {
             "BTC": BtcBot(initial_equity=initial_equity_per_bot,
                          exchange_client=exchange_client),
@@ -807,8 +1005,29 @@ class MultiBotSystem:
             "BNB": BnbBot(initial_equity=initial_equity_per_bot,
                          exchange_client=exchange_client),
         }
+        # When live, sync virtual equity with the real exchange balance
+        if exchange_client is not None:
+            self._sync_equity_from_exchange()
         self._threads = {}
         self._stop_event = threading.Event()
+
+    def _sync_equity_from_exchange(self):
+        """When live, set each bot's equity to a share of the real account
+        balance, so sizing and the dashboard reflect actual testnet funds."""
+        try:
+            bal = self.exchange_client.get_balance("USDT")
+            if bal and bal > 0:
+                per = bal / len(self.bots)
+                for bot in self.bots.values():
+                    bot.initial_equity = per
+                    bot.equity = per
+                logger.info(f"Equity synced from exchange: ${bal:.2f} "
+                            f"-> ${per:.2f}/bot")
+            else:
+                logger.warning(f"Exchange balance unavailable/zero ({bal}); "
+                               f"keeping default equity")
+        except Exception as e:
+            logger.warning(f"Could not sync balance from exchange: {e}")
 
     def run_once(self) -> Dict[str, str]:
         """Run a single synchronous tick of all 5 bots (sequential)."""
