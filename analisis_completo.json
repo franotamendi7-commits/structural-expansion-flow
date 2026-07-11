@@ -1,0 +1,260 @@
+{
+  "period": "2026-01-01\u21922026-07-11",
+  "thresholds": {
+    "sin_rf": {
+      "trades": 298,
+      "wr": 27.9,
+      "pnl": -216.02,
+      "ret": -43.2,
+      "per_symbol": {
+        "BTCUSDT": {
+          "trades": 81,
+          "wr": 29.6,
+          "pnl": -54.27
+        },
+        "ETHUSDT": {
+          "trades": 68,
+          "wr": 36.8,
+          "pnl": -20.78
+        },
+        "SOLUSDT": {
+          "trades": 75,
+          "wr": 17.3,
+          "pnl": -86.73
+        },
+        "XRPUSDT": {
+          "trades": 24,
+          "wr": 37.5,
+          "pnl": -10.98
+        },
+        "BNBUSDT": {
+          "trades": 50,
+          "wr": 24.0,
+          "pnl": -43.26
+        }
+      }
+    },
+    "th_0.3": {
+      "trades": 297,
+      "wr": 27.9,
+      "pnl": -213.98,
+      "ret": -42.8,
+      "accepted": 297,
+      "rejected": 1,
+      "per_symbol": {
+        "BTCUSDT": {
+          "trades": 81,
+          "wr": 29.6,
+          "pnl": -54.27
+        },
+        "ETHUSDT": {
+          "trades": 68,
+          "wr": 36.8,
+          "pnl": -20.78
+        },
+        "SOLUSDT": {
+          "trades": 74,
+          "wr": 17.6,
+          "pnl": -84.69
+        },
+        "XRPUSDT": {
+          "trades": 24,
+          "wr": 37.5,
+          "pnl": -10.98
+        },
+        "BNBUSDT": {
+          "trades": 50,
+          "wr": 24.0,
+          "pnl": -43.26
+        }
+      }
+    },
+    "th_0.4": {
+      "trades": 233,
+      "wr": 30.5,
+      "pnl": -150.61,
+      "ret": -30.12,
+      "accepted": 233,
+      "rejected": 65,
+      "per_symbol": {
+        "BTCUSDT": {
+          "trades": 73,
+          "wr": 28.8,
+          "pnl": -50.75
+        },
+        "ETHUSDT": {
+          "trades": 48,
+          "wr": 47.9,
+          "pnl": 0.61
+        },
+        "SOLUSDT": {
+          "trades": 51,
+          "wr": 21.6,
+          "pnl": -51.24
+        },
+        "XRPUSDT": {
+          "trades": 19,
+          "wr": 36.8,
+          "pnl": -8.75
+        },
+        "BNBUSDT": {
+          "trades": 42,
+          "wr": 21.4,
+          "pnl": -40.49
+        }
+      }
+    },
+    "th_0.5": {
+      "trades": 85,
+      "wr": 25.9,
+      "pnl": -68.17,
+      "ret": -13.63,
+      "accepted": 85,
+      "rejected": 213,
+      "per_symbol": {
+        "BTCUSDT": {
+          "trades": 25,
+          "wr": 24.0,
+          "pnl": -21.72
+        },
+        "ETHUSDT": {
+          "trades": 15,
+          "wr": 26.7,
+          "pnl": -10.52
+        },
+        "SOLUSDT": {
+          "trades": 14,
+          "wr": 28.6,
+          "pnl": -9.39
+        },
+        "XRPUSDT": {
+          "trades": 7,
+          "wr": 14.3,
+          "pnl": -9.92
+        },
+        "BNBUSDT": {
+          "trades": 24,
+          "wr": 29.2,
+          "pnl": -16.63
+        }
+      }
+    },
+    "th_0.55": {
+      "trades": 40,
+      "wr": 12.5,
+      "pnl": -50.41,
+      "ret": -10.08,
+      "accepted": 40,
+      "rejected": 258,
+      "per_symbol": {
+        "BTCUSDT": {
+          "trades": 11,
+          "wr": 9.1,
+          "pnl": -14.82
+        },
+        "ETHUSDT": {
+          "trades": 6,
+          "wr": 16.7,
+          "pnl": -5.33
+        },
+        "SOLUSDT": {
+          "trades": 8,
+          "wr": 0.0,
+          "pnl": -14.0
+        },
+        "XRPUSDT": {
+          "trades": 5,
+          "wr": 0.0,
+          "pnl": -9.73
+        },
+        "BNBUSDT": {
+          "trades": 10,
+          "wr": 30.0,
+          "pnl": -6.53
+        }
+      }
+    },
+    "th_0.6": {
+      "trades": 12,
+      "wr": 8.3,
+      "pnl": -16.92,
+      "ret": -3.38,
+      "accepted": 12,
+      "rejected": 286,
+      "per_symbol": {
+        "BTCUSDT": {
+          "trades": 3,
+          "wr": 0.0,
+          "pnl": -4.41
+        },
+        "ETHUSDT": {
+          "trades": 1,
+          "wr": 0.0,
+          "pnl": -1.1
+        },
+        "SOLUSDT": {
+          "trades": 4,
+          "wr": 0.0,
+          "pnl": -7.43
+        },
+        "XRPUSDT": {
+          "trades": 1,
+          "wr": 0.0,
+          "pnl": -1.9
+        },
+        "BNBUSDT": {
+          "trades": 3,
+          "wr": 33.3,
+          "pnl": -2.07
+        }
+      }
+    },
+    "th_0.7": {
+      "trades": 0,
+      "wr": 0,
+      "pnl": 0,
+      "ret": 0,
+      "accepted": 0,
+      "rejected": 298,
+      "per_symbol": {
+        "BTCUSDT": {
+          "trades": 0,
+          "wr": 0,
+          "pnl": 0
+        },
+        "ETHUSDT": {
+          "trades": 0,
+          "wr": 0,
+          "pnl": 0
+        },
+        "SOLUSDT": {
+          "trades": 0,
+          "wr": 0,
+          "pnl": 0
+        },
+        "XRPUSDT": {
+          "trades": 0,
+          "wr": 0,
+          "pnl": 0
+        },
+        "BNBUSDT": {
+          "trades": 0,
+          "wr": 0,
+          "pnl": 0
+        }
+      }
+    }
+  },
+  "walkforward": {
+    "train": 298,
+    "train_winners": 83,
+    "train_acc": 92.3,
+    "test": 0,
+    "test_wr": 0,
+    "test_ret": 0,
+    "test_pnl": 0,
+    "sin_rf_test": 0,
+    "sin_rf_test_wr": 0,
+    "sin_rf_test_ret": 0
+  }
+}
