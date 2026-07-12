@@ -96,6 +96,18 @@
 - **SHA256 chain**: cada señal en `signal_log.json` tiene hash encadenado (inmutable)
 - **Daemon reiniciado** con PID 26895 (nuevo código anti-fail + hash chain)
 
+### Últimos cambios (commit 32f4534)
+- **On-chain audit**: `chain_audit.py` — firma Ethereum de cada trade en signal_log.json
+- **Pine Script publication-ready**: inputs claros, performance table, equity curve, descripción
+- **X poster integrado**: thread daemon en `run_bots_background.py`, solo se activa con API keys
+- **Logs removidos del repo**: `.gitignore` actualizado, logs ya no se trackean
+- **Daemon reiniciado**: PID 28644 con nuevo código
+
+### Pendiente manual
+- **GitHub Pages**: ir a Settings → Pages → Source: master branch /docs folder (o esperar al Actions workflow)
+- **TradingView**: copiar `vwap_strategy.pine` → Pine Editor → Publicar en comunidad
+- **X/Twitter**: crear proyecto en developer.twitter.com, agregar claves a `.streamlit/secrets.toml`
+
 ### Archivos clave
 - `multi_bot.py` — Sistema VWAP breakout (profitable)
 - `walkforward_institucional_rf.py` — Backtest institucional + RF
