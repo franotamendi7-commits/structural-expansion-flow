@@ -1,0 +1,8 @@
+tunnel: vwap-breakout
+credentials-file: /Users/franciscootamendi/ai-agents-v3/.cloudflared/credentials.json
+ingress:
+  - hostname: vwap-breakout.trycloudflare.com
+    service: http://localhost:8501
+  - hostname: api-vwap-breakout.trycloudflare.com
+    service: http://localhost:8585
+  - service: http_status:404

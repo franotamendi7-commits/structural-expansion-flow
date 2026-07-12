@@ -14,3 +14,8 @@ venv/
 dist/
 build/
 .DS_Store
+logs/
+bots_daemon.pid
+*.pid
+.cloudflared/credentials.json
+

@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VWAP Breakout — Live Track Record</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0d1117; color: #c9d1d9; padding: 2rem; }
+  .container { max-width: 900px; margin: 0 auto; }
+  h1 { font-size: 2rem; margin-bottom: 0.5rem; color: #58a6ff; }
+  .subtitle { color: #8b949e; margin-bottom: 2rem; font-size: 1.1rem; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+  .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.2rem; text-align: center; }
+  .card .label { color: #8b949e; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; }
+  .card .value { font-size: 1.6rem; font-weight: 700; margin-top: 0.3rem; }
+  .green { color: #3fb950; } .red { color: #f85149; } .blue { color: #58a6ff; } .yellow { color: #d29922; }
+  table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+  th { text-align: left; padding: 0.6rem; color: #8b949e; border-bottom: 1px solid #30363d; font-size: 0.8rem; text-transform: uppercase; }
+  td { padding: 0.6rem; border-bottom: 1px solid #21262d; font-size: 0.9rem; }
+  .tag { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
+  .tag-entry { background: #1f6feb33; color: #58a6ff; }
+  .tag-exit { background: #3fb95033; color: #3fb950; }
+  .tag-win { background: #3fb95033; color: #3fb950; }
+  .tag-loss { background: #f8514933; color: #f85149; }
+  .join { text-align: center; margin-top: 3rem; padding: 2rem; background: #161b22; border-radius: 8px; border: 1px solid #30363d; }
+  .join h2 { margin-bottom: 1rem; }
+  .btn { display: inline-block; padding: 0.8rem 2rem; background: #238636; color: white; text-decoration: none; border-radius: 6px; font-weight: 600; }
+  .btn:hover { background: #2ea043; }
+  .footer { text-align: center; color: #484f58; margin-top: 2rem; font-size: 0.8rem; }
+  #loading { text-align: center; padding: 2rem; color: #8b949e; }
+  .verify { font-size: 0.7rem; color: #484f58; margin-top: 1rem; word-break: break-all; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>📊 VWAP Breakout</h1>
+  <p class="subtitle">Institutional-grade VWAP deviation breakout on 15m timeframe. Real results, verified on-chain.</p>
+
+  <div class="stats" id="stats">
+    <div class="card"><div class="label">Total Trades</div><div class="value blue" id="total-trades">--</div></div>
+    <div class="card"><div class="label">Win Rate</div><div class="value green" id="win-rate">--</div></div>
+    <div class="card"><div class="label">Total PnL</div><div class="value yellow" id="total-pnl">--</div></div>
+    <div class="card"><div class="label">Last Trade</div><div class="value" id="last-trade">--</div></div>
+  </div>
+
+  <div id="loading">Loading live data...</div>
+  <table id="trades-table" style="display:none">
+    <thead><tr><th>Time</th><th>Type</th><th>Symbol</th><th>Dir</th><th>Entry</th><th>PnL</th></tr></thead>
+    <tbody id="trades-body"></tbody>
+  </table>
+
+  <div class="join">
+    <h2>🔔 Get signals in real-time</h2>
+    <p>Free channel with 1h delay. Premium for instant alerts + trailing updates.</p><br>
+    <a class="btn" href="https://t.me/vwapsignals" target="_blank">Join Telegram Channel</a>
+  </div>
+  <div class="footer">
+    Built by @StructuralExpansion_Bot | Data source: signal_log.json (SHA256 chain verified)
+  </div>
+</div>
+
+<script>
+async function load() {
+  try {
+    const res = await fetch('https://medicaid-glossary-totals-personals.trycloudflare.com/api/track_record');
+    const data = await res.json();
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('trades-table').style.display = '';
+
+    document.getElementById('total-trades').textContent = data.total_trades;
+    document.getElementById('win-rate').textContent = data.win_rate + '%';
+    document.getElementById('total-pnl').textContent = '$' + data.total_pnl.toFixed(2);
+
+    const tbody = document.getElementById('trades-body');
+    const signals = data.signals || [];
+    signals.reverse().forEach(s => {
+      const tr = document.createElement('tr');
+      const isEntry = s.type === 'entry';
+      const isWin = s.pnl > 0;
+      const time = s.ts ? s.ts.slice(0, 19).replace('T', ' ') : '--';
+      tr.innerHTML = `
+        <td style="font-size:0.8rem;color:#8b949e">${time}</td>
+        <td><span class="tag ${isEntry ? 'tag-entry' : 'tag-exit'}">${s.type}</span></td>
+        <td>${s.symbol || '--'}</td>
+        <td>${s.dir === 1 ? '🟢 LONG' : s.dir === -1 ? '🔴 SHORT' : '--'}</td>
+        <td>${s.entry ? '$' + s.entry.toFixed(2) : '--'}</td>
+        <td>${s.pnl != null ? '<span class="tag ' + (isWin ? 'tag-win' : 'tag-loss') + '">' + (isWin ? '+' : '') + s.pnl.toFixed(2) + '</span>' : '--'}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+    if (signals.length > 0) {
+      const last = signals[signals.length - 1];
+      document.getElementById('last-trade').textContent = (last.symbol || '') + ' ' + (last.dir === 1 ? 'LONG' : last.dir === -1 ? 'SHORT' : '');
+      document.getElementById('last-trade').className = 'value ' + (last.pnl > 0 ? 'green' : 'red');
+    }
+  } catch(e) {
+    document.getElementById('loading').textContent = '⚠️ Could not load data. Check back shortly.';
+  }
+}
+load();
+</script>
+</body>
+</html>

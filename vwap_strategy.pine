@@ -1,0 +1,84 @@
+//@version=5
+strategy("VWAP Breakout Strategy", overlay=true, initial_capital=500, default_qty_type=strategy.percent_of_equity, default_qty_value=100, commission_type=strategy.commission.percent, commission_value=0.05, pyramiding=0)
+
+// ───── Inputs ─────
+vwap_len = input.int(12, "VWAP Length")
+dev_thr  = input.float(1.0, "Deviation Threshold %")
+sl_atr   = input.float(2.0, "SL (ATR multiple)")
+tp_atr   = input.float(2.0, "TP (ATR multiple)")
+atr_len  = input.int(14, "ATR Length")
+
+// ───── VWAP ─────
+tp = (high + low + close) / 3
+vp = tp * volume
+vwap_val = ta.sma(vp, vwap_len) / ta.sma(volume, vwap_len)
+dev = (close - vwap_val) / vwap_val * 100
+atr_val = ta.atr(atr_len)
+
+// ───── Signals ─────
+long_cond  = ta.crossunder(dev, -dev_thr)
+short_cond = ta.crossover(dev, dev_thr)
+
+// ───── Entry ─────
+if long_cond
+    strategy.entry("LONG", strategy.long)
+    strategy.exit("LONG EXIT", "LONG", stop=close - sl_atr * atr_val, limit=close + tp_atr * atr_val)
+
+if short_cond
+    strategy.entry("SHORT", strategy.short)
+    strategy.exit("SHORT EXIT", "SHORT", stop=close + sl_atr * atr_val, limit=close - tp_atr * atr_val)
+
+// ───── VWAP Plot ─────
+plot(vwap_val, "VWAP", color=color.blue, linewidth=2)
+hline(0, "Center", color=color.gray, linestyle=hline.style_dotted)
+
+// ───── Deviation Bands ─────
+upper_band = vwap_val * (1 + dev_thr / 100)
+lower_band = vwap_val * (1 - dev_thr / 100)
+plot(upper_band, "Upper", color=color.red, style=plot.style_circles, linewidth=1)
+plot(lower_band, "Lower", color=color.green, style=plot.style_circles, linewidth=1)
+
+// ───── Entry Signals on Chart ─────
+plotshape(long_cond,  "LONG",  shape.triangleup,   location.belowbar, color.green,  size=size.small)
+plotshape(short_cond, "SHORT", shape.triangledown, location.abovebar, color.red,    size=size.small)
+
+// ───── Performance Table ─────
+var table perf = table.new(position.top_right, 2, 6, bgcolor=color.new(color.black, 70), border_width=1)
+if barstate.islast
+    net_profit = strategy.netprofit
+    gross_profit = strategy.grossprofit
+    gross_loss = abs(strategy.grossloss) > 0 ? abs(strategy.grossloss) : 1
+    total_trades = strategy.wintrades + strategy.losstrades
+    win_rate = total_trades > 0 ? strategy.wintrades / total_trades * 100 : 0
+    profit_factor = gross_profit / gross_loss
+    sharpe_ratio = total_trades > 5 ? strategy.netprofit / (strategy.trades.size() > 1 ? strategy.trades.size() : 1) : 0
+
+    // Max drawdown calculation
+    var float peak = na
+    var float dd = 0.0
+    peak := na(peak) ? strategy.equity : math.max(peak, strategy.equity)
+    dd := peak > 0 ? (strategy.equity - peak) / peak * 100 : dd
+
+    table.cell(perf, 0, 0, "VWAP BREAKOUT", text_color=color.yellow, text_size=size.small)
+    table.cell(perf, 0, 1, "Return", text_color=color.gray, text_size=size.tiny)
+    table.cell(perf, 1, 1, str.tostring(net_profit / initial_capital * 100, "#.##") + "%", text_color=color.green, text_size=size.tiny)
+    table.cell(perf, 0, 2, "Win Rate", text_color=color.gray, text_size=size.tiny)
+    table.cell(perf, 1, 2, str.tostring(win_rate, "#.##") + "%", text_color=color.green, text_size=size.tiny)
+    table.cell(perf, 0, 3, "Profit Factor", text_color=color.gray, text_size=size.tiny)
+    table.cell(perf, 1, 3, str.tostring(profit_factor, "#.##"), text_color=color.green, text_size=size.tiny)
+    table.cell(perf, 0, 4, "Max DD", text_color=color.gray, text_size=size.tiny)
+    color dd_color = dd > -10 ? color.lime : color.red
+    table.cell(perf, 1, 4, str.tostring(dd, "#.##") + "%", text_color=dd_color, text_size=size.tiny)
+    table.cell(perf, 0, 5, "Trades", text_color=color.gray, text_size=size.tiny)
+    table.cell(perf, 1, 5, str.tostring(total_trades), text_color=color.white, text_size=size.tiny)
+
+// ───── Alert ─────
+alertcondition(long_cond,  "VWAP LONG",  "VWAP Breakout LONG")
+alertcondition(short_cond, "VWAP SHORT", "VWAP Breakout SHORT")
+
+// ───── Equity Curve (separate pane) ─────
+var float equity_line = na
+equity_line := strategy.equity
+plot(equity_line, "Equity", color=color.blue, linewidth=2, display=display.pane)
+
+// Live signals: https://t.me/vwapsignals

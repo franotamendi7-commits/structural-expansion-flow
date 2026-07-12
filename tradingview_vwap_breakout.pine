@@ -1,0 +1,57 @@
+//@version=5
+indicator("VWAP Breakout Signals", overlay=true, format=format.price)
+
+// ─── Inputs ───
+vwap_len = input.int(12, "VWAP Length")
+dev_thr  = input.float(1.0, "Deviation Threshold %")
+sl_atr   = input.float(2.0, "SL (ATR multiple)")
+tp_atr   = input.float(2.0, "TP (ATR multiple)")
+atr_len  = input.int(14, "ATR Length")
+
+// ─── VWAP ───
+tp = (high + low + close) / 3
+vwap_val = ta.vwap(tp, volume, vwap_len)
+dev = (close - vwap_val) / vwap_val * 100
+
+// ─── ATR ───
+atr_val = ta.atr(atr_len)
+
+// ─── Signal Cross ───
+long_cond  = ta.crossunder(dev, -dev_thr)
+short_cond = ta.crossover(dev, dev_thr)
+
+// ─── Plot ───
+plot(vwap_val, "VWAP", color=color.blue, linewidth=2)
+hline(0, "Center", color=color.gray, linestyle=hline.style_dotted)
+
+// Bands at +/- deviation threshold
+upper_band = vwap_val * (1 + dev_thr / 100)
+lower_band = vwap_val * (1 - dev_thr / 100)
+plot(upper_band, "Upper", color=color.red, style=plot.style_circles, linewidth=1)
+plot(lower_band, "Lower", color=color.green, style=plot.style_circles, linewidth=1)
+
+// ─── Signals ───
+plotshape(long_cond,  "LONG",  shape.triangleup,   location.belowbar, color.green,  size=size.small)
+plotshape(short_cond, "SHORT", shape.triangledown, location.abovebar, color.red,    size=size.small)
+
+// ─── TP/SL Labels ───
+if long_cond
+    sl_price = close - sl_atr * atr_val
+    tp_price = close + tp_atr * atr_val
+    label.new(bar_index, low, "SL: $" + str.tostring(sl_price, "#.##"), style=label.style_label_down, color=color.red, textcolor=color.white, size=size.tiny)
+    label.new(bar_index, high, "TP: $" + str.tostring(tp_price, "#.##"), style=label.style_label_up, color=color.green, textcolor=color.white, size=size.tiny)
+
+if short_cond
+    sl_price = close + sl_atr * atr_val
+    tp_price = close - tp_atr * atr_val
+    label.new(bar_index, high, "SL: $" + str.tostring(sl_price, "#.##"), style=label.style_label_down, color=color.red, textcolor=color.white, size=size.tiny)
+    label.new(bar_index, low, "TP: $" + str.tostring(tp_price, "#.##"), style=label.style_label_up, color=color.green, textcolor=color.white, size=size.tiny)
+
+// ─── Alert Conditions ───
+alertcondition(long_cond,  "VWAP LONG",  "VWAP Breakout LONG signal")
+alertcondition(short_cond, "VWAP SHORT", "VWAP Breakout SHORT signal")
+
+// ═══════════════════════════════════════════════════════════
+//  Get real-time signals + live track record:
+//  https://t.me/vwapsignals
+// ═══════════════════════════════════════════════════════════

@@ -81,6 +81,21 @@
 - `historical_deep_results.json` — Resultados 2023-2026
 - `xgb_historical.json` / `xgb_historical_features.json` — XGBoost entrenado con 3 años
 
+## Estado Actual (Jul 12 — Post-Sesión Activa)
+### Infraestructura Pública
+- **Túnel Cloudflare activo**: Dashboard en `https://chelsea-alien-arrangement-fax.trycloudflare.com`
+- **API REST pública**: `https://medicaid-glossary-totals-personals.trycloudflare.com`
+  - `GET /api/last_signal` — última señal
+  - `GET /api/track_record` — track record completo
+  - `GET /api/bot_status` — estado del bot
+- **API server**: `api_server.py` corriendo en :8585
+- **Landing page**: `docs/index.html` con equity chart vivo + track record
+
+### Mejoras Implementadas
+- **Anti-fail risk**: drawdown progresivo (−3% → 0.75×, −6% → 0.5×, −10% → STOP total)
+- **SHA256 chain**: cada señal en `signal_log.json` tiene hash encadenado (inmutable)
+- **Daemon reiniciado** con PID 26895 (nuevo código anti-fail + hash chain)
+
 ### Archivos clave
 - `multi_bot.py` — Sistema VWAP breakout (profitable)
 - `walkforward_institucional_rf.py` — Backtest institucional + RF

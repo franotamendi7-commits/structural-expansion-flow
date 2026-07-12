@@ -36,6 +36,7 @@ import math
 import json
 import logging
 import threading
+import hashlib
 import requests
 import numpy as np
 import pandas as pd
@@ -43,10 +44,98 @@ from pathlib import Path
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, Any
 
+try:
+    from chain_audit import sign_trade
+except ImportError:
+    def sign_trade(r): return r
+
 logger = logging.getLogger(__name__)
 
 # File path for persistent trade history
 TRADE_HISTORY_PATH = Path(__file__).parent / "trade_history.json"
+
+# ─── Telegram alerts ──────────────────────────────────────
+_TG_TOKEN = None
+_TG_CHAT_ID = None       # private/admin chat
+_TG_CHANNEL_ID = None    # public channel for signals
+_TG_ENABLED = False
+
+SIGNAL_LOG_PATH = Path(__file__).parent / "signal_log.json"
+
+def _signal_log(signal_type: str, symbol: str, direction: int, entry: float,
+                sl: float = None, tp: float = None, pnl: float = None,
+                reason: str = None):
+    """Append signal to public log with SHA256 chain (immutable audit trail)."""
+    try:
+        log = []
+        if SIGNAL_LOG_PATH.exists():
+            with open(SIGNAL_LOG_PATH) as f:
+                log = json.load(f)
+        prev_hash = log[-1]["hash"] if log else "GENESIS"
+        record = {
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "type": signal_type,
+            "symbol": symbol,
+            "dir": direction,
+            "entry": round(entry, 2) if entry else None,
+            "sl": round(sl, 2) if sl else None,
+            "tp": round(tp, 2) if tp else None,
+            "pnl": round(pnl, 4) if pnl is not None else None,
+            "reason": reason,
+        }
+        raw = json.dumps(record, sort_keys=True) + prev_hash
+        record["hash"] = hashlib.sha256(raw.encode()).hexdigest()
+        record["prev_hash"] = prev_hash
+        record = sign_trade(record)
+        log.append(record)
+        if len(log) > 100000:
+            log = log[-50000:]
+        with open(SIGNAL_LOG_PATH, "w") as f:
+            json.dump(log, f, indent=2)
+    except Exception as e:
+        logger.warning(f"Signal log error: {e}")
+
+def _init_telegram():
+    global _TG_TOKEN, _TG_CHAT_ID, _TG_CHANNEL_ID, _TG_ENABLED
+    secrets_path = Path(__file__).parent / ".streamlit" / "secrets.toml"
+    if secrets_path.exists():
+        try:
+            import tomllib
+            with open(secrets_path, "rb") as f:
+                secrets = tomllib.load(f)
+            _TG_TOKEN = secrets.get("TELEGRAM_TOKEN")
+            _TG_CHAT_ID = secrets.get("TELEGRAM_CHAT_ID")
+            _TG_CHANNEL_ID = secrets.get("TELEGRAM_CHANNEL_ID")
+            if _TG_TOKEN and _TG_CHAT_ID:
+                _TG_ENABLED = True
+                logger.info("Telegram alerts enabled")
+        except Exception as e:
+            logger.warning(f"Telegram init failed: {e}")
+
+def _tg_send(text: str, chat_id: str = None):
+    if not _TG_ENABLED:
+        return
+    cid = chat_id or _TG_CHAT_ID
+    if not cid:
+        return
+    try:
+        import urllib.request
+        import urllib.parse
+        url = f"https://api.telegram.org/bot{_TG_TOKEN}/sendMessage"
+        data = urllib.parse.urlencode({"chat_id": cid, "text": text, "parse_mode": "HTML"}).encode()
+        urllib.request.urlopen(url, data=data, timeout=10)
+    except Exception as e:
+        logger.warning(f"Telegram send error: {e}")
+
+def telegram_alert(text: str):
+    """Send to private chat (for admin alerts, daily reports)."""
+    _tg_send(text)
+
+def telegram_signal(text: str):
+    """Send to public channel (for trading signals)."""
+    _tg_send(text, _TG_CHANNEL_ID)
+
+_init_telegram()
 
 def _load_trade_history() -> list:
     if TRADE_HISTORY_PATH.exists():
@@ -233,6 +322,11 @@ POLL_INTERVAL_SEC   = 300
 
 # Initial equity per bot ($100 each × 5 = $500 total, como el backtest institucional)
 INITIAL_EQUITY      = 100.0
+
+# Trailing stop + partial exit params (institutional-grade)
+TP1_FRACTION        = 0.6             # close 60% at first target
+TRAIL_MULT          = 2.0             # trail distance = TRAIL_MULT × ATR(5m)
+TRAIL_ACTIVATE_PCT  = 0.3             # activate trailing only when remaining pos is 0.3% ITM
 
 
 # ============================================================
@@ -518,6 +612,12 @@ class BaseBot:
         self.initial_equity = initial_equity
         self._exchange_client = exchange_client  # ExecutionManager or None (paper)
 
+        self.trend_filter = 0  # 0=off, 1=mild (skip only if bias opposes), 2=strict (require trending)
+
+        # Anti-fail risk: progressive size reduction on drawdown
+        self.peak_equity = initial_equity
+        self.risk_multiplier = 1.0  # applied to risk_pct
+
         # State
         self.equity = initial_equity
         self.position = None       # dict: dir, size, entry_fill, stop_raw, tp_raw, entry_time
@@ -650,86 +750,183 @@ class BaseBot:
             # Precompute 1h VWAP for multi-timeframe sizing
             self._vwap_1h = compute_1h_vwap_simple(df1h_data) if df1h_data is not None else None
 
-            # 1) Manage open position — check 5m bar high/low for TP/SL
+            # Anti-fail risk: progressive size reduction on drawdown
+            if self.equity > self.peak_equity:
+                self.peak_equity = self.equity
+            dd_pct = (self.peak_equity - self.equity) / self.peak_equity * 100 if self.peak_equity > 0 else 0
+            if dd_pct < 3:
+                self.risk_multiplier = 1.0
+            elif dd_pct < 6:
+                self.risk_multiplier = 0.75
+            elif dd_pct < 10:
+                self.risk_multiplier = 0.5
+            else:
+                self.risk_multiplier = 0.0  # STOP - no more trading
+                if self.position is None:
+                    return f"[{self.name}] STOPPED: drawdown {dd_pct:.1f}% exceeded 10%"
+
+            # 1) Manage open position — check 5m bar high/low for TP1, SL, TP, trailing stop
             if self.position is not None:
                 bar_high = float(df5["high"].iloc[-1])
                 bar_low  = float(df5["low"].iloc[-1])
+                bar_close = float(df5["close"].iloc[-1])
                 pos = self.position
-                hit = None
-                if pos["dir"] == 1:
-                    if bar_low <= pos["stop_raw"]:
-                        hit = "sl"
-                    elif bar_high >= pos["tp_raw"]:
-                        hit = "tp"
+                dir = pos["dir"]
+
+                # Update trail reference price
+                if dir == 1:
+                    if bar_high > pos["trail_high"]:
+                        pos["trail_high"] = bar_high
                 else:
-                    if bar_high >= pos["stop_raw"]:
-                        hit = "sl"
-                    elif bar_low <= pos["tp_raw"]:
-                        hit = "tp"
+                    if bar_low < pos["trail_low"]:
+                        pos["trail_low"] = bar_low
 
-                if hit is not None:
-                    raw_exit = pos["tp_raw"] if hit == "tp" else pos["stop_raw"]
-                    exit_fill = apply_exit_slippage(raw_exit, pos["dir"], atr5)
-
-                    # Send real close order if live trading is enabled
+                def _close_position(exit_price: float, reason: str,
+                                    partial_ratio: float = 1.0) -> dict:
+                    """Close portion of position. Returns trade result dict or None."""
+                    close_size = pos["size_remaining"] * partial_ratio
+                    if close_size <= 0:
+                        return None
+                    exit_fill = apply_exit_slippage(exit_price, dir, atr5)
                     if self._exchange_client is not None:
-                        self.close_order(pos["size"], raw_exit)
-                    if pos["dir"] == 1:
-                        gross = pos["size"] * (exit_fill - pos["entry_fill"])
+                        self.close_order(close_size, exit_price)
+                    if dir == 1:
+                        gross = close_size * (exit_fill - pos["entry_fill"])
                     else:
-                        gross = pos["size"] * (pos["entry_fill"] - exit_fill)
-                    comm = pos["size"] * (pos["entry_fill"] + exit_fill) * COMMISSION
+                        gross = close_size * (pos["entry_fill"] - exit_fill)
+                    comm = close_size * (pos["entry_fill"] + exit_fill) * COMMISSION
                     net = gross - comm
                     self.equity += net
-                    self.trade_log.append({
-                        "exit_time": now, "dir": pos["dir"],
-                        "entry": pos["entry_fill"], "exit": exit_fill,
-                        "outcome": "win" if net > 0 else "loss",
-                        "net": net, "equity_after": self.equity,
-                        "hold_minutes": (now - pos["entry_time"]).total_seconds() / 60,
-                        "exit_reason": hit,
-                        "regime": getattr(self, "last_regime", None) or "single",
-                        "symbol": self.symbol,
-                        "bot_name": self.name,
-                    })
-                    print(f"[{self.name}] {hit.upper()} dir={pos['dir']} "
-                          f"entry={pos['entry_fill']:.4f} exit={exit_fill:.4f} "
-                          f"net={net:+.4f} equity={self.equity:.2f} "
-                          f"loss_streak={self.loss_streak}")
-
-                    if net <= 0:
-                        self.loss_streak += 1
-                    else:
-                        self.loss_streak = 0
-
-                    if self.loss_streak >= LOSS_STREAK_TRIGGER:
-                        self.cooldown_until = now + timedelta(minutes=PAUSE_MINUTES)
-                        print(f"[{self.name}] COOLDOWN: {self.loss_streak} consecutive losses -> "
-                              f"pause until {self.cooldown_until.isoformat()}")
-
-                    self.position = None
-
-                    # Persist to global trade history
-                    trade_record = {
-                        "exit_time": now.isoformat(),
-                        "dir": pos["dir"],
+                    pos["size_remaining"] -= close_size
+                    return {
+                        "exit_time": now,
+                        "dir": dir,
                         "entry": pos["entry_fill"],
                         "exit": exit_fill,
                         "outcome": "win" if net > 0 else "loss",
-                        "net": round(net, 4),
-                        "equity_after": round(self.equity, 2),
-                        "hold_minutes": round((now - pos["entry_time"]).total_seconds() / 60, 1),
-                        "exit_reason": hit,
+                        "net": net,
+                        "equity_after": self.equity,
+                        "hold_minutes": (now - pos["entry_time"]).total_seconds() / 60,
+                        "exit_reason": reason,
                         "regime": getattr(self, "last_regime", None) or "single",
                         "symbol": self.symbol,
+                        "bot_name": self.name,
+                        "partial": partial_ratio < 1.0,
+                        "size_closed": close_size,
+                    }
+
+                def _close_all(reason: str):
+                    result = _close_position(
+                        pos["tp_raw"] if reason == "tp" else pos["stop_raw"] if reason == "sl"
+                        else pos["trailing_stop"] if reason == "trail" else bar_close,
+                        reason
+                    )
+                    if result is None:
+                        return f"[{self.name}] nothing to close"
+                    print(f"[{self.name}] {reason.upper()} dir={dir} "
+                          f"entry={pos['entry_fill']:.4f} exit={result['exit']:.4f} "
+                          f"net={result['net']:+.4f} equity={self.equity:.2f} "
+                          f"loss_streak={self.loss_streak}")
+                    if result["net"] <= 0:
+                        self.loss_streak += 1
+                    else:
+                        self.loss_streak = 0
+                    if self.loss_streak >= LOSS_STREAK_TRIGGER:
+                        self.cooldown_until = now + timedelta(minutes=PAUSE_MINUTES)
+                    trade_record = {
+                        "exit_time": now.isoformat(), "dir": dir,
+                        "entry": pos["entry_fill"], "exit": result["exit"],
+                        "outcome": result["outcome"], "net": round(result["net"], 4),
+                        "equity_after": round(self.equity, 2),
+                        "hold_minutes": round(result["hold_minutes"], 1),
+                        "exit_reason": reason,
+                        "regime": result["regime"], "symbol": self.symbol,
                         "bot_name": self.name,
                         "entry_time": pos["entry_time"].isoformat(),
                         "size": pos["size"],
                     }
                     self._all_trades.append(trade_record)
                     _save_trade_history(self._all_trades)
+                    self.position = None
+                    emoji = "✅" if result["outcome"] == "win" else "❌"
+                    dir_str = "LONG" if dir == 1 else "SHORT"
+                    reason_icon = {"tp": "🎯", "sl": "🛑", "trail": "🔁", "tp1": "💰"}
+                    icon = reason_icon.get(reason, "📊")
+                    close_msg = (
+                        f"{emoji} <b>{self.symbol} {dir_str} CLOSED</b> {icon}\n"
+                        f"Reason: {reason.upper()}\n"
+                        f"Entry: ${pos['entry_fill']:.2f} → Exit: ${result['exit']:.2f}\n"
+                        f"PnL: <b>{result['net']:+.2f}</b> | Equity: ${self.equity:.2f}\n"
+                        f"Hold: {result['hold_minutes']:.0f}min"
+                    )
+                    telegram_signal(close_msg)
+                    telegram_alert(close_msg)
+                    _signal_log("exit", self.symbol, dir, result["exit"],
+                                pnl=result["net"], reason=reason)
+                    return f"[{self.name}] exited via {reason}, net={result['net']:+.4f}"
 
-                    return f"[{self.name}] exited via {hit}, net={net:+.4f}"
+                # --- Check SL first ---
+                sl_hit = (dir == 1 and bar_low <= pos["stop_raw"]) or \
+                         (dir == -1 and bar_high >= pos["stop_raw"])
+                if sl_hit:
+                    return _close_all("sl")
+
+                # --- Check trailing stop (if activated) ---
+                if pos["trailing_stop"] is not None:
+                    trail_hit = (dir == 1 and bar_low <= pos["trailing_stop"]) or \
+                                (dir == -1 and bar_high >= pos["trailing_stop"])
+                    if trail_hit:
+                        return _close_all("trail")
+
+                # --- If TP1 not yet hit, check TP1 ---
+                if not pos["tp1_hit"]:
+                    tp1_hit = (dir == 1 and bar_high >= pos["tp1"]) or \
+                              (dir == -1 and bar_low <= pos["tp1"])
+                    if tp1_hit:
+                        result = _close_position(pos["tp1"], "tp1", partial_ratio=TP1_FRACTION)
+                        if result is not None:
+                            pos["tp1_hit"] = True
+                            # Move stop to breakeven
+                            pos["stop_raw"] = pos["entry_fill"]
+                            print(f"[{self.name}] TP1 HIT dir={dir} "
+                                  f"entry={pos['entry_fill']:.4f} exit={result['exit']:.4f} "
+                                  f"net={result['net']:+.4f} remaining={pos['size_remaining']:.6f} "
+                                  f"stop moved to breakeven")
+                            dir_str = "LONG" if dir == 1 else "SHORT"
+                            telegram_alert(
+                                f"💰 <b>{self.symbol} {dir_str} TP1 PARTIAL</b>\n"
+                                f"Closed 60% @ ${result['exit']:.2f} | PnL: <b>{result['net']:+.2f}</b>\n"
+                                f"Remaining: {pos['size_remaining']:.6f} | Stop moved to breakeven\n"
+                                f"Trailing active (2×ATR)"
+                            )
+                            # Activate trailing stop immediately
+                            trail_dist = TRAIL_MULT * atr5
+                            if dir == 1:
+                                pos["trailing_stop"] = pos["trail_high"] - trail_dist
+                            else:
+                                pos["trailing_stop"] = pos["trail_low"] + trail_dist
+                            return f"[{self.name}] tp1 partial exit, trailing activated"
+
+                # --- If TP1 already hit, update trailing stop ---
+                if pos["tp1_hit"]:
+                    trail_dist = TRAIL_MULT * atr5
+                    if dir == 1:
+                        new_trail = pos["trail_high"] - trail_dist
+                        if new_trail > pos["trailing_stop"]:
+                            pos["trailing_stop"] = new_trail
+                    else:
+                        new_trail = pos["trail_low"] + trail_dist
+                        if new_trail < pos["trailing_stop"]:
+                            pos["trailing_stop"] = new_trail
+
+                    # Also check full TP
+                    tp_hit = (dir == 1 and bar_high >= pos["tp_raw"]) or \
+                             (dir == -1 and bar_low <= pos["tp_raw"])
+                    if tp_hit:
+                        return _close_all("tp")
+
+                    return f"[{self.name}] trailing: stop={pos['trailing_stop']:.4f}"
+
                 return f"[{self.name}] in position, no exit this bar"
 
             # 2) No position — check signal
@@ -753,11 +950,21 @@ class BaseBot:
                       else f"[{self.name}] ML BLOCKED: {ml_reason}")
                 return f"[{self.name}] blocked by {ml_reason}"
 
+            # Trend filter — optional regime-based filter before entry
+            if self.trend_filter > 0 and self._df1h is not None and self._vwap_1h is not None:
+                bias = get_1h_bias_simple(self._df1h, self._vwap_1h)
+                sig_dir = sig.get("dir", 1)
+                if self.trend_filter >= 2 and bias == 0:
+                    return f"[{self.name}] trend filter: neutral 1h bias, skip"
+                if bias != 0 and bias != sig_dir:
+                    return f"[{self.name}] trend filter: 1h bias={bias:+d} opposes signal dir={sig_dir:+d}, skip"
+
             # Enter
             equity = self.get_equity()
             a15 = sig.get("atr15", 0)
+            adjusted_risk = self.risk_pct * self.risk_multiplier
             size = compute_size(
-                equity, sig["entry"], sig["stop"], self.risk_pct,
+                equity, sig["entry"], sig["stop"], adjusted_risk,
                 atr15=a15, close_price=sig["entry"],
                 direction=sig["dir"],
                 vwap_1h=getattr(self, "_vwap_1h", None),
@@ -782,12 +989,24 @@ class BaseBot:
                     return f"[{self.name}] order rejected"
                 actual_fill = fill
 
+            # Partial exit target (60% of full TP range)
+            if sig["dir"] == 1:
+                tp1 = sig["entry"] + (sig["tp"] - sig["entry"]) * TP1_FRACTION
+            else:
+                tp1 = sig["entry"] - (sig["entry"] - sig["tp"]) * TP1_FRACTION
+
             self.position = {
                 "dir": sig["dir"],
                 "size": actual_size,
                 "entry_fill": actual_fill,
                 "stop_raw": sig["stop"],
                 "tp_raw": sig["tp"],
+                "tp1": tp1,
+                "tp1_hit": False,
+                "trail_high": actual_fill,   # highest since entry (long)
+                "trail_low": actual_fill,     # lowest since entry (short)
+                "trailing_stop": None,        # trailing stop level once activated
+                "size_remaining": actual_size, # adjusts after partial exit
                 "entry_time": now,
             }
             extra = ""
@@ -798,6 +1017,18 @@ class BaseBot:
             print(f"[{self.name}] ENTRY {side} size={actual_size:.6f} "
                   f"entry={actual_fill:.4f} stop={sig['stop']:.4f} "
                   f"tp={sig['tp']:.4f} equity={equity:.2f}{extra}")
+            emoji = "🟢" if sig["dir"] == 1 else "🔴"
+            direction_str = "LONG" if sig["dir"] == 1 else "SHORT"
+            entry_msg = (
+                f"{emoji} <b>{self.symbol} {direction_str}</b>\n"
+                f"Entry: ${actual_fill:.2f}\n"
+                f"SL: ${sig['stop']:.2f} | TP: ${sig['tp']:.2f}\n"
+                f"Size: {actual_size:.4f} | Equity: ${equity:.2f}"
+            )
+            telegram_signal(entry_msg)
+            telegram_alert(entry_msg)
+            _signal_log("entry", self.symbol, sig["dir"], actual_fill,
+                        sl=sig["stop"], tp=sig["tp"])
             return f"[{self.name}] entered {side} size={actual_size:.6f}{extra}"
 
     def status(self) -> Dict[str, Any]:

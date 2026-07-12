@@ -1,0 +1,43 @@
+{
+  "config": {
+    "vwap_n": 12,
+    "dev_thr": 1.0,
+    "sl_mult": 2.0,
+    "tp_mult": 2.0,
+    "atr_n": 14,
+    "data_range": "2025-09-03 \u2192 2026-06-22",
+    "n_candles_15m": 28094
+  },
+  "original": {
+    "total_trades": 395,
+    "win_rate_pct": 52.66,
+    "total_return_pct": 27.56,
+    "profit_factor": 1.125,
+    "sharpe_ratio": 10.27,
+    "max_drawdown_pct": -28.82,
+    "avg_win_pct": 1.19,
+    "avg_loss_pct": -1.18,
+    "exit_reason_breakdown": {
+      "SL": 187,
+      "TP": 208
+    }
+  },
+  "nuevo": {
+    "total_trades": 395,
+    "win_rate_pct": 63.54,
+    "total_return_pct": 27.26,
+    "profit_factor": 1.164,
+    "sharpe_ratio": 12.75,
+    "max_drawdown_pct": -21.77,
+    "avg_win_pct": 0.77,
+    "avg_loss_pct": -1.15,
+    "tp1_hits": 219,
+    "tp1_hit_rate_pct": 55.44,
+    "exit_reason_breakdown": {
+      "TRAIL": 43,
+      "TP_FULL": 152,
+      "SL": 144,
+      "BE": 56
+    }
+  }
+}
