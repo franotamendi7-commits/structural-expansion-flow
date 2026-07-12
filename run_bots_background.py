@@ -82,6 +82,16 @@ if __name__ == "__main__":
     system = MultiBotSystem()
     system.start()
 
+    # Start X/Twitter poster as background thread if API keys configured
+    try:
+        from x_poster import watch_and_post
+        import threading
+        x_thread = threading.Thread(target=watch_and_post, daemon=True, name="x-poster")
+        x_thread.start()
+        logger.info("X/Twitter poster thread started")
+    except Exception as e:
+        logger.info(f"X/Twitter poster not started: {e}")
+
     write_pid()
     logger.info(f"Daemon PID: {os.getpid()}")
     logger.info("5 bots running in background threads (poll every 5 min)")
