@@ -46,7 +46,8 @@ else:
 
 if os.path.exists("ml_model.pkl"):
     with open("ml_model.pkl", "rb") as f:
-        ml_model, ml_features = pickle.load(f)
+        ml_model = pickle.load(f)
+        ml_features = ml_model.feature_names_in_
     print("✔ ML Agent cargado")
 else:
     print("⚠️ ML Agent no encontrado, se omite.")

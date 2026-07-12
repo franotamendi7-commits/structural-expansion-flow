@@ -1,0 +1,42 @@
+{
+  "BNB": {
+    "type": "vwap",
+    "vwap_n": 8,
+    "dev_thr": 1.25,
+    "sl_mult": 1.5,
+    "tp_mult": 2.0,
+    "search_time_s": 5.3
+  },
+  "BTC": {
+    "type": "vwap",
+    "vwap_n": 20,
+    "dev_thr": 1.0,
+    "sl_mult": 1.2,
+    "tp_mult": 2.5,
+    "search_time_s": 9.9
+  },
+  "ETH": {
+    "type": "vwap",
+    "vwap_n": 10,
+    "dev_thr": 1.25,
+    "sl_mult": 1.0,
+    "tp_mult": 2.5,
+    "search_time_s": 5.4
+  },
+  "SOL": {
+    "type": "vwap",
+    "vwap_n": 10,
+    "dev_thr": 1.25,
+    "sl_mult": 1.5,
+    "tp_mult": 2.5,
+    "search_time_s": 5.6
+  },
+  "XRP": {
+    "type": "vwap",
+    "vwap_n": 10,
+    "dev_thr": 1.0,
+    "sl_mult": 1.2,
+    "tp_mult": 2.5,
+    "search_time_s": 5.5
+  }
+}

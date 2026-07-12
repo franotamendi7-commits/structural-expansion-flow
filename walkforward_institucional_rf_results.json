@@ -1,0 +1,17 @@
+{
+  "period": "2026-01-01T00:00:00+00:00 \u2192 2026-07-11T00:46:24.392969+00:00",
+  "no_ml": {
+    "trades": 294,
+    "wr_pct": 40.8,
+    "portfolio_return_pct": 11.4,
+    "total_pnl": 57.0
+  },
+  "con_rf": {
+    "trades": 36,
+    "wr_pct": 38.9,
+    "portfolio_return_pct": 3.19,
+    "total_pnl": 15.93,
+    "ml_accepted": 10,
+    "ml_rejected": 40
+  }
+}

@@ -1,0 +1,50 @@
+[
+  {
+    "exit_time": "2026-07-09T06:32:37.520317+00:00",
+    "dir": -1,
+    "entry": 62654.1,
+    "exit": 62602.89950580609,
+    "outcome": "loss",
+    "net": -0.2274,
+    "equity_after": 878.76,
+    "hold_minutes": 2.0,
+    "exit_reason": "tp",
+    "regime": "ALCISTA",
+    "symbol": "BTCUSDT",
+    "bot_name": "BTC",
+    "entry_time": "2026-07-09T06:30:37.939107+00:00",
+    "size": 0.01989870225899646
+  },
+  {
+    "exit_time": "2026-07-09T07:06:37.384630+00:00",
+    "dir": -1,
+    "entry": 62747.6,
+    "exit": 63154.821069726495,
+    "outcome": "loss",
+    "net": -9.3534,
+    "equity_after": 869.41,
+    "hold_minutes": 32.0,
+    "exit_reason": "sl",
+    "regime": "ALCISTA",
+    "symbol": "BTCUSDT",
+    "bot_name": "BTC",
+    "entry_time": "2026-07-09T06:34:37.458268+00:00",
+    "size": 0.019893554278864
+  },
+  {
+    "exit_time": "2026-07-09T07:50:37.407779+00:00",
+    "dir": -1,
+    "entry": 62888.6,
+    "exit": 63275.06864027347,
+    "outcome": "loss",
+    "net": -9.3212,
+    "equity_after": 860.09,
+    "hold_minutes": 42.0,
+    "exit_reason": "sl",
+    "regime": "ALCISTA",
+    "symbol": "BTCUSDT",
+    "bot_name": "BTC",
+    "entry_time": "2026-07-09T07:08:37.437843+00:00",
+    "size": 0.020734418111028788
+  }
+]

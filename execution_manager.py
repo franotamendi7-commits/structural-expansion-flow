@@ -158,6 +158,8 @@ class ExecutionManager:
                 for item in resp:
                     if item.get('asset') == asset:
                         return float(item.get('balance', 0.0))
+            if isinstance(resp, dict) and resp.get("code"):
+                print(f"[ExecutionManager] get_balance error: {resp.get('msg', resp)}")
             return 0.0
         except Exception as e:
             print(f"[ExecutionManager] Error al obtener balance: {e}")

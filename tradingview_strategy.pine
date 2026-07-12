@@ -1,0 +1,231 @@
+//@version=5
+strategy("SEF - Structural Expansion Flow (5 Bots)", overlay=true, pyramiding=0, initial_capital=500, default_qty_type=strategy.percent_of_equity, default_qty_value=100, commission_type=strategy.commission.percent, commission_value=0.04)
+
+// ============================================================
+// PARÁMETROS GLOBALES
+// ============================================================
+var string WEBHOOK_URL = "http://TU_IP:9999/webhook"
+
+// ---- ATR (Wilder's) ----
+atr_len = input.int(14, "ATR Length")
+atr_val = ta.atr(atr_len)
+
+// ---- Rolling VWAP Helper ----
+vwap_rolling(src, len) =>
+    tp = (high + low + close) / 3
+    vp = tp * volume
+    vwap_val = ta.sma(vp, len) / ta.sma(volume, len)
+    vwap_val
+
+// ============================================================
+// BTC BOT — Multimodal con Detección de Régimen
+// ============================================================
+// Régimen: EMA20 diaria + último cierre 4h
+ema20_daily = ta.ema(close, 20)
+ema20_y = ema20_daily[1]
+ema20_y_prev = ema20_daily[2]
+rising = ema20_y > ema20_y_prev
+falling = ema20_y < ema20_y_prev
+
+// 4h close approximation (usamos timeframe en 15m, calculamos cada 16 velas)
+is_4h_close = bar_index % 16 == 0
+close_4h = close[is_4h_close ? 0 : bar_index % 16]
+
+raw_regime = na(ema20_y) ? "LATERAL" : close > ema20_y and rising ? "ALCISTA" : close < ema20_y and falling ? "BAJISTA" : "LATERAL"
+
+// Histeresis 2 barras para el régimen (simplificado en Pine con counter)
+var int regime_counter = 0
+var string current_regime = "LATERAL"
+var string pending_regime = na
+
+if raw_regime != current_regime
+    if na(pending_regime)
+        pending_regime := raw_regime
+        regime_counter := 1
+    else
+        if raw_regime == pending_regime
+            regime_counter := regime_counter + 1
+            if regime_counter >= 2
+                current_regime := raw_regime
+                pending_regime := na
+                regime_counter := 0
+        else
+            pending_regime := raw_regime
+            regime_counter := 1
+
+// Parámetros por régimen
+btc_vwap_n = current_regime == "BAJISTA" ? 20 : 15
+btc_dev_thr = current_regime == "BAJISTA" ? 1.0 : 0.75
+btc_sl_mult = current_regime == "BAJISTA" ? 2.0 : 1.5
+btc_tp_mult = current_regime == "BAJISTA" ? 1.5 : 1.0
+
+btc_vwap = vwap_rolling(close, btc_vwap_n)
+btc_dev = (close - btc_vwap) / btc_vwap * 100
+btc_dev_prev = btc_dev[1]
+
+btc_long = btc_dev_prev >= -btc_dev_thr and btc_dev < -btc_dev_thr
+btc_short = btc_dev_prev <= btc_dev_thr and btc_dev > btc_dev_thr
+
+// ============================================================
+// ETH BOT
+// ============================================================
+eth_vwap = vwap_rolling(close, 10)
+eth_dev = (close - eth_vwap) / eth_vwap * 100
+eth_dev_prev = eth_dev[1]
+
+eth_long = eth_dev_prev >= -1.0 and eth_dev < -1.0
+eth_short = eth_dev_prev <= 1.0 and eth_dev > 1.0
+
+// ============================================================
+// SOL BOT
+// ============================================================
+sol_vwap = vwap_rolling(close, 10)
+sol_dev = (close - sol_vwap) / sol_vwap * 100
+sol_dev_prev = sol_dev[1]
+
+sol_long = sol_dev_prev >= -1.0 and sol_dev < -1.0
+sol_short = sol_dev_prev <= 1.0 and sol_dev > 1.0
+
+// ============================================================
+// XRP BOT
+// ============================================================
+xrp_vwap = vwap_rolling(close, 10)
+xrp_dev = (close - xrp_vwap) / xrp_vwap * 100
+xrp_dev_prev = xrp_dev[1]
+
+xrp_long = xrp_dev_prev >= -1.0 and xrp_dev < -1.0
+xrp_short = xrp_dev_prev <= 1.0 and xrp_dev > 1.0
+
+// ============================================================
+// BNB BOT
+// ============================================================
+bnb_vwap = vwap_rolling(close, 10)
+bnb_dev = (close - bnb_vwap) / bnb_vwap * 100
+bnb_dev_prev = bnb_dev[1]
+
+bnb_long = bnb_dev_prev >= -1.0 and bnb_dev < -1.0
+bnb_short = bnb_dev_prev <= 1.0 and bnb_dev > 1.0
+
+// ============================================================
+// EJECUCIÓN Y WEBHOOK
+// ============================================================
+// Mapeo de símbolo para saber qué bot aplicar
+is_btc = syminfo.tickerid == "BINANCE:BTCUSDT"
+is_eth = syminfo.tickerid == "BINANCE:ETHUSDT"
+is_sol = syminfo.tickerid == "BINANCE:SOLUSDT"
+is_xrp = syminfo.tickerid == "BINANCE:XRPUSDT"
+is_bnb = syminfo.tickerid == "BINANCE:BNBUSDT"
+
+// Señal activa
+long_signal = (is_btc and btc_long) or (is_eth and eth_long) or (is_sol and sol_long) or (is_xrp and xrp_long) or (is_bnb and bnb_long)
+short_signal = (is_btc and btc_short) or (is_eth and eth_short) or (is_sol and sol_short) or (is_xrp and xrp_short) or (is_bnb and bnb_short)
+
+// Calcular SL y TP según el bot activo
+sl_price = na
+tp_price = na
+strategy_name = ""
+
+if is_btc
+    strategy_name := "BTC"
+    if long_signal
+        sl_price := close - btc_sl_mult * atr_val
+        tp_price := close + btc_tp_mult * atr_val
+    if short_signal
+        sl_price := close + btc_sl_mult * atr_val
+        tp_price := close - btc_tp_mult * atr_val
+if is_eth
+    strategy_name := "ETH"
+    if long_signal
+        sl_price := close - 2.0 * atr_val
+        tp_price := close + 1.0 * atr_val
+    if short_signal
+        sl_price := close + 2.0 * atr_val
+        tp_price := close - 1.0 * atr_val
+if is_sol
+    strategy_name := "SOL"
+    if long_signal
+        sl_price := close - 1.5 * atr_val
+        tp_price := close + 0.5 * atr_val
+    if short_signal
+        sl_price := close + 1.5 * atr_val
+        tp_price := close - 0.5 * atr_val
+if is_xrp
+    strategy_name := "XRP"
+    if long_signal
+        sl_price := close - 1.5 * atr_val
+        tp_price := close + 0.5 * atr_val
+    if short_signal
+        sl_price := close + 1.5 * atr_val
+        tp_price := close - 0.5 * atr_val
+if is_bnb
+    strategy_name := "BNB"
+    if long_signal
+        sl_price := close - 1.5 * atr_val
+        tp_price := close + 1.0 * atr_val
+    if short_signal
+        sl_price := close + 1.5 * atr_val
+        tp_price := close - 1.0 * atr_val
+
+// ---- Estrategia (backtest visual en TradingView) ----
+if long_signal
+    strategy.entry("LONG", strategy.long)
+    strategy.exit("SL/TP", "LONG", stop=sl_price, limit=tp_price)
+
+if short_signal
+    strategy.entry("SHORT", strategy.short)
+    strategy.exit("SL/TP", "SHORT", stop=sl_price, limit=tp_price)
+
+// ---- Webhook Alert ----
+// TradingView alert() se configura manualmente en la UI.
+// Este string es el payload que se enviará al webhook.
+alert_payload = ''
+if long_signal
+    alert_payload := '{"symbol":"' + syminfo.ticker + '","action":"buy","price":' + str.tostring(close) + ',"stop_loss":' + str.tostring(sl_price) + ',"take_profit":' + str.tostring(tp_price) + ',"strategy":"' + strategy_name + '","confidence":0.85,"regime":"' + current_regime + '"}'
+if short_signal
+    alert_payload := '{"symbol":"' + syminfo.ticker + '","action":"sell","price":' + str.tostring(close) + ',"stop_loss":' + str.tostring(sl_price) + ',"take_profit":' + str.tostring(tp_price) + ',"strategy":"' + strategy_name + '","confidence":0.85,"regime":"' + current_regime + '"}'
+
+// Usar alert() para enviar. En Pine, se configura el webhook URL en la UI de alerta
+alertcondition(long_signal or short_signal, title="SEF Signal", message=alert_payload)
+
+// ============================================================
+// VISUALIZACIÓN
+// ============================================================
+// VWAP lines
+plot(btc_vwap, "BTC VWAP", is_btc ? color.blue : na)
+plot(eth_vwap, "ETH VWAP", is_eth ? color.blue : na)
+
+// Fondo por régimen (BTC)
+bgcolor(is_btc and current_regime == "ALCISTA" ? color.new(color.green, 92) : na)
+bgcolor(is_btc and current_regime == "BAJISTA" ? color.new(color.red, 92) : na)
+bgcolor(is_btc and current_regime == "LATERAL" ? color.new(color.gray, 95) : na)
+
+// Flechas de señal
+plotshape(long_signal, style=shape.triangleup, location=location.belowbar, color=color.green, size=size.small, title="LONG Signal")
+plotshape(short_signal, style=shape.triangledown, location=location.abovebar, color=color.red, size=size.small, title="SHORT Signal")
+
+// Tabla de parámetros
+if barstate.islast
+    var tbl = table.new(position.top_right, 2, 6, frame_color=color.new(color.white, 80), border_width=1)
+    table.cell(tbl, 0, 0, "Bot", text_color=color.white, bgcolor=color.new(color.blue, 70))
+    table.cell(tbl, 1, 0, strategy_name, text_color=color.white, bgcolor=color.new(color.blue, 70))
+    table.cell(tbl, 0, 1, "Régimen", text_color=color.gray)
+    table.cell(tbl, 1, 1, current_regime, text_color=color.white)
+    table.cell(tbl, 0, 2, "VWAP n", text_color=color.gray)
+    table.cell(tbl, 1, 2, str.tostring(btc_vwap_n), text_color=color.white)
+    table.cell(tbl, 0, 3, "Dev Thr", text_color=color.gray)
+    table.cell(tbl, 1, 3, str.tostring(btc_dev_thr), text_color=color.white)
+    table.cell(tbl, 0, 4, "SL Mult", text_color=color.gray)
+    table.cell(tbl, 1, 4, str.tostring(btc_sl_mult), text_color=color.white)
+    table.cell(tbl, 0, 5, "TP Mult", text_color=color.gray)
+    table.cell(tbl, 1, 5, str.tostring(btc_tp_mult), text_color=color.white)
+
+// ============================================================
+// INSTRUCCIONES (en el chart como texto)
+// ============================================================
+// 1. Agregar este script a 5 charts separados: BTCUSDT, ETHUSDT, SOLUSDT, XRPUSDT, BNBUSDT
+// 2. Cada chart ejecutará SOLO su bot (el if syminfo.tickerid filtra)
+// 3. Crear una alerta en cada chart:
+//    - Condition: "SEF Signal"
+//    - Webhook URL: http://<TU_IP>:9999/webhook
+//    - Message: {{message}} (envía el JSON automáticamente)
+// 4. El webhook recibe la señal y la guarda en DB

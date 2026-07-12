@@ -231,7 +231,7 @@ BINANCE_FAPI        = "https://fapi.binance.com"
 # Poll interval (5 minutes = one 5m bar)
 POLL_INTERVAL_SEC   = 300
 
-# Initial equity per bot
+# Initial equity per bot ($100 each × 5 = $500 total, como el backtest institucional)
 INITIAL_EQUITY      = 100.0
 
 
@@ -345,14 +345,61 @@ def apply_exit_slippage(exit_raw: float, direction: int, atr5: float) -> float:
         return exit_raw * (1 + SPREAD) + slip
 
 
+def compute_1h_vwap_simple(df1h: pd.DataFrame, period: int = 20) -> np.ndarray:
+    """Cumulative VWAP on 1h data. Returns array aligned with df1h."""
+    h, l, c, v = df1h["high"].values, df1h["low"].values, df1h["close"].values, df1h["volume"].values
+    tp = (h + l + c) / 3.0; n = len(df1h)
+    vp = tp * v; csvp = np.cumsum(vp); csv = np.cumsum(v)
+    vwap = np.full(n, np.nan)
+    if period <= n:
+        vwap[period-1:] = (csvp[period-1:] - np.concatenate([[0], csvp[:-period]])) / \
+                          (csv[period-1:] - np.concatenate([[0], csv[:-period]]))
+    return vwap
+
+
+def get_1h_bias_simple(df1h: pd.DataFrame, vwap_1h: np.ndarray) -> int:
+    """1=bullish, -1=bearish, 0=neutral. Uses last completed 1h bar."""
+    if df1h.empty or len(vwap_1h) < 2:
+        return 0
+    c1h = float(df1h["close"].iloc[-2])
+    vw1h = float(vwap_1h[-2])
+    if not np.isfinite(vw1h) or vw1h <= 0:
+        return 0
+    return 1 if c1h > vw1h else (-1 if c1h < vw1h else 0)
+
+
 def compute_size(equity: float, entry_raw: float, stop_raw: float,
-                 risk_pct: float) -> float:
+                 risk_pct: float, atr15: float = None,
+                 close_price: float = None, direction: int = 1,
+                 vwap_1h: np.ndarray = None, df1h: pd.DataFrame = None) -> float:
     """
-    Risk-based sizing with compounding:
-      risk = risk_pct * equity
-      size = risk / |entry - stop|
+    Risk-based sizing con compounding y modificadores:
+      - Volatility-adjusted: ATR/price alto → +30%, bajo → -25%
+      - Multi-timeframe: 1h confirma → +50%, 1h en contra → -33%
+      - Cap al 3.5% de riesgo por trade
     """
-    risk = risk_pct * equity
+    size_mult = 1.0
+
+    if atr15 is not None and close_price is not None and close_price > 0:
+        atr_pct = atr15 / close_price * 100
+        if atr_pct > 0.5:
+            size_mult *= 1.3
+        elif atr_pct < 0.15:
+            size_mult *= 0.75
+
+    if vwap_1h is not None and df1h is not None:
+        h1_bias = get_1h_bias_simple(df1h, vwap_1h)
+        if h1_bias == direction:
+            size_mult *= 1.5
+        elif h1_bias == -direction:
+            size_mult *= 0.67
+
+    adjusted_rp = risk_pct * size_mult
+    adjusted_rp = min(adjusted_rp, 0.035)
+
+    risk = adjusted_rp * equity
+    if risk <= 0:
+        risk = 1.0
     price_range = abs(entry_raw - stop_raw)
     if price_range <= 0:
         return 0.0
@@ -563,8 +610,8 @@ class BaseBot:
         raise NotImplementedError("Subclass must implement check_signal()")
 
     def _fetch_data(self):
-        """Fetch data needed by this bot. Override in BtcBot for 1h."""
-        return get_recent_data(self.symbol, need_1h=False)
+        """Fetch 15m, 5m, and 1h data for all bots (1h needed for multi-TF sizing)."""
+        return get_recent_data(self.symbol, need_1h=True)
 
     def _atr5_from_data(self, df5):
         a5 = atr(df5, ATR5M_N)
@@ -593,10 +640,15 @@ class BaseBot:
             try:
                 data = self._fetch_data()
                 df15, df5 = data[0], data[1]
+                df1h_data = data[2] if len(data) > 2 else None
+                self._df1h = df1h_data
             except Exception as e:
                 return f"[{self.name}] data fetch error: {e}"
 
             atr5 = self._atr5_from_data(df5)
+
+            # Precompute 1h VWAP for multi-timeframe sizing
+            self._vwap_1h = compute_1h_vwap_simple(df1h_data) if df1h_data is not None else None
 
             # 1) Manage open position — check 5m bar high/low for TP/SL
             if self.position is not None:
@@ -703,7 +755,14 @@ class BaseBot:
 
             # Enter
             equity = self.get_equity()
-            size = compute_size(equity, sig["entry"], sig["stop"], self.risk_pct)
+            a15 = sig.get("atr15", 0)
+            size = compute_size(
+                equity, sig["entry"], sig["stop"], self.risk_pct,
+                atr15=a15, close_price=sig["entry"],
+                direction=sig["dir"],
+                vwap_1h=getattr(self, "_vwap_1h", None),
+                df1h=getattr(self, "_df1h", None),
+            )
             if size <= 0:
                 return f"[{self.name}] size=0, skip"
             if size < self.min_order_size:
@@ -817,32 +876,30 @@ class BtcBot(BaseBot):
     and applies the VWAP breakout strategy with regime-specific params.
     """
 
-    # Per-regime params (validated for BTCUSDT Jan-Jun 2026)
+    # Per-regime params — institutional-grade
     REGIME_PARAMS = {
-        "ALCISTA": dict(vwap_n=15, dev_thr=0.75, sl_mult=1.5, tp_mult=1.0),
-        "BAJISTA": dict(vwap_n=20, dev_thr=1.0,  sl_mult=2.0, tp_mult=1.5),
-        "LATERAL": dict(vwap_n=15, dev_thr=0.75, sl_mult=1.5, tp_mult=1.0),
+        "ALCISTA": dict(vwap_n=12, dev_thr=1.0, sl_mult=2.0, tp_mult=2.5),
+        "BAJISTA": dict(vwap_n=15, dev_thr=1.25, sl_mult=2.5, tp_mult=3.0),
+        "LATERAL": dict(vwap_n=15, dev_thr=0.75, sl_mult=1.5, tp_mult=1.5),
     }
 
     def __init__(self, initial_equity: float = INITIAL_EQUITY, exchange_client=None):
         super().__init__(
             symbol="BTCUSDT",
-            risk_pct=0.0075,            # adjusted for production (DD p95 mitigation)
-            min_order_size=0.001,       # Binance Futures lot for BTCUSDT
+            risk_pct=0.01,
+            min_order_size=0.001,
             initial_equity=initial_equity,
             name="BTC",
             exchange_client=exchange_client,
         )
 
     def _fetch_data(self):
-        # BtcBot needs 1h for regime detection
+        # BtcBot needs 1h for regime detection (BaseBot already fetches it)
         return get_recent_data(self.symbol, need_1h=True)
 
     def check_signal(self, df15: pd.DataFrame) -> Optional[Dict[str, Any]]:
-        # df15 is passed by on_tick, but we also need df1h.
-        # Re-fetch df1h here (cached in real production via ws_binance_feed).
-        # For simplicity, on_tick stores df1h on self.
         df1h = getattr(self, "_df1h", None)
+
         if df1h is None:
             return None
 
@@ -858,7 +915,6 @@ class BtcBot(BaseBot):
     def on_tick(self) -> str:
         """Override to capture df1h before calling super().on_tick()."""
         with self._lock:
-            # Fetch data with 1h
             try:
                 df15, df5, df1h = self._fetch_data()
             except Exception as e:
@@ -866,13 +922,8 @@ class BtcBot(BaseBot):
             self._df1h = df1h
             self._df15 = df15
             self._df5 = df5
-            # Call parent on_tick but it will re-fetch... not ideal.
-            # Better: refactor parent to accept data. For now, stash and let
-            # parent re-fetch. In production, use ws_binance_feed cache.
-            # Hack: temporarily monkey-patch get_recent_data to return cached.
             global _cached_data
             _cached_data[(self.symbol, True)] = (df15, df5, df1h)
-        # Now call parent (it will use the cached data via the patch below)
         return super().on_tick()
 
 
@@ -897,7 +948,7 @@ class EthBot(BaseBot):
     def __init__(self, initial_equity: float = INITIAL_EQUITY, exchange_client=None):
         super().__init__(
             symbol="ETHUSDT",
-            risk_pct=0.0085,            # adjusted for production (DD p95 mitigation)
+            risk_pct=0.01,
             min_order_size=0.001,
             initial_equity=initial_equity,
             name="ETH",
@@ -906,8 +957,8 @@ class EthBot(BaseBot):
 
     def check_signal(self, df15: pd.DataFrame) -> Optional[Dict[str, Any]]:
         return _vwap_breakout_signal(
-            df15, vwap_n=10, dev_thr=1.0,
-            sl_mult=2.0, tp_mult=1.0,
+            df15, vwap_n=12, dev_thr=1.0,
+            sl_mult=2.0, tp_mult=2.0,
         )
 
 
@@ -918,7 +969,7 @@ class SolBot(BaseBot):
     def __init__(self, initial_equity: float = INITIAL_EQUITY, exchange_client=None):
         super().__init__(
             symbol="SOLUSDT",
-            risk_pct=0.01,
+            risk_pct=0.012,
             min_order_size=0.01,
             initial_equity=initial_equity,
             name="SOL",
@@ -928,7 +979,7 @@ class SolBot(BaseBot):
     def check_signal(self, df15: pd.DataFrame) -> Optional[Dict[str, Any]]:
         return _vwap_breakout_signal(
             df15, vwap_n=10, dev_thr=1.0,
-            sl_mult=1.5, tp_mult=0.5,
+            sl_mult=1.5, tp_mult=1.5,
         )
 
 
@@ -939,7 +990,7 @@ class XrpBot(BaseBot):
     def __init__(self, initial_equity: float = INITIAL_EQUITY, exchange_client=None):
         super().__init__(
             symbol="XRPUSDT",
-            risk_pct=0.01,
+            risk_pct=0.012,
             min_order_size=0.1,
             initial_equity=initial_equity,
             name="XRP",
@@ -949,7 +1000,7 @@ class XrpBot(BaseBot):
     def check_signal(self, df15: pd.DataFrame) -> Optional[Dict[str, Any]]:
         return _vwap_breakout_signal(
             df15, vwap_n=10, dev_thr=1.0,
-            sl_mult=1.5, tp_mult=0.5,
+            sl_mult=2.0, tp_mult=2.0,
         )
 
 
@@ -960,7 +1011,7 @@ class BnbBot(BaseBot):
     def __init__(self, initial_equity: float = INITIAL_EQUITY, exchange_client=None):
         super().__init__(
             symbol="BNBUSDT",
-            risk_pct=0.01,
+            risk_pct=0.012,
             min_order_size=0.01,
             initial_equity=initial_equity,
             name="BNB",
@@ -970,7 +1021,7 @@ class BnbBot(BaseBot):
     def check_signal(self, df15: pd.DataFrame) -> Optional[Dict[str, Any]]:
         return _vwap_breakout_signal(
             df15, vwap_n=10, dev_thr=1.0,
-            sl_mult=1.5, tp_mult=1.0,
+            sl_mult=1.5, tp_mult=1.5,
         )
 
 
@@ -1090,11 +1141,13 @@ class MultiBotSystem:
         gross_loss = -nets[nets <= 0].sum()
         pf = gross_win / gross_loss if gross_loss > 0 else float("inf")
         wr = wins / len(nets) * 100 if len(nets) > 0 else 0
+        net_pnl = total_equity - total_initial
+        return_pct = (net_pnl / total_initial * 100) if total_initial > 0 else 0
         return {
             "total_equity": total_equity,
             "total_initial": total_initial,
-            "net_pnl": total_equity - total_initial,
-            "return_pct": (total_equity / total_initial - 1) * 100,
+            "net_pnl": net_pnl,
+            "return_pct": return_pct,
             "total_trades": total_trades,
             "win_rate": wr,
             "profit_factor": pf,

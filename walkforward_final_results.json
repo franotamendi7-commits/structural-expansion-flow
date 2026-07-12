@@ -1,0 +1,65 @@
+{
+  "params": {
+    "BNB": {
+      "vn": 8,
+      "dt": 1.25,
+      "sl": 1.5,
+      "tp": 2.0,
+      "rp": 0.01,
+      "ms": 0.01,
+      "tf": "vwap",
+      "tp_": 50,
+      "sym": "BNBUSDT"
+    },
+    "BTC": {
+      "vn": 20,
+      "dt": 1.0,
+      "sl": 1.2,
+      "tp": 2.5,
+      "rp": 0.0075,
+      "ms": 0.001,
+      "tf": "vwap",
+      "tp_": 50,
+      "sym": "BTCUSDT"
+    },
+    "ETH": {
+      "vn": 10,
+      "dt": 1.25,
+      "sl": 1.0,
+      "tp": 2.5,
+      "rp": 0.0085,
+      "ms": 0.001,
+      "tf": "vwap",
+      "tp_": 50,
+      "sym": "ETHUSDT"
+    },
+    "SOL": {
+      "vn": 10,
+      "dt": 1.25,
+      "sl": 1.5,
+      "tp": 2.5,
+      "rp": 0.01,
+      "ms": 0.01,
+      "tf": "vwap",
+      "tp_": 50,
+      "sym": "SOLUSDT"
+    },
+    "XRP": {
+      "vn": 10,
+      "dt": 1.0,
+      "sl": 1.2,
+      "tp": 2.5,
+      "rp": 0.01,
+      "ms": 0.1,
+      "tf": "vwap",
+      "tp_": 50,
+      "sym": "XRPUSDT"
+    }
+  },
+  "portfolio": {
+    "trades": 293,
+    "pnl": 103.61,
+    "equity": 603.61,
+    "return": 20.72
+  }
+}

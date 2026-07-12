@@ -1,0 +1,5 @@
+{"balance": 500.0, "peak_balance": 500.0, "consecutive_losses": 0, "daily_pnl": 0.0, "last_day": "2026-07-10", "open_positions": {}, "closed_trades": [], "cooldowns": {}}    "SOLUSDT": "2026-07-10T15:44:12.165248"
+  },
+  "manually_paused": false,
+  "pause_reason": null
+}

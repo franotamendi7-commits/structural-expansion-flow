@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 
 class PaperTrader:
-    def __init__(self, initial_balance=100.0, state_file="paper_state.json"):
+    def __init__(self, initial_balance=0.0, state_file="paper_state.json"):
         self.state_file = state_file
         self.max_consecutive_losses = 5
         self.max_daily_loss_pct = 0.03
@@ -142,8 +142,8 @@ class PaperTrader:
             self._reset_defaults()
 
     def _reset_defaults(self):
-        self.balance = 100.0
-        self.peak_balance = 100.0
+        self.balance = 0.0
+        self.peak_balance = 0.0
         self.consecutive_losses = 0
         self.daily_pnl = 0.0
         self.last_day = datetime.date.today()

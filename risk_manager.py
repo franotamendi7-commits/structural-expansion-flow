@@ -15,7 +15,7 @@ RISK_STATE_PATH = Path(__file__).parent / "risk_state.json"
 
 
 class RiskManager:
-    def __init__(self, base_risk=0.01, max_risk=0.015, min_risk=0.005):
+    def __init__(self, base_risk=0.012, max_risk=0.025, min_risk=0.008):
         self.base_risk = base_risk
         self.max_risk = max_risk
         self.min_risk = min_risk
@@ -66,6 +66,8 @@ class RiskManager:
         avg_vol = 0.02
         vol_factor = avg_vol / vol_pct if vol_pct > 0 else 1.0
         vol_factor = max(0.5, min(vol_factor, 1.5))
+        # vol_factor desactivado — compute_size en multi_bot.py maneja el vol-sizing
+        vol_factor = 1.0
         final_risk = score_risk * vol_factor
         return max(self.min_risk, min(self.max_risk, final_risk))
 

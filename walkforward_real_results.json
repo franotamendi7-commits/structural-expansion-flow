@@ -1,0 +1,43 @@
+{
+  "config": {
+    "initial_equity_per_bot": 100.0,
+    "warmup": 400
+  },
+  "bots": {
+    "BNB": {
+      "trades": 0,
+      "pnl": 0,
+      "final_eq": 100.0
+    },
+    "BTC": {
+      "trades": 19,
+      "wins": 8,
+      "wr": 42.1,
+      "pnl": -6.24,
+      "final_eq": 92.51,
+      "return": -7.49,
+      "dd": -8.09
+    },
+    "ETH": {
+      "trades": 0,
+      "pnl": 0,
+      "final_eq": 100.0
+    },
+    "SOL": {
+      "trades": 0,
+      "pnl": 0,
+      "final_eq": 100.0
+    },
+    "XRP": {
+      "trades": 0,
+      "pnl": 0,
+      "final_eq": 100.0
+    }
+  },
+  "portfolio": {
+    "trades": 19,
+    "pnl": -6.24,
+    "final_equity": 493.76,
+    "return_pct": -1.25
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "out_of_sample": {
+    "trades": 349,
+    "pnl": 123.29,
+    "equity": 623.29,
+    "return_pct": 24.66,
+    "dd_pct": -5.64,
+    "wr": 43.8,
+    "sharpe": 1.9,
+    "annualized": 93.7
+  },
+  "monte_carlo": {
+    "mean": 24.16,
+    "median": 23.71,
+    "p5": 2.39,
+    "p95": 46.64,
+    "prob_positive": 97.8
+  }
+}

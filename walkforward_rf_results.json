@@ -1,0 +1,18 @@
+{
+  "portfolio": {
+    "trades": 738,
+    "pnl": -31.62,
+    "equity": 468.38,
+    "return_pct": -6.32,
+    "wr": 51.9,
+    "dd": -7.16,
+    "sharpe": -1.2
+  },
+  "monte_carlo": {
+    "mean": -6.44,
+    "median": -6.29,
+    "p5": -14.91,
+    "p95": 2.17,
+    "prob_positive": 10.1
+  }
+}

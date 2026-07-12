@@ -1,0 +1,57 @@
+{
+  "inversores": [
+    {
+      "id": "inv_5b5bb97fe5a4d96c",
+      "name": "Tata",
+      "usuario": "franotamendi7",
+      "password": "12345",
+      "capital_invertido": 100.0,
+      "capital_actual": 50.0,
+      "high_water_mark": 50.0,
+      "fecha_ingreso": "2026-06-08",
+      "retiro_pendiente": true,
+      "fecha_solicitud_retiro": "2026-06-08 17:09:50",
+      "porcentaje_retiro": 50,
+      "monto_retiro_solicitado": 49.75,
+      "transacciones": [
+        {
+          "fecha": "2026-06-08 17:07:39",
+          "tipo": "deposito",
+          "monto": 100.0,
+          "capital_antes": 0,
+          "capital_despues": 100.0
+        },
+        {
+          "fecha": "2026-06-08 17:09:50",
+          "tipo": "retiro",
+          "monto": 50.0,
+          "capital_antes": 100.0,
+          "capital_despues": 50.0
+        }
+      ]
+    },
+    {
+      "id": "inv_b6ccf0591b3be9fc",
+      "name": "Vicky Rossetti",
+      "usuario": "VickyR",
+      "password": "12345",
+      "capital_invertido": 100.0,
+      "capital_actual": 100.0,
+      "high_water_mark": 100.0,
+      "fecha_ingreso": "2026-06-08",
+      "retiro_pendiente": false,
+      "fecha_solicitud_retiro": null,
+      "porcentaje_retiro": null,
+      "monto_retiro_solicitado": null,
+      "transacciones": [
+        {
+          "fecha": "2026-06-08 17:37:07",
+          "tipo": "deposito",
+          "monto": 100.0,
+          "capital_antes": 0,
+          "capital_despues": 100.0
+        }
+      ]
+    }
+  ]
+}

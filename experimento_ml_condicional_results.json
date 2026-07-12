@@ -1,0 +1,1138 @@
+[
+  {
+    "train": "2023-Q1",
+    "test": "2024-Q1",
+    "n_train": 135,
+    "n_test": 155,
+    "no_ml": {
+      "trades": 155,
+      "wr": 48.4,
+      "pnl": 193.68,
+      "ret": 38.74
+    },
+    "RF_cond_th0.3": {
+      "trades": 154,
+      "wr": 48.1,
+      "pnl": 190.84,
+      "ret": 38.17,
+      "ml_filtered": 1
+    },
+    "RF_cond_th0.4": {
+      "trades": 149,
+      "wr": 48.3,
+      "pnl": 188.69,
+      "ret": 37.74,
+      "ml_filtered": 6
+    },
+    "RF_cond_th0.5": {
+      "trades": 130,
+      "wr": 50.0,
+      "pnl": 170.8,
+      "ret": 34.16,
+      "ml_filtered": 25
+    },
+    "RF_cond_th0.55": {
+      "trades": 121,
+      "wr": 49.6,
+      "pnl": 155.83,
+      "ret": 31.17,
+      "ml_filtered": 34
+    },
+    "RF_cond_th0.6": {
+      "trades": 115,
+      "wr": 48.7,
+      "pnl": 147.54,
+      "ret": 29.51,
+      "ml_filtered": 40
+    },
+    "XGB_cond_th0.3": {
+      "trades": 137,
+      "wr": 48.2,
+      "pnl": 177.53,
+      "ret": 35.51,
+      "ml_filtered": 18
+    },
+    "XGB_cond_th0.4": {
+      "trades": 134,
+      "wr": 48.5,
+      "pnl": 176.24,
+      "ret": 35.25,
+      "ml_filtered": 21
+    },
+    "XGB_cond_th0.5": {
+      "trades": 126,
+      "wr": 48.4,
+      "pnl": 165.86,
+      "ret": 33.17,
+      "ml_filtered": 29
+    },
+    "XGB_cond_th0.55": {
+      "trades": 122,
+      "wr": 49.2,
+      "pnl": 163.06,
+      "ret": 32.61,
+      "ml_filtered": 33
+    },
+    "XGB_cond_th0.6": {
+      "trades": 120,
+      "wr": 49.2,
+      "pnl": 159.65,
+      "ret": 31.93,
+      "ml_filtered": 35
+    },
+    "RF_always_th0.3": {
+      "trades": 153,
+      "wr": 47.7,
+      "pnl": 181.82,
+      "ret": 36.36
+    },
+    "RF_always_th0.4": {
+      "trades": 139,
+      "wr": 48.2,
+      "pnl": 172.86,
+      "ret": 34.57
+    },
+    "RF_always_th0.5": {
+      "trades": 100,
+      "wr": 51.0,
+      "pnl": 132.95,
+      "ret": 26.59
+    },
+    "RF_always_th0.55": {
+      "trades": 65,
+      "wr": 50.8,
+      "pnl": 79.56,
+      "ret": 15.91
+    },
+    "RF_always_th0.6": {
+      "trades": 43,
+      "wr": 46.5,
+      "pnl": 46.73,
+      "ret": 9.35
+    },
+    "XGB_always_th0.3": {
+      "trades": 118,
+      "wr": 52.5,
+      "pnl": 193.05,
+      "ret": 38.61
+    },
+    "XGB_always_th0.4": {
+      "trades": 95,
+      "wr": 53.7,
+      "pnl": 170.48,
+      "ret": 34.1
+    },
+    "XGB_always_th0.5": {
+      "trades": 78,
+      "wr": 55.1,
+      "pnl": 148.17,
+      "ret": 29.63
+    },
+    "XGB_always_th0.55": {
+      "trades": 69,
+      "wr": 55.1,
+      "pnl": 123.43,
+      "ret": 24.69
+    },
+    "XGB_always_th0.6": {
+      "trades": 63,
+      "wr": 52.4,
+      "pnl": 101.41,
+      "ret": 20.28
+    }
+  },
+  {
+    "train": "2023-Q1+2024-Q1",
+    "test": "2024-Q2",
+    "n_train": 290,
+    "n_test": 114,
+    "no_ml": {
+      "trades": 114,
+      "wr": 43.9,
+      "pnl": 73.4,
+      "ret": 14.68
+    },
+    "RF_cond_th0.3": {
+      "trades": 110,
+      "wr": 42.7,
+      "pnl": 68.54,
+      "ret": 13.71,
+      "ml_filtered": 4
+    },
+    "RF_cond_th0.4": {
+      "trades": 93,
+      "wr": 44.1,
+      "pnl": 55.1,
+      "ret": 11.02,
+      "ml_filtered": 21
+    },
+    "RF_cond_th0.5": {
+      "trades": 59,
+      "wr": 40.7,
+      "pnl": 35.08,
+      "ret": 7.02,
+      "ml_filtered": 55
+    },
+    "RF_cond_th0.55": {
+      "trades": 45,
+      "wr": 31.1,
+      "pnl": 5.74,
+      "ret": 1.15,
+      "ml_filtered": 69
+    },
+    "RF_cond_th0.6": {
+      "trades": 40,
+      "wr": 27.5,
+      "pnl": -7.86,
+      "ret": -1.57,
+      "ml_filtered": 74
+    },
+    "XGB_cond_th0.3": {
+      "trades": 80,
+      "wr": 41.2,
+      "pnl": 41.76,
+      "ret": 8.35,
+      "ml_filtered": 34
+    },
+    "XGB_cond_th0.4": {
+      "trades": 65,
+      "wr": 38.5,
+      "pnl": 22.02,
+      "ret": 4.4,
+      "ml_filtered": 49
+    },
+    "XGB_cond_th0.5": {
+      "trades": 57,
+      "wr": 36.8,
+      "pnl": 14.44,
+      "ret": 2.89,
+      "ml_filtered": 57
+    },
+    "XGB_cond_th0.55": {
+      "trades": 54,
+      "wr": 35.2,
+      "pnl": 10.24,
+      "ret": 2.05,
+      "ml_filtered": 60
+    },
+    "XGB_cond_th0.6": {
+      "trades": 52,
+      "wr": 34.6,
+      "pnl": 6.22,
+      "ret": 1.24,
+      "ml_filtered": 62
+    },
+    "RF_always_th0.3": {
+      "trades": 110,
+      "wr": 42.7,
+      "pnl": 68.54,
+      "ret": 13.71
+    },
+    "RF_always_th0.4": {
+      "trades": 90,
+      "wr": 44.4,
+      "pnl": 56.62,
+      "ret": 11.32
+    },
+    "RF_always_th0.5": {
+      "trades": 47,
+      "wr": 40.4,
+      "pnl": 38.54,
+      "ret": 7.71
+    },
+    "RF_always_th0.55": {
+      "trades": 27,
+      "wr": 29.6,
+      "pnl": 7.66,
+      "ret": 1.53
+    },
+    "RF_always_th0.6": {
+      "trades": 10,
+      "wr": 30.0,
+      "pnl": -0.36,
+      "ret": -0.07
+    },
+    "XGB_always_th0.3": {
+      "trades": 67,
+      "wr": 41.8,
+      "pnl": 43.78,
+      "ret": 8.76
+    },
+    "XGB_always_th0.4": {
+      "trades": 43,
+      "wr": 44.2,
+      "pnl": 26.16,
+      "ret": 5.23
+    },
+    "XGB_always_th0.5": {
+      "trades": 33,
+      "wr": 45.5,
+      "pnl": 22.11,
+      "ret": 4.42
+    },
+    "XGB_always_th0.55": {
+      "trades": 30,
+      "wr": 43.3,
+      "pnl": 17.91,
+      "ret": 3.58
+    },
+    "XGB_always_th0.6": {
+      "trades": 28,
+      "wr": 42.9,
+      "pnl": 13.89,
+      "ret": 2.78
+    }
+  },
+  {
+    "train": "2023-Q1+2024-Q1+2024-Q2",
+    "test": "2024-Q3",
+    "n_train": 404,
+    "n_test": 123,
+    "no_ml": {
+      "trades": 123,
+      "wr": 49.6,
+      "pnl": 128.94,
+      "ret": 25.79
+    },
+    "RF_cond_th0.3": {
+      "trades": 123,
+      "wr": 49.6,
+      "pnl": 128.94,
+      "ret": 25.79,
+      "ml_filtered": 0
+    },
+    "RF_cond_th0.4": {
+      "trades": 109,
+      "wr": 51.4,
+      "pnl": 124.29,
+      "ret": 24.86,
+      "ml_filtered": 14
+    },
+    "RF_cond_th0.5": {
+      "trades": 70,
+      "wr": 52.9,
+      "pnl": 89.15,
+      "ret": 17.83,
+      "ml_filtered": 53
+    },
+    "RF_cond_th0.55": {
+      "trades": 58,
+      "wr": 51.7,
+      "pnl": 68.63,
+      "ret": 13.73,
+      "ml_filtered": 65
+    },
+    "RF_cond_th0.6": {
+      "trades": 53,
+      "wr": 52.8,
+      "pnl": 63.37,
+      "ret": 12.67,
+      "ml_filtered": 70
+    },
+    "XGB_cond_th0.3": {
+      "trades": 94,
+      "wr": 52.1,
+      "pnl": 107.69,
+      "ret": 21.54,
+      "ml_filtered": 29
+    },
+    "XGB_cond_th0.4": {
+      "trades": 82,
+      "wr": 53.7,
+      "pnl": 97.3,
+      "ret": 19.46,
+      "ml_filtered": 41
+    },
+    "XGB_cond_th0.5": {
+      "trades": 70,
+      "wr": 54.3,
+      "pnl": 84.58,
+      "ret": 16.92,
+      "ml_filtered": 53
+    },
+    "XGB_cond_th0.55": {
+      "trades": 64,
+      "wr": 54.7,
+      "pnl": 80.49,
+      "ret": 16.1,
+      "ml_filtered": 59
+    },
+    "XGB_cond_th0.6": {
+      "trades": 59,
+      "wr": 52.5,
+      "pnl": 69.23,
+      "ret": 13.85,
+      "ml_filtered": 64
+    },
+    "RF_always_th0.3": {
+      "trades": 123,
+      "wr": 49.6,
+      "pnl": 128.94,
+      "ret": 25.79
+    },
+    "RF_always_th0.4": {
+      "trades": 102,
+      "wr": 52.9,
+      "pnl": 120.01,
+      "ret": 24.0
+    },
+    "RF_always_th0.5": {
+      "trades": 45,
+      "wr": 66.7,
+      "pnl": 85.68,
+      "ret": 17.14
+    },
+    "RF_always_th0.55": {
+      "trades": 25,
+      "wr": 72.0,
+      "pnl": 45.29,
+      "ret": 9.06
+    },
+    "RF_always_th0.6": {
+      "trades": 13,
+      "wr": 92.3,
+      "pnl": 36.23,
+      "ret": 7.25
+    },
+    "XGB_always_th0.3": {
+      "trades": 81,
+      "wr": 55.6,
+      "pnl": 103.1,
+      "ret": 20.62
+    },
+    "XGB_always_th0.4": {
+      "trades": 62,
+      "wr": 59.7,
+      "pnl": 85.24,
+      "ret": 17.05
+    },
+    "XGB_always_th0.5": {
+      "trades": 42,
+      "wr": 64.3,
+      "pnl": 64.05,
+      "ret": 12.81
+    },
+    "XGB_always_th0.55": {
+      "trades": 33,
+      "wr": 72.7,
+      "pnl": 61.35,
+      "ret": 12.27
+    },
+    "XGB_always_th0.6": {
+      "trades": 28,
+      "wr": 71.4,
+      "pnl": 50.1,
+      "ret": 10.02
+    }
+  },
+  {
+    "train": "2023-Q1+2024-Q1+2024-Q2+2024-Q3",
+    "test": "2025-Q1",
+    "n_train": 527,
+    "n_test": 147,
+    "no_ml": {
+      "trades": 147,
+      "wr": 44.2,
+      "pnl": 181.46,
+      "ret": 36.29
+    },
+    "RF_cond_th0.3": {
+      "trades": 147,
+      "wr": 44.2,
+      "pnl": 181.46,
+      "ret": 36.29,
+      "ml_filtered": 0
+    },
+    "RF_cond_th0.4": {
+      "trades": 143,
+      "wr": 45.5,
+      "pnl": 188.6,
+      "ret": 37.72,
+      "ml_filtered": 4
+    },
+    "RF_cond_th0.5": {
+      "trades": 124,
+      "wr": 46.0,
+      "pnl": 170.29,
+      "ret": 34.06,
+      "ml_filtered": 23
+    },
+    "RF_cond_th0.55": {
+      "trades": 112,
+      "wr": 45.5,
+      "pnl": 156.55,
+      "ret": 31.31,
+      "ml_filtered": 35
+    },
+    "RF_cond_th0.6": {
+      "trades": 104,
+      "wr": 43.3,
+      "pnl": 136.35,
+      "ret": 27.27,
+      "ml_filtered": 43
+    },
+    "XGB_cond_th0.3": {
+      "trades": 133,
+      "wr": 43.6,
+      "pnl": 169.87,
+      "ret": 33.97,
+      "ml_filtered": 14
+    },
+    "XGB_cond_th0.4": {
+      "trades": 128,
+      "wr": 43.8,
+      "pnl": 163.39,
+      "ret": 32.68,
+      "ml_filtered": 19
+    },
+    "XGB_cond_th0.5": {
+      "trades": 124,
+      "wr": 44.4,
+      "pnl": 163.85,
+      "ret": 32.77,
+      "ml_filtered": 23
+    },
+    "XGB_cond_th0.55": {
+      "trades": 121,
+      "wr": 45.5,
+      "pnl": 164.31,
+      "ret": 32.86,
+      "ml_filtered": 26
+    },
+    "XGB_cond_th0.6": {
+      "trades": 117,
+      "wr": 46.2,
+      "pnl": 164.48,
+      "ret": 32.9,
+      "ml_filtered": 30
+    },
+    "RF_always_th0.3": {
+      "trades": 146,
+      "wr": 44.5,
+      "pnl": 181.77,
+      "ret": 36.35
+    },
+    "RF_always_th0.4": {
+      "trades": 127,
+      "wr": 48.8,
+      "pnl": 195.34,
+      "ret": 39.07
+    },
+    "RF_always_th0.5": {
+      "trades": 68,
+      "wr": 61.8,
+      "pnl": 164.53,
+      "ret": 32.91
+    },
+    "RF_always_th0.55": {
+      "trades": 38,
+      "wr": 63.2,
+      "pnl": 106.13,
+      "ret": 21.23
+    },
+    "RF_always_th0.6": {
+      "trades": 25,
+      "wr": 52.0,
+      "pnl": 61.43,
+      "ret": 12.29
+    },
+    "XGB_always_th0.3": {
+      "trades": 102,
+      "wr": 48.0,
+      "pnl": 152.85,
+      "ret": 30.57
+    },
+    "XGB_always_th0.4": {
+      "trades": 81,
+      "wr": 49.4,
+      "pnl": 123.93,
+      "ret": 24.79
+    },
+    "XGB_always_th0.5": {
+      "trades": 65,
+      "wr": 52.3,
+      "pnl": 112.48,
+      "ret": 22.5
+    },
+    "XGB_always_th0.55": {
+      "trades": 59,
+      "wr": 57.6,
+      "pnl": 116.02,
+      "ret": 23.2
+    },
+    "XGB_always_th0.6": {
+      "trades": 53,
+      "wr": 60.4,
+      "pnl": 115.74,
+      "ret": 23.15
+    }
+  },
+  {
+    "train": "2023-Q1+2024-Q1+2024-Q2+2024-Q3+2025-Q1",
+    "test": "2025-Q3",
+    "n_train": 674,
+    "n_test": 102,
+    "no_ml": {
+      "trades": 102,
+      "wr": 46.1,
+      "pnl": 89.37,
+      "ret": 17.87
+    },
+    "RF_cond_th0.3": {
+      "trades": 102,
+      "wr": 46.1,
+      "pnl": 89.37,
+      "ret": 17.87,
+      "ml_filtered": 0
+    },
+    "RF_cond_th0.4": {
+      "trades": 87,
+      "wr": 44.8,
+      "pnl": 71.31,
+      "ret": 14.26,
+      "ml_filtered": 15
+    },
+    "RF_cond_th0.5": {
+      "trades": 58,
+      "wr": 48.3,
+      "pnl": 73.42,
+      "ret": 14.68,
+      "ml_filtered": 44
+    },
+    "RF_cond_th0.55": {
+      "trades": 42,
+      "wr": 47.6,
+      "pnl": 52.88,
+      "ret": 10.58,
+      "ml_filtered": 60
+    },
+    "RF_cond_th0.6": {
+      "trades": 33,
+      "wr": 45.5,
+      "pnl": 43.57,
+      "ret": 8.71,
+      "ml_filtered": 69
+    },
+    "XGB_cond_th0.3": {
+      "trades": 76,
+      "wr": 48.7,
+      "pnl": 88.54,
+      "ret": 17.71,
+      "ml_filtered": 26
+    },
+    "XGB_cond_th0.4": {
+      "trades": 65,
+      "wr": 50.8,
+      "pnl": 87.11,
+      "ret": 17.42,
+      "ml_filtered": 37
+    },
+    "XGB_cond_th0.5": {
+      "trades": 54,
+      "wr": 55.6,
+      "pnl": 87.91,
+      "ret": 17.58,
+      "ml_filtered": 48
+    },
+    "XGB_cond_th0.55": {
+      "trades": 47,
+      "wr": 55.3,
+      "pnl": 81.41,
+      "ret": 16.28,
+      "ml_filtered": 55
+    },
+    "XGB_cond_th0.6": {
+      "trades": 43,
+      "wr": 53.5,
+      "pnl": 71.89,
+      "ret": 14.38,
+      "ml_filtered": 59
+    },
+    "RF_always_th0.3": {
+      "trades": 100,
+      "wr": 47.0,
+      "pnl": 94.58,
+      "ret": 18.92
+    },
+    "RF_always_th0.4": {
+      "trades": 83,
+      "wr": 47.0,
+      "pnl": 76.76,
+      "ret": 15.35
+    },
+    "RF_always_th0.5": {
+      "trades": 49,
+      "wr": 49.0,
+      "pnl": 60.58,
+      "ret": 12.12
+    },
+    "RF_always_th0.55": {
+      "trades": 31,
+      "wr": 51.6,
+      "pnl": 42.51,
+      "ret": 8.5
+    },
+    "RF_always_th0.6": {
+      "trades": 18,
+      "wr": 55.6,
+      "pnl": 31.51,
+      "ret": 6.3
+    },
+    "XGB_always_th0.3": {
+      "trades": 72,
+      "wr": 50.0,
+      "pnl": 85.52,
+      "ret": 17.1
+    },
+    "XGB_always_th0.4": {
+      "trades": 60,
+      "wr": 53.3,
+      "pnl": 86.43,
+      "ret": 17.29
+    },
+    "XGB_always_th0.5": {
+      "trades": 49,
+      "wr": 59.2,
+      "pnl": 87.23,
+      "ret": 17.45
+    },
+    "XGB_always_th0.55": {
+      "trades": 41,
+      "wr": 58.5,
+      "pnl": 79.37,
+      "ret": 15.87
+    },
+    "XGB_always_th0.6": {
+      "trades": 34,
+      "wr": 58.8,
+      "pnl": 66.87,
+      "ret": 13.37
+    }
+  },
+  {
+    "train": "2023-Q1+2024-Q1+2024-Q2+2024-Q3+2025-Q1+2025-Q3",
+    "test": "2025-Q4",
+    "n_train": 776,
+    "n_test": 127,
+    "no_ml": {
+      "trades": 127,
+      "wr": 40.9,
+      "pnl": 34.84,
+      "ret": 6.97
+    },
+    "RF_cond_th0.3": {
+      "trades": 127,
+      "wr": 40.9,
+      "pnl": 34.84,
+      "ret": 6.97,
+      "ml_filtered": 0
+    },
+    "RF_cond_th0.4": {
+      "trades": 120,
+      "wr": 40.0,
+      "pnl": 31.12,
+      "ret": 6.22,
+      "ml_filtered": 7
+    },
+    "RF_cond_th0.5": {
+      "trades": 81,
+      "wr": 43.2,
+      "pnl": 21.75,
+      "ret": 4.35,
+      "ml_filtered": 46
+    },
+    "RF_cond_th0.55": {
+      "trades": 57,
+      "wr": 45.6,
+      "pnl": 21.89,
+      "ret": 4.38,
+      "ml_filtered": 70
+    },
+    "RF_cond_th0.6": {
+      "trades": 45,
+      "wr": 44.4,
+      "pnl": 17.59,
+      "ret": 3.52,
+      "ml_filtered": 82
+    },
+    "XGB_cond_th0.3": {
+      "trades": 107,
+      "wr": 39.3,
+      "pnl": 24.51,
+      "ret": 4.9,
+      "ml_filtered": 20
+    },
+    "XGB_cond_th0.4": {
+      "trades": 90,
+      "wr": 38.9,
+      "pnl": 18.37,
+      "ret": 3.67,
+      "ml_filtered": 37
+    },
+    "XGB_cond_th0.5": {
+      "trades": 80,
+      "wr": 41.2,
+      "pnl": 24.19,
+      "ret": 4.84,
+      "ml_filtered": 47
+    },
+    "XGB_cond_th0.55": {
+      "trades": 75,
+      "wr": 42.7,
+      "pnl": 26.73,
+      "ret": 5.35,
+      "ml_filtered": 52
+    },
+    "XGB_cond_th0.6": {
+      "trades": 70,
+      "wr": 40.0,
+      "pnl": 14.99,
+      "ret": 3.0,
+      "ml_filtered": 57
+    },
+    "RF_always_th0.3": {
+      "trades": 127,
+      "wr": 40.9,
+      "pnl": 34.84,
+      "ret": 6.97
+    },
+    "RF_always_th0.4": {
+      "trades": 117,
+      "wr": 41.0,
+      "pnl": 35.31,
+      "ret": 7.06
+    },
+    "RF_always_th0.5": {
+      "trades": 68,
+      "wr": 50.0,
+      "pnl": 32.18,
+      "ret": 6.44
+    },
+    "RF_always_th0.55": {
+      "trades": 38,
+      "wr": 60.5,
+      "pnl": 32.94,
+      "ret": 6.59
+    },
+    "RF_always_th0.6": {
+      "trades": 20,
+      "wr": 70.0,
+      "pnl": 23.42,
+      "ret": 4.68
+    },
+    "XGB_always_th0.3": {
+      "trades": 100,
+      "wr": 41.0,
+      "pnl": 31.37,
+      "ret": 6.27
+    },
+    "XGB_always_th0.4": {
+      "trades": 81,
+      "wr": 42.0,
+      "pnl": 25.79,
+      "ret": 5.16
+    },
+    "XGB_always_th0.5": {
+      "trades": 69,
+      "wr": 46.4,
+      "pnl": 32.76,
+      "ret": 6.55
+    },
+    "XGB_always_th0.55": {
+      "trades": 61,
+      "wr": 50.8,
+      "pnl": 37.28,
+      "ret": 7.46
+    },
+    "XGB_always_th0.6": {
+      "trades": 55,
+      "wr": 49.1,
+      "pnl": 27.47,
+      "ret": 5.49
+    }
+  },
+  {
+    "train": "2023-Q1+2024-Q1+2024-Q2+2024-Q3+2025-Q1+2025-Q3+2025-Q4",
+    "test": "2026-Q1v2",
+    "n_train": 903,
+    "n_test": 115,
+    "no_ml": {
+      "trades": 115,
+      "wr": 47.0,
+      "pnl": 128.7,
+      "ret": 25.74
+    },
+    "RF_cond_th0.3": {
+      "trades": 115,
+      "wr": 47.0,
+      "pnl": 128.7,
+      "ret": 25.74,
+      "ml_filtered": 0
+    },
+    "RF_cond_th0.4": {
+      "trades": 109,
+      "wr": 46.8,
+      "pnl": 128.32,
+      "ret": 25.66,
+      "ml_filtered": 6
+    },
+    "RF_cond_th0.5": {
+      "trades": 63,
+      "wr": 54.0,
+      "pnl": 91.66,
+      "ret": 18.33,
+      "ml_filtered": 52
+    },
+    "RF_cond_th0.55": {
+      "trades": 45,
+      "wr": 53.3,
+      "pnl": 64.52,
+      "ret": 12.9,
+      "ml_filtered": 70
+    },
+    "RF_cond_th0.6": {
+      "trades": 34,
+      "wr": 52.9,
+      "pnl": 43.78,
+      "ret": 8.76,
+      "ml_filtered": 81
+    },
+    "XGB_cond_th0.3": {
+      "trades": 84,
+      "wr": 51.2,
+      "pnl": 115.08,
+      "ret": 23.02,
+      "ml_filtered": 31
+    },
+    "XGB_cond_th0.4": {
+      "trades": 75,
+      "wr": 50.7,
+      "pnl": 97.3,
+      "ret": 19.46,
+      "ml_filtered": 40
+    },
+    "XGB_cond_th0.5": {
+      "trades": 65,
+      "wr": 49.2,
+      "pnl": 84.49,
+      "ret": 16.9,
+      "ml_filtered": 50
+    },
+    "XGB_cond_th0.55": {
+      "trades": 62,
+      "wr": 50.0,
+      "pnl": 85.45,
+      "ret": 17.09,
+      "ml_filtered": 53
+    },
+    "XGB_cond_th0.6": {
+      "trades": 54,
+      "wr": 50.0,
+      "pnl": 77.92,
+      "ret": 15.58,
+      "ml_filtered": 61
+    },
+    "RF_always_th0.3": {
+      "trades": 114,
+      "wr": 47.4,
+      "pnl": 130.76,
+      "ret": 26.15
+    },
+    "RF_always_th0.4": {
+      "trades": 104,
+      "wr": 49.0,
+      "pnl": 132.67,
+      "ret": 26.53
+    },
+    "RF_always_th0.5": {
+      "trades": 49,
+      "wr": 57.1,
+      "pnl": 82.73,
+      "ret": 16.55
+    },
+    "RF_always_th0.55": {
+      "trades": 26,
+      "wr": 65.4,
+      "pnl": 52.57,
+      "ret": 10.51
+    },
+    "RF_always_th0.6": {
+      "trades": 12,
+      "wr": 66.7,
+      "pnl": 23.84,
+      "ret": 4.77
+    },
+    "XGB_always_th0.3": {
+      "trades": 73,
+      "wr": 54.8,
+      "pnl": 115.83,
+      "ret": 23.17
+    },
+    "XGB_always_th0.4": {
+      "trades": 60,
+      "wr": 53.3,
+      "pnl": 91.92,
+      "ret": 18.38
+    },
+    "XGB_always_th0.5": {
+      "trades": 50,
+      "wr": 52.0,
+      "pnl": 79.12,
+      "ret": 15.82
+    },
+    "XGB_always_th0.55": {
+      "trades": 44,
+      "wr": 52.3,
+      "pnl": 77.27,
+      "ret": 15.45
+    },
+    "XGB_always_th0.6": {
+      "trades": 35,
+      "wr": 51.4,
+      "pnl": 64.14,
+      "ret": 12.83
+    }
+  },
+  {
+    "train": "2023-Q1+2024-Q1+2024-Q2+2024-Q3+2025-Q1+2025-Q3+2025-Q4+2026-Q1v2",
+    "test": "2026-Q1",
+    "n_train": 1018,
+    "n_test": 130,
+    "no_ml": {
+      "trades": 130,
+      "wr": 50.8,
+      "pnl": 105.91,
+      "ret": 21.18
+    },
+    "RF_cond_th0.3": {
+      "trades": 130,
+      "wr": 50.8,
+      "pnl": 105.91,
+      "ret": 21.18,
+      "ml_filtered": 0
+    },
+    "RF_cond_th0.4": {
+      "trades": 118,
+      "wr": 55.9,
+      "pnl": 121.34,
+      "ret": 24.27,
+      "ml_filtered": 12
+    },
+    "RF_cond_th0.5": {
+      "trades": 72,
+      "wr": 58.3,
+      "pnl": 81.53,
+      "ret": 16.31,
+      "ml_filtered": 58
+    },
+    "RF_cond_th0.55": {
+      "trades": 34,
+      "wr": 58.8,
+      "pnl": 35.17,
+      "ret": 7.03,
+      "ml_filtered": 96
+    },
+    "RF_cond_th0.6": {
+      "trades": 18,
+      "wr": 61.1,
+      "pnl": 16.37,
+      "ret": 3.27,
+      "ml_filtered": 112
+    },
+    "XGB_cond_th0.3": {
+      "trades": 107,
+      "wr": 55.1,
+      "pnl": 104.58,
+      "ret": 20.92,
+      "ml_filtered": 23
+    },
+    "XGB_cond_th0.4": {
+      "trades": 89,
+      "wr": 57.3,
+      "pnl": 96.67,
+      "ret": 19.33,
+      "ml_filtered": 41
+    },
+    "XGB_cond_th0.5": {
+      "trades": 70,
+      "wr": 57.1,
+      "pnl": 77.0,
+      "ret": 15.4,
+      "ml_filtered": 60
+    },
+    "XGB_cond_th0.55": {
+      "trades": 61,
+      "wr": 57.4,
+      "pnl": 64.68,
+      "ret": 12.94,
+      "ml_filtered": 69
+    },
+    "XGB_cond_th0.6": {
+      "trades": 49,
+      "wr": 55.1,
+      "pnl": 37.2,
+      "ret": 7.44,
+      "ml_filtered": 81
+    },
+    "RF_always_th0.3": {
+      "trades": 130,
+      "wr": 50.8,
+      "pnl": 105.91,
+      "ret": 21.18
+    },
+    "RF_always_th0.4": {
+      "trades": 116,
+      "wr": 56.0,
+      "pnl": 119.11,
+      "ret": 23.82
+    },
+    "RF_always_th0.5": {
+      "trades": 66,
+      "wr": 62.1,
+      "pnl": 84.36,
+      "ret": 16.87
+    },
+    "RF_always_th0.55": {
+      "trades": 27,
+      "wr": 70.4,
+      "pnl": 38.18,
+      "ret": 7.64
+    },
+    "RF_always_th0.6": {
+      "trades": 9,
+      "wr": 88.9,
+      "pnl": 12.86,
+      "ret": 2.57
+    },
+    "XGB_always_th0.3": {
+      "trades": 105,
+      "wr": 56.2,
+      "pnl": 104.76,
+      "ret": 20.95
+    },
+    "XGB_always_th0.4": {
+      "trades": 84,
+      "wr": 59.5,
+      "pnl": 97.09,
+      "ret": 19.42
+    },
+    "XGB_always_th0.5": {
+      "trades": 64,
+      "wr": 60.9,
+      "pnl": 79.83,
+      "ret": 15.97
+    },
+    "XGB_always_th0.55": {
+      "trades": 55,
+      "wr": 61.8,
+      "pnl": 67.51,
+      "ret": 13.5
+    },
+    "XGB_always_th0.6": {
+      "trades": 43,
+      "wr": 60.5,
+      "pnl": 40.03,
+      "ret": 8.01
+    }
+  }
+]

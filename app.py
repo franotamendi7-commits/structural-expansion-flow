@@ -738,16 +738,28 @@ def format_daily_summary(system_status: Dict) -> str:
 # SESSION STATE INIT
 # ============================================================
 def init_session_state():
-    """Initialize Streamlit session state with defaults.
+    """Initialize Streamlit session state with defaults."""
+    # ---- Toggles & UI state (MUST come before system init!) ----
+    # If testnet env creds or credentials.enc are present, default
+    # Live Trading + Auto-refresh ON so the bot runs immediately
+    # (testnet only, fake money).
+    _env_creds = bool(os.environ.get("BINANCE_TESTNET_API_KEY")
+                     or os.environ.get("BINANCE_API_KEY"))
+    _enc_exists = Path("credentials.enc").exists()
+    # También checkear st.secrets (tienen prioridad los env vars)
+    if not _env_creds:
+        try:
+            _env_creds = bool(st.secrets.get("BINANCE_API_KEY"))
+        except Exception:
+            pass
+    if "auto_refresh" not in st.session_state:
+        st.session_state.auto_refresh = _env_creds or _enc_exists
+    if "live_trading" not in st.session_state:
+        st.session_state.live_trading = _env_creds or _enc_exists
+    if "use_real_balance" not in st.session_state:
+        st.session_state.use_real_balance = _env_creds or _enc_exists
 
-    Ajustes:
-      - #2: Start WS feed once and reuse
-      - #5: Robust bot init (one failing bot doesn't break others)
-      - #8: Start stop_monitor thread if available
-    """
-    # ---- Robust MultiBotSystem init (ajuste #5) ----
-    # Rebuild the system when Live Trading is toggled OR when credentials are
-    # newly unlocked, so the exchange client (ExecutionManager) attaches.
+    # ---- Robust MultiBotSystem init ----
     live = st.session_state.get("live_trading", False)
     has_creds = bool(st.session_state.get("binance_api_key")
                      and st.session_state.get("binance_api_secret"))
@@ -760,9 +772,7 @@ def init_session_state():
     st.session_state._prev_has_creds = has_creds
 
     if rebuild:
-        # Build exchange client only if live trading is ON and creds are available.
-        # Creds come from (1) decrypted credentials.enc, or (2) env vars
-        # (testnet) so keys never need to be pasted in chat.
+        # Build exchange client only if live trading is ON and creds are available
         exchange_client = None
         if live:
             ak = st.session_state.get("binance_api_key")
@@ -771,6 +781,13 @@ def init_session_state():
             if not (ak and sk):
                 ak = os.environ.get("BINANCE_TESTNET_API_KEY") or os.environ.get("BINANCE_API_KEY")
                 sk = os.environ.get("BINANCE_TESTNET_API_SECRET") or os.environ.get("BINANCE_API_SECRET")
+                # Fallback a st.secrets (secrets.toml)
+                if not (ak and sk):
+                    try:
+                        ak = st.secrets.get("BINANCE_API_KEY")
+                        sk = st.secrets.get("BINANCE_SECRET_KEY")
+                    except Exception:
+                        pass
                 if os.environ.get("USE_TESTNET") is not None:
                     use_testnet = os.environ.get("USE_TESTNET", "true").lower() != "false"
             if ak and sk:
@@ -783,17 +800,14 @@ def init_session_state():
         if MULTI_BOT_AVAILABLE:
             try:
                 system = MultiBotSystem(exchange_client=exchange_client)
-                # Verify each bot individually
                 bot_errors = {}
                 for name, bot in list(system.bots.items()):
                     try:
-                        # Quick sanity check
                         _ = bot.status()
                         logger.info(f"Bot {name} ({bot.symbol}) initialized OK")
                     except Exception as e:
                         bot_errors[name] = str(e)
                         logger.error(f"Bot {name} failed init: {e}")
-                        # Remove broken bot from the system so others can run
                         del system.bots[name]
                 st.session_state.system = system
                 st.session_state.bot_errors = bot_errors
@@ -809,20 +823,6 @@ def init_session_state():
             st.session_state.system = None
             st.session_state.system_error = "multi_bot.py not available"
             st.session_state.bot_errors = {}
-
-    # ---- Toggles & UI state ----
-    # If testnet env creds or credentials.enc are present, default
-    # Live Trading + Auto-refresh ON so the bot runs immediately
-    # (testnet only, fake money).
-    _env_creds = bool(os.environ.get("BINANCE_TESTNET_API_KEY")
-                     or os.environ.get("BINANCE_API_KEY"))
-    _enc_exists = Path("credentials.enc").exists()
-    if "auto_refresh" not in st.session_state:
-        st.session_state.auto_refresh = _env_creds or _enc_exists
-    if "live_trading" not in st.session_state:
-        st.session_state.live_trading = _env_creds or _enc_exists
-    if "use_real_balance" not in st.session_state:
-        st.session_state.use_real_balance = False
     if "paused" not in st.session_state:
         st.session_state.paused = False
     if "tg_token" not in st.session_state:
@@ -1167,7 +1167,7 @@ def render_metrics_row():
     try:
         ps = system.portfolio_summary()
     except Exception:
-        ps = {"total_equity": 500, "net_pnl": 0, "return_pct": 0,
+        ps = {"total_equity": 0, "net_pnl": 0, "return_pct": 0,
               "total_trades": 0, "win_rate": 0, "profit_factor": 0}
 
     # Compute open P&L per pair (ajuste #4) using WS-or-REST price
@@ -1208,28 +1208,31 @@ def render_metrics_row():
         current = equities[-1]
         dd_pct = (current - peak) / peak * 100 if peak > 0 else 0
 
+    logger.info(f"Dashboard cards: total_equity=${ps['total_equity']:.2f}, "
+                 f"use_real_balance={st.session_state.get('use_real_balance', False)}")
+
     # Render 6 cards in a grid
     cards_html = '<div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px; margin-bottom: 20px;">'
-    cards_html += render_metric_card("Balance Total", f"${ps['total_equity']:.2f}",
+    cards_html += render_metric_card("Balance",
+                                      f"${ps['total_equity']:.2f}",
+                                      f"{'LIVE' if st.session_state.get('use_real_balance', False) else 'PAPER'}",
+                                      "")
+    cards_html += render_metric_card("P&L Total", f"${ps['net_pnl']:+.2f}",
                                       f"{ps['return_pct']:+.2f}%",
-                                      "positive" if ps['return_pct'] >= 0 else "negative")
+                                      "positive" if ps['net_pnl'] >= 0 else "negative")
     cards_html += render_metric_card("P&L Abierto",
                                       f"${open_pnl:+.2f}",
                                       f"{(open_pnl/ps['total_equity']*100) if ps['total_equity'] else 0:+.2f}%",
                                       "positive" if open_pnl >= 0 else "negative")
     cards_html += render_metric_card("P&L Cerrado",
                                       f"${closed_pnl:+.2f}",
-                                      f"{(closed_pnl/500*100) if 500 else 0:+.2f}%",
+                                      f"{ps['return_pct']:+.2f}%",
                                       "positive" if closed_pnl >= 0 else "negative")
     dd_class = "negative" if dd_pct < 0 else "positive"
-    cards_html += render_metric_card("Drawdown Actual",
+    cards_html += render_metric_card("Drawdown",
                                       f"{dd_pct:.2f}%",
                                       "vs peak equity",
                                       dd_class)
-    cards_html += render_metric_card("Margen Usado",
-                                      f"${margin_used:.2f}",
-                                      f"{(margin_used/ps['total_equity']*100) if ps['total_equity'] else 0:.1f}%",
-                                      "")
     cards_html += render_metric_card("Pares Activos",
                                       f"{active_pairs}/5",
                                       f"{ps['total_trades']} trades total",
@@ -1377,6 +1380,16 @@ def render_pairs_table():
         else:
             sl_str = "—"
 
+        # 1h bias + size multiplier
+        vwap_1h = getattr(bot, "_vwap_1h", None)
+        df1h = getattr(bot, "_df1h", None)
+        h1_bias = "—"
+        if vwap_1h is not None and df1h is not None and len(df1h) >= 2 and len(vwap_1h) >= 2:
+            c1h = float(df1h["close"].iloc[-2])
+            vw1h = float(vwap_1h[-2])
+            if np.isfinite(vw1h) and vw1h > 0:
+                h1_bias = "🐂" if c1h > vw1h else ("🐻" if c1h < vw1h else "—")
+
         rows_html += f"""
         <tr>
             <td style="color: var(--gold-light); font-weight: 600;">{name}</td>
@@ -1385,6 +1398,7 @@ def render_pairs_table():
             <td>{signal_badge}</td>
             <td>{score:.0f}</td>
             <td>{regime}</td>
+            <td>{h1_bias}</td>
             <td style="min-width: 140px;">{pnl_bar}</td>
             <td>{sl_str}</td>
         </tr>
@@ -1401,6 +1415,7 @@ def render_pairs_table():
                 <th>Señal</th>
                 <th>Score</th>
                 <th>Régimen</th>
+                <th>1h</th>
                 <th>P&L Live</th>
                 <th>SL Dist.</th>
             </tr>
@@ -1622,7 +1637,7 @@ def render_risk_management():
         wr = (total_wins / total_trades * 100) if total_trades else 0
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         today_pnl = daily_pnl.get(today, 0)
-        peak_equity = max([h["equity"] for h in st.session_state.equity_history], default=500)
+        peak_equity = max([h["equity"] for h in st.session_state.equity_history], default=0)
         current_dd = 0
         if st.session_state.equity_history:
             current_equity = st.session_state.equity_history[-1]["equity"]

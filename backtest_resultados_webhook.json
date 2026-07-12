@@ -1,0 +1,75 @@
+{
+  "bots": {
+    "BNB": {
+      "trades": 16,
+      "wins": 11,
+      "losses": 5,
+      "win_rate": 68.8,
+      "total_pnl": 5.18,
+      "final_equity": 5.18,
+      "return_pct": 5.18,
+      "avg_win": 0.9483,
+      "avg_loss": -1.0501,
+      "profit_factor": 0.9,
+      "max_dd_pct": -36.33
+    },
+    "BTC": {
+      "trades": 141,
+      "wins": 62,
+      "losses": 79,
+      "win_rate": 44.0,
+      "total_pnl": 0.65,
+      "final_equity": 0.65,
+      "return_pct": 0.65,
+      "avg_win": 1.4078,
+      "avg_loss": -1.0967,
+      "profit_factor": 1.28,
+      "max_dd_pct": -776317.41
+    },
+    "ETH": {
+      "trades": 24,
+      "wins": 15,
+      "losses": 9,
+      "win_rate": 62.5,
+      "total_pnl": 5.07,
+      "final_equity": 5.07,
+      "return_pct": 5.07,
+      "avg_win": 0.963,
+      "avg_loss": -1.0416,
+      "profit_factor": 0.92,
+      "max_dd_pct": -104821.18
+    },
+    "SOL": {
+      "trades": 39,
+      "wins": 24,
+      "losses": 15,
+      "win_rate": 61.5,
+      "total_pnl": 13.16,
+      "final_equity": 13.16,
+      "return_pct": 13.16,
+      "avg_win": 1.2034,
+      "avg_loss": -1.0479,
+      "profit_factor": 1.15,
+      "max_dd_pct": -106474.61
+    },
+    "XRP": {
+      "trades": 37,
+      "wins": 20,
+      "losses": 17,
+      "win_rate": 54.1,
+      "total_pnl": 6.04,
+      "final_equity": 6.04,
+      "return_pct": 6.04,
+      "avg_win": 1.1959,
+      "avg_loss": -1.0519,
+      "profit_factor": 1.14,
+      "max_dd_pct": -363.2
+    }
+  },
+  "portfolio": {
+    "total_trades": 257,
+    "total_pnl": 30.1,
+    "final_equity": 30.1,
+    "max_dd_pct": -647.91
+  }
+}

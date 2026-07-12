@@ -1,0 +1,870 @@
+{
+  "total_trades": 1148,
+  "periods_used": [
+    "2023-Q1",
+    "2024-Q1",
+    "2024-Q2",
+    "2024-Q3",
+    "2025-Q1",
+    "2025-Q3",
+    "2025-Q4",
+    "2026-Q1v2",
+    "2026-Q1"
+  ],
+  "walkforward_folds": [
+    {
+      "train": "2023-Q1",
+      "test": "2024-Q1",
+      "results": {
+        "no_ml": {
+          "trades": 155,
+          "wr": 48.4,
+          "pnl": 193.68,
+          "ret": 38.74
+        },
+        "rf": {
+          "train_acc": 95.6,
+          "gate_th0.3": {
+            "trades": 154,
+            "wr": 48.7,
+            "pnl": 194.01,
+            "ret": 38.8
+          },
+          "gate_th0.4": {
+            "trades": 139,
+            "wr": 49.6,
+            "pnl": 181.31,
+            "ret": 36.26
+          },
+          "gate_th0.5": {
+            "trades": 102,
+            "wr": 49.0,
+            "pnl": 137.59,
+            "ret": 27.52
+          },
+          "gate_th0.55": {
+            "trades": 74,
+            "wr": 50.0,
+            "pnl": 99.92,
+            "ret": 19.98
+          },
+          "gate_th0.6": {
+            "trades": 49,
+            "wr": 44.9,
+            "pnl": 50.38,
+            "ret": 10.08
+          },
+          "gate_th0.7": {
+            "trades": 10,
+            "wr": 30.0,
+            "pnl": 7.96,
+            "ret": 1.59
+          },
+          "sizing": {
+            "trades": 155,
+            "pnl": 105.27,
+            "ret": 21.05
+          }
+        },
+        "xgb": {
+          "train_acc": 100.0,
+          "gate_th0.3": {
+            "trades": 124,
+            "wr": 50.8,
+            "pnl": 185.64,
+            "ret": 37.13
+          },
+          "gate_th0.4": {
+            "trades": 105,
+            "wr": 54.3,
+            "pnl": 187.5,
+            "ret": 37.5
+          },
+          "gate_th0.5": {
+            "trades": 86,
+            "wr": 55.8,
+            "pnl": 161.55,
+            "ret": 32.31
+          },
+          "gate_th0.55": {
+            "trades": 81,
+            "wr": 55.6,
+            "pnl": 155.55,
+            "ret": 31.11
+          },
+          "gate_th0.6": {
+            "trades": 70,
+            "wr": 55.7,
+            "pnl": 127.07,
+            "ret": 25.41
+          },
+          "gate_th0.7": {
+            "trades": 50,
+            "wr": 56.0,
+            "pnl": 85.09,
+            "ret": 17.02
+          },
+          "sizing": {
+            "trades": 155,
+            "pnl": 130.55,
+            "ret": 26.11
+          },
+          "top_features": {
+            "st_aligned": 16.6,
+            "phas_trending": 13.7,
+            "phas_compressing": 10.4,
+            "fib_high_key": 8.5,
+            "fib_width": 7.9
+          }
+        }
+      }
+    },
+    {
+      "train": "2023-Q1+2024-Q1",
+      "test": "2024-Q2",
+      "results": {
+        "no_ml": {
+          "trades": 114,
+          "wr": 43.9,
+          "pnl": 73.4,
+          "ret": 14.68
+        },
+        "rf": {
+          "train_acc": 92.4,
+          "gate_th0.3": {
+            "trades": 111,
+            "wr": 42.3,
+            "pnl": 66.98,
+            "ret": 13.4
+          },
+          "gate_th0.4": {
+            "trades": 89,
+            "wr": 44.9,
+            "pnl": 60.38,
+            "ret": 12.08
+          },
+          "gate_th0.5": {
+            "trades": 53,
+            "wr": 47.2,
+            "pnl": 51.96,
+            "ret": 10.39
+          },
+          "gate_th0.55": {
+            "trades": 30,
+            "wr": 40.0,
+            "pnl": 24.05,
+            "ret": 4.81
+          },
+          "gate_th0.6": {
+            "trades": 15,
+            "wr": 33.3,
+            "pnl": 7.04,
+            "ret": 1.41
+          },
+          "gate_th0.7": {
+            "trades": 3,
+            "wr": 0.0,
+            "pnl": -0.33,
+            "ret": -0.07
+          },
+          "sizing": {
+            "trades": 114,
+            "pnl": 36.59,
+            "ret": 7.32
+          }
+        },
+        "xgb": {
+          "train_acc": 100.0,
+          "gate_th0.3": {
+            "trades": 61,
+            "wr": 42.6,
+            "pnl": 45.05,
+            "ret": 9.01
+          },
+          "gate_th0.4": {
+            "trades": 46,
+            "wr": 41.3,
+            "pnl": 28.23,
+            "ret": 5.65
+          },
+          "gate_th0.5": {
+            "trades": 32,
+            "wr": 43.8,
+            "pnl": 18.29,
+            "ret": 3.66
+          },
+          "gate_th0.55": {
+            "trades": 28,
+            "wr": 42.9,
+            "pnl": 16.21,
+            "ret": 3.24
+          },
+          "gate_th0.6": {
+            "trades": 25,
+            "wr": 40.0,
+            "pnl": 12.98,
+            "ret": 2.6
+          },
+          "gate_th0.7": {
+            "trades": 17,
+            "wr": 35.3,
+            "pnl": 6.8,
+            "ret": 1.36
+          },
+          "sizing": {
+            "trades": 114,
+            "pnl": 26.72,
+            "ret": 5.34
+          },
+          "top_features": {
+            "mom__neutral": 12.0,
+            "fib_high_key": 9.3,
+            "phas_compressing": 8.1,
+            "body_ratio_4h": 8.0,
+            "ci_value": 7.6
+          }
+        }
+      }
+    },
+    {
+      "train": "2023-Q1+2024-Q1+2024-Q2",
+      "test": "2024-Q3",
+      "results": {
+        "no_ml": {
+          "trades": 123,
+          "wr": 49.6,
+          "pnl": 128.94,
+          "ret": 25.79
+        },
+        "rf": {
+          "train_acc": 88.9,
+          "gate_th0.3": {
+            "trades": 123,
+            "wr": 49.6,
+            "pnl": 128.94,
+            "ret": 25.79
+          },
+          "gate_th0.4": {
+            "trades": 100,
+            "wr": 52.0,
+            "pnl": 119.41,
+            "ret": 23.88
+          },
+          "gate_th0.5": {
+            "trades": 45,
+            "wr": 73.3,
+            "pnl": 88.8,
+            "ret": 17.76
+          },
+          "gate_th0.55": {
+            "trades": 23,
+            "wr": 78.3,
+            "pnl": 51.23,
+            "ret": 10.25
+          },
+          "gate_th0.6": {
+            "trades": 13,
+            "wr": 92.3,
+            "pnl": 40.25,
+            "ret": 8.05
+          },
+          "gate_th0.7": {
+            "trades": 1,
+            "wr": 100.0,
+            "pnl": 5.28,
+            "ret": 1.06
+          },
+          "sizing": {
+            "trades": 123,
+            "pnl": 70.08,
+            "ret": 14.02
+          }
+        },
+        "xgb": {
+          "train_acc": 100.0,
+          "gate_th0.3": {
+            "trades": 81,
+            "wr": 55.6,
+            "pnl": 103.1,
+            "ret": 20.62
+          },
+          "gate_th0.4": {
+            "trades": 62,
+            "wr": 59.7,
+            "pnl": 85.24,
+            "ret": 17.05
+          },
+          "gate_th0.5": {
+            "trades": 42,
+            "wr": 64.3,
+            "pnl": 64.05,
+            "ret": 12.81
+          },
+          "gate_th0.55": {
+            "trades": 33,
+            "wr": 72.7,
+            "pnl": 61.35,
+            "ret": 12.27
+          },
+          "gate_th0.6": {
+            "trades": 28,
+            "wr": 71.4,
+            "pnl": 50.1,
+            "ret": 10.02
+          },
+          "gate_th0.7": {
+            "trades": 23,
+            "wr": 69.6,
+            "pnl": 42.85,
+            "ret": 8.57
+          },
+          "sizing": {
+            "trades": 123,
+            "pnl": 70.97,
+            "ret": 14.19
+          },
+          "top_features": {
+            "fib_high_key": 8.6,
+            "body_ratio_4h": 8.6,
+            "st_aligned": 8.5,
+            "phas_expanding": 8.4,
+            "mom_score": 8.0
+          }
+        }
+      }
+    },
+    {
+      "train": "2023-Q1+2024-Q1+2024-Q2+2024-Q3",
+      "test": "2025-Q1",
+      "results": {
+        "no_ml": {
+          "trades": 147,
+          "wr": 44.2,
+          "pnl": 181.46,
+          "ret": 36.29
+        },
+        "rf": {
+          "train_acc": 87.9,
+          "gate_th0.3": {
+            "trades": 147,
+            "wr": 44.2,
+            "pnl": 181.46,
+            "ret": 36.29
+          },
+          "gate_th0.4": {
+            "trades": 122,
+            "wr": 47.5,
+            "pnl": 175.36,
+            "ret": 35.07
+          },
+          "gate_th0.5": {
+            "trades": 62,
+            "wr": 54.8,
+            "pnl": 122.04,
+            "ret": 24.41
+          },
+          "gate_th0.55": {
+            "trades": 40,
+            "wr": 57.5,
+            "pnl": 102.78,
+            "ret": 20.56
+          },
+          "gate_th0.6": {
+            "trades": 24,
+            "wr": 50.0,
+            "pnl": 56.39,
+            "ret": 11.28
+          },
+          "gate_th0.7": {
+            "trades": 4,
+            "wr": 25.0,
+            "pnl": 6.77,
+            "ret": 1.35
+          },
+          "sizing": {
+            "trades": 147,
+            "pnl": 99.75,
+            "ret": 19.95
+          }
+        },
+        "xgb": {
+          "train_acc": 99.4,
+          "gate_th0.3": {
+            "trades": 96,
+            "wr": 47.9,
+            "pnl": 156.73,
+            "ret": 31.35
+          },
+          "gate_th0.4": {
+            "trades": 79,
+            "wr": 49.4,
+            "pnl": 128.93,
+            "ret": 25.79
+          },
+          "gate_th0.5": {
+            "trades": 66,
+            "wr": 54.5,
+            "pnl": 128.38,
+            "ret": 25.68
+          },
+          "gate_th0.55": {
+            "trades": 58,
+            "wr": 56.9,
+            "pnl": 125.29,
+            "ret": 25.06
+          },
+          "gate_th0.6": {
+            "trades": 56,
+            "wr": 57.1,
+            "pnl": 126.47,
+            "ret": 25.29
+          },
+          "gate_th0.7": {
+            "trades": 42,
+            "wr": 64.3,
+            "pnl": 110.15,
+            "ret": 22.03
+          },
+          "sizing": {
+            "trades": 147,
+            "pnl": 121.32,
+            "ret": 24.26
+          },
+          "top_features": {
+            "st_aligned": 9.8,
+            "body_ratio_4h": 9.7,
+            "hour_of_day": 8.3,
+            "phas_trending": 7.7,
+            "fib_high_key": 7.6
+          }
+        }
+      }
+    },
+    {
+      "train": "2023-Q1+2024-Q1+2024-Q2+2024-Q3+2025-Q1",
+      "test": "2025-Q3",
+      "results": {
+        "no_ml": {
+          "trades": 102,
+          "wr": 46.1,
+          "pnl": 89.37,
+          "ret": 17.87
+        },
+        "rf": {
+          "train_acc": 84.7,
+          "gate_th0.3": {
+            "trades": 101,
+            "wr": 46.5,
+            "pnl": 91.63,
+            "ret": 18.33
+          },
+          "gate_th0.4": {
+            "trades": 90,
+            "wr": 46.7,
+            "pnl": 82.68,
+            "ret": 16.54
+          },
+          "gate_th0.5": {
+            "trades": 49,
+            "wr": 51.0,
+            "pnl": 69.4,
+            "ret": 13.88
+          },
+          "gate_th0.55": {
+            "trades": 31,
+            "wr": 51.6,
+            "pnl": 42.52,
+            "ret": 8.5
+          },
+          "gate_th0.6": {
+            "trades": 20,
+            "wr": 50.0,
+            "pnl": 25.68,
+            "ret": 5.14
+          },
+          "gate_th0.7": {
+            "trades": 1,
+            "wr": 0.0,
+            "pnl": -0.17,
+            "ret": -0.03
+          },
+          "sizing": {
+            "trades": 102,
+            "pnl": 48.94,
+            "ret": 9.79
+          }
+        },
+        "xgb": {
+          "train_acc": 97.6,
+          "gate_th0.3": {
+            "trades": 66,
+            "wr": 48.5,
+            "pnl": 83.98,
+            "ret": 16.8
+          },
+          "gate_th0.4": {
+            "trades": 59,
+            "wr": 50.8,
+            "pnl": 82.53,
+            "ret": 16.51
+          },
+          "gate_th0.5": {
+            "trades": 47,
+            "wr": 53.2,
+            "pnl": 73.03,
+            "ret": 14.61
+          },
+          "gate_th0.55": {
+            "trades": 39,
+            "wr": 59.0,
+            "pnl": 80.46,
+            "ret": 16.09
+          },
+          "gate_th0.6": {
+            "trades": 33,
+            "wr": 63.6,
+            "pnl": 73.04,
+            "ret": 14.61
+          },
+          "gate_th0.7": {
+            "trades": 22,
+            "wr": 54.5,
+            "pnl": 40.46,
+            "ret": 8.09
+          },
+          "sizing": {
+            "trades": 102,
+            "pnl": 58.67,
+            "ret": 11.73
+          },
+          "top_features": {
+            "body_ratio_4h": 9.7,
+            "st_aligned": 9.2,
+            "ci_value": 7.8,
+            "mom__neutral": 7.6,
+            "hour_of_day": 7.5
+          }
+        }
+      }
+    },
+    {
+      "train": "2023-Q1+2024-Q1+2024-Q2+2024-Q3+2025-Q1+2025-Q3",
+      "test": "2025-Q4",
+      "results": {
+        "no_ml": {
+          "trades": 127,
+          "wr": 40.9,
+          "pnl": 34.84,
+          "ret": 6.97
+        },
+        "rf": {
+          "train_acc": 84.0,
+          "gate_th0.3": {
+            "trades": 127,
+            "wr": 40.9,
+            "pnl": 34.84,
+            "ret": 6.97
+          },
+          "gate_th0.4": {
+            "trades": 116,
+            "wr": 40.5,
+            "pnl": 33.66,
+            "ret": 6.73
+          },
+          "gate_th0.5": {
+            "trades": 65,
+            "wr": 46.2,
+            "pnl": 26.6,
+            "ret": 5.32
+          },
+          "gate_th0.55": {
+            "trades": 35,
+            "wr": 62.9,
+            "pnl": 30.06,
+            "ret": 6.01
+          },
+          "gate_th0.6": {
+            "trades": 12,
+            "wr": 75.0,
+            "pnl": 17.4,
+            "ret": 3.48
+          },
+          "gate_th0.7": {
+            "trades": 2,
+            "wr": 0.0,
+            "pnl": -0.94,
+            "ret": -0.19
+          },
+          "sizing": {
+            "trades": 127,
+            "pnl": 20.18,
+            "ret": 4.04
+          }
+        },
+        "xgb": {
+          "train_acc": 97.6,
+          "gate_th0.3": {
+            "trades": 100,
+            "wr": 41.0,
+            "pnl": 31.37,
+            "ret": 6.27
+          },
+          "gate_th0.4": {
+            "trades": 81,
+            "wr": 42.0,
+            "pnl": 25.79,
+            "ret": 5.16
+          },
+          "gate_th0.5": {
+            "trades": 69,
+            "wr": 46.4,
+            "pnl": 32.76,
+            "ret": 6.55
+          },
+          "gate_th0.55": {
+            "trades": 61,
+            "wr": 50.8,
+            "pnl": 37.28,
+            "ret": 7.46
+          },
+          "gate_th0.6": {
+            "trades": 55,
+            "wr": 49.1,
+            "pnl": 27.47,
+            "ret": 5.49
+          },
+          "gate_th0.7": {
+            "trades": 39,
+            "wr": 46.2,
+            "pnl": 12.04,
+            "ret": 2.41
+          },
+          "sizing": {
+            "trades": 127,
+            "pnl": 23.11,
+            "ret": 4.62
+          },
+          "top_features": {
+            "body_ratio_4h": 9.7,
+            "st_aligned": 8.9,
+            "ci_value": 7.9,
+            "fib_high_key": 7.6,
+            "fib_width": 7.3
+          }
+        }
+      }
+    },
+    {
+      "train": "2023-Q1+2024-Q1+2024-Q2+2024-Q3+2025-Q1+2025-Q3+2025-Q4",
+      "test": "2026-Q1v2",
+      "results": {
+        "no_ml": {
+          "trades": 115,
+          "wr": 47.0,
+          "pnl": 128.7,
+          "ret": 25.74
+        },
+        "rf": {
+          "train_acc": 81.5,
+          "gate_th0.3": {
+            "trades": 115,
+            "wr": 47.0,
+            "pnl": 128.7,
+            "ret": 25.74
+          },
+          "gate_th0.4": {
+            "trades": 98,
+            "wr": 50.0,
+            "pnl": 126.84,
+            "ret": 25.37
+          },
+          "gate_th0.5": {
+            "trades": 43,
+            "wr": 60.5,
+            "pnl": 75.3,
+            "ret": 15.06
+          },
+          "gate_th0.55": {
+            "trades": 19,
+            "wr": 63.2,
+            "pnl": 36.0,
+            "ret": 7.2
+          },
+          "gate_th0.6": {
+            "trades": 12,
+            "wr": 66.7,
+            "pnl": 29.84,
+            "ret": 5.97
+          },
+          "sizing": {
+            "trades": 115,
+            "pnl": 67.97,
+            "ret": 13.59
+          }
+        },
+        "xgb": {
+          "train_acc": 97.3,
+          "gate_th0.3": {
+            "trades": 73,
+            "wr": 54.8,
+            "pnl": 115.83,
+            "ret": 23.17
+          },
+          "gate_th0.4": {
+            "trades": 60,
+            "wr": 53.3,
+            "pnl": 91.92,
+            "ret": 18.38
+          },
+          "gate_th0.5": {
+            "trades": 50,
+            "wr": 52.0,
+            "pnl": 79.12,
+            "ret": 15.82
+          },
+          "gate_th0.55": {
+            "trades": 44,
+            "wr": 52.3,
+            "pnl": 77.27,
+            "ret": 15.45
+          },
+          "gate_th0.6": {
+            "trades": 35,
+            "wr": 51.4,
+            "pnl": 64.14,
+            "ret": 12.83
+          },
+          "gate_th0.7": {
+            "trades": 25,
+            "wr": 52.0,
+            "pnl": 46.6,
+            "ret": 9.32
+          },
+          "sizing": {
+            "trades": 115,
+            "pnl": 74.91,
+            "ret": 14.98
+          },
+          "top_features": {
+            "mom__neutral": 9.0,
+            "st_aligned": 8.9,
+            "body_ratio_4h": 8.7,
+            "fib_high_key": 7.6,
+            "vol_ratio_5m": 7.4
+          }
+        }
+      }
+    },
+    {
+      "train": "2023-Q1+2024-Q1+2024-Q2+2024-Q3+2025-Q1+2025-Q3+2025-Q4+2026-Q1v2",
+      "test": "2026-Q1",
+      "results": {
+        "no_ml": {
+          "trades": 130,
+          "wr": 50.8,
+          "pnl": 105.91,
+          "ret": 21.18
+        },
+        "rf": {
+          "train_acc": 82.4,
+          "gate_th0.3": {
+            "trades": 130,
+            "wr": 50.8,
+            "pnl": 105.91,
+            "ret": 21.18
+          },
+          "gate_th0.4": {
+            "trades": 114,
+            "wr": 56.1,
+            "pnl": 111.35,
+            "ret": 22.27
+          },
+          "gate_th0.5": {
+            "trades": 74,
+            "wr": 66.2,
+            "pnl": 102.53,
+            "ret": 20.51
+          },
+          "gate_th0.55": {
+            "trades": 36,
+            "wr": 69.4,
+            "pnl": 45.02,
+            "ret": 9.0
+          },
+          "gate_th0.6": {
+            "trades": 10,
+            "wr": 70.0,
+            "pnl": 9.73,
+            "ret": 1.95
+          },
+          "sizing": {
+            "trades": 130,
+            "pnl": 59.04,
+            "ret": 11.81
+          }
+        },
+        "xgb": {
+          "train_acc": 96.8,
+          "gate_th0.3": {
+            "trades": 101,
+            "wr": 56.4,
+            "pnl": 100.78,
+            "ret": 20.16
+          },
+          "gate_th0.4": {
+            "trades": 82,
+            "wr": 58.5,
+            "pnl": 89.08,
+            "ret": 17.82
+          },
+          "gate_th0.5": {
+            "trades": 61,
+            "wr": 65.6,
+            "pnl": 78.83,
+            "ret": 15.77
+          },
+          "gate_th0.55": {
+            "trades": 51,
+            "wr": 64.7,
+            "pnl": 67.03,
+            "ret": 13.41
+          },
+          "gate_th0.6": {
+            "trades": 40,
+            "wr": 65.0,
+            "pnl": 46.52,
+            "ret": 9.3
+          },
+          "gate_th0.7": {
+            "trades": 26,
+            "wr": 57.7,
+            "pnl": 19.95,
+            "ret": 3.99
+          },
+          "sizing": {
+            "trades": 130,
+            "pnl": 61.38,
+            "ret": 12.28
+          },
+          "top_features": {
+            "body_ratio_4h": 9.2,
+            "mom__neutral": 8.9,
+            "fib_high_key": 8.5,
+            "hour_of_day": 7.6,
+            "st_aligned": 7.5
+          }
+        }
+      }
+    }
+  ],
+  "summary": {
+    "total_trades_all_periods": 1148,
+    "walkforward_folds": 8,
+    "avg_rf_gate_improvement_pp": 0.04,
+    "avg_xgb_gate_improvement_pp": -2.65,
+    "max_rf_gate_improvement_pp": 1.09,
+    "max_xgb_gate_improvement_pp": 0.49,
+    "rf_better_count": 3,
+    "xgb_better_count": 1
+  }
+}
