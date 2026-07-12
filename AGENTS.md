@@ -103,6 +103,11 @@
 - **Logs removidos del repo**: `.gitignore` actualizado, logs ya no se trackean
 - **Daemon reiniciado**: PID 28644 con nuevo código
 
+### On-chain Audit Wallet
+- **Address público**: `0xBEB7E29B235068F2CD455621db2373e5fc4De79b`
+- Cada trade en `signal_log.json` queda firmado con esta wallet
+- Verificable en Etherscan o con `python chain_audit.py`
+
 ### Pendiente manual
 - **GitHub Pages**: ir a Settings → Pages → Source: master branch /docs folder (o esperar al Actions workflow)
 - **TradingView**: copiar `vwap_strategy.pine` → Pine Editor → Publicar en comunidad
