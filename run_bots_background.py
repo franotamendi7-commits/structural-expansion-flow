@@ -20,6 +20,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger("daemon")
 
+# Suppress X poster spam if no API keys
+x_logger = logging.getLogger("x_poster")
+x_logger.setLevel(logging.WARNING)
+
 PID_FILE = Path(__file__).parent / "bots_daemon.pid"
 
 def write_pid():
@@ -75,11 +79,33 @@ if __name__ == "__main__":
 
     from multi_bot import MultiBotSystem
 
+    # Load Binance credentials from secrets.toml
+    secrets_path = Path(__file__).parent / ".streamlit" / "secrets.toml"
+    api_key = api_secret = None
+    import tomllib
+    if secrets_path.exists():
+        with open(secrets_path, "rb") as f:
+            secrets = tomllib.load(f)
+        api_key = secrets.get("BINANCE_API_KEY") or os.environ.get("BINANCE_API_KEY")
+        api_secret = secrets.get("BINANCE_SECRET_KEY") or os.environ.get("BINANCE_API_SECRET")
+
+    exchange_client = None
+    if api_key and api_secret:
+        try:
+            from execution_manager import ExecutionManager
+            exchange_client = ExecutionManager(api_key, api_secret, testnet=True)
+            bal = exchange_client.get_balance("USDT")
+            logger.info(f"Exchange client ready, balance: ${bal:.2f}" if bal else "Exchange client ready (balance: $0)")
+        except Exception as e:
+            logger.warning(f"Could not init exchange client: {e}")
+    else:
+        logger.info("No Binance credentials found, running in paper mode")
+
     logger.info("=" * 60)
     logger.info("Starting VWAP Breakout Bots (24/7 daemon)")
     logger.info("=" * 60)
 
-    system = MultiBotSystem()
+    system = MultiBotSystem(exchange_client=exchange_client)
     system.start()
 
     # Start X/Twitter poster as background thread if API keys configured

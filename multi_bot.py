@@ -861,7 +861,7 @@ class BaseBot:
                     )
                     telegram_signal(close_msg)
                     telegram_alert(close_msg)
-                    _signal_log("exit", self.symbol, dir, result["exit"],
+                    _signal_log("exit", self.symbol, dir, pos["entry_fill"],
                                 pnl=result["net"], reason=reason)
                     return f"[{self.name}] exited via {reason}, net={result['net']:+.4f}"
 
