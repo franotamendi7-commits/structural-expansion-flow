@@ -22,7 +22,7 @@ logger = logging.getLogger("daemon")
 
 # Suppress X poster spam if no API keys
 x_logger = logging.getLogger("x_poster")
-x_logger.setLevel(logging.WARNING)
+x_logger.setLevel(logging.ERROR)
 
 PID_FILE = Path(__file__).parent / "bots_daemon.pid"
 
