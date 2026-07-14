@@ -1,1 +1,34 @@
-[]
+[
+  {
+    "ts": "2026-07-13T18:09:12.739750+00:00",
+    "type": "entry",
+    "symbol": "BTCUSDT",
+    "dir": 1,
+    "entry": 62002.0,
+    "sl": 61571.74,
+    "tp": 62182.26,
+    "pnl": null,
+    "reason": null,
+    "hash": "3cdb6bd8efa213f4b58cc39f367dc42947dcbfbf7a1def9e29008a410a26ec20",
+    "prev_hash": "GENESIS",
+    "eth_address": "0xBEB7E29B235068F2CD455621db2373e5fc4De79b",
+    "eth_signature": "d22e11e0707ec31239cbbf031c1cbd98fac1b69b57a0f4f950e5cae6ae3ab0b160261be370924ac7efbb461cd1d09d391534b793c59dea0be831e92f15f366d91c",
+    "verify_url": "https://etherscan.io/verifySig/0xBEB7E29B235068F2CD455621db2373e5fc4De79b?msg=fa41c2f834215a853c704a84953323e1d015f68aa1e67f8219b6b107bdbf441f&sig=d22e11e0707ec31239cbbf031c1cbd98fac1b69b57a0f4f950e5cae6ae3ab0b160261be370924ac7efbb461cd1d09d391534b793c59dea0be831e92f15f366d91c"
+  },
+  {
+    "ts": "2026-07-13T19:04:59.145896+00:00",
+    "type": "exit",
+    "symbol": "BTCUSDT",
+    "dir": 1,
+    "entry": 62002.0,
+    "sl": null,
+    "tp": null,
+    "pnl": -0.6485,
+    "reason": "sl",
+    "hash": "573e18fd76a02cf3a9c79370b0be80321981c77aa2c6aa847a95da8bcc7526fb",
+    "prev_hash": "3cdb6bd8efa213f4b58cc39f367dc42947dcbfbf7a1def9e29008a410a26ec20",
+    "eth_address": "0xBEB7E29B235068F2CD455621db2373e5fc4De79b",
+    "eth_signature": "a10b0cec97e36a9c4fda8092b396ff9cbbb5454eb14b349cd58ac88f450e7f642842b040813a5d16bf4a08c84e3d433ba00eaddb38da3f26c7b65c45b1f2ef741b",
+    "verify_url": "https://etherscan.io/verifySig/0xBEB7E29B235068F2CD455621db2373e5fc4De79b?msg=cec7df923bbf4c9f1fb215c746c1a4e9f4391b70ef0a5c903ac1f2f5c62a26b7&sig=a10b0cec97e36a9c4fda8092b396ff9cbbb5454eb14b349cd58ac88f450e7f642842b040813a5d16bf4a08c84e3d433ba00eaddb38da3f26c7b65c45b1f2ef741b"
+  }
+]
