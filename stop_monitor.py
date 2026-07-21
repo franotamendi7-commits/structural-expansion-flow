@@ -12,8 +12,8 @@ AUDIT_FILE = "audit_log.csv"
 WAIT_SECONDS = 1.0
 STOPMON_STATUS_FILE = "stop_monitor_status.json"
 
-API_KEY = "TEyU8MQ4xWGsTq0bujMJxLs4qd0d4i1JCWtwwiy9W74taSIbi1Mor0m83DsCUu6u"
-API_SECRET = "DnIPgWcon8sQ51z2mjz1O67ElZcHr0RXCBEV9FpsGH3BUeVyl5AuLzEIMsyhIaTo"
+API_KEY = os.environ.get("BINANCE_TESTNET_API_KEY", "")
+API_SECRET = os.environ.get("BINANCE_TESTNET_API_SECRET", "")
 
 # ============================================================
 # CONFIGURACIÓN DE LOGGING ESTRUCTURADO (P0 — Mejora 1)

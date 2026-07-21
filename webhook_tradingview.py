@@ -23,6 +23,7 @@ import hmac
 import hashlib
 import logging
 import os
+import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from datetime import datetime, timezone
 from typing import Optional
@@ -31,9 +32,13 @@ logger = logging.getLogger(__name__)
 
 WEBHOOK_SECRET = os.environ.get("WEBHOOK_SECRET", "")
 WEBHOOK_PORT = int(os.environ.get("WEBHOOK_PORT", "9999"))
+if not WEBHOOK_SECRET:
+    logger.warning("WEBHOOK_SECRET not set — webhook will reject all requests for safety")
+WEBHOOK_ENABLED = bool(WEBHOOK_SECRET)
 
 latest_signal = None
 signal_history = []
+_signal_history_lock = threading.Lock()
 
 
 def validate_signature(payload: bytes, signature: str) -> bool:
@@ -76,6 +81,12 @@ def process_signal(data: dict) -> Optional[dict]:
 
 class WebhookHandler(BaseHTTPRequestHandler):
     def do_POST(self):
+        if not WEBHOOK_ENABLED:
+            self.send_response(503)
+            self.end_headers()
+            self.wfile.write(b'{"error":"webhook not configured"}')
+            return
+
         content_length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(content_length)
 
@@ -103,9 +114,10 @@ class WebhookHandler(BaseHTTPRequestHandler):
 
         global latest_signal
         latest_signal = signal
-        signal_history.append(signal)
-        if len(signal_history) > 1000:
-            signal_history.pop(0)
+        with _signal_history_lock:
+            signal_history.append(signal)
+            if len(signal_history) > 1000:
+                signal_history.pop(0)
 
         try:
             from db import save_signal
@@ -150,7 +162,8 @@ def get_latest_signal() -> Optional[dict]:
 
 
 def get_signal_history(limit: int = 50) -> list:
-    return signal_history[-limit:]
+    with _signal_history_lock:
+        return signal_history[-limit:]
 
 
 def start_webhook_server():

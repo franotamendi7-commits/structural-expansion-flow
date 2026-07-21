@@ -1,0 +1,6 @@
+logs/
+*.bak
+nohup.out
+.git/
+__pycache__/
+*.pyc

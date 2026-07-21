@@ -222,8 +222,8 @@ PAIR_LABELS = {"BTCUSDT": "BTC", "ETHUSDT": "ETH", "SOLUSDT": "SOL",
                "XRPUSDT": "XRP", "BNBUSDT": "BNB"}
 
 # Telegram defaults (override via sidebar)
-DEFAULT_TG_TOKEN = "8813532919:AAF4FcqNCMA5jfeiHDp71M-lbqLbBh3RuzY"
-DEFAULT_TG_CHAT_ID = "8026382563"
+DEFAULT_TG_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+DEFAULT_TG_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 
 
 # ============================================================
@@ -763,18 +763,22 @@ def init_session_state():
     live = st.session_state.get("live_trading", False)
     has_creds = bool(st.session_state.get("binance_api_key")
                      and st.session_state.get("binance_api_secret"))
+    use_real = st.session_state.get("use_real_balance", False)
     prev_live = st.session_state.get("_prev_live_trading", None)
     prev_creds = st.session_state.get("_prev_has_creds", None)
+    prev_real = st.session_state.get("_prev_use_real_balance", None)
     rebuild = ("system" not in st.session_state) or (
         prev_live is not None and prev_live != live) or (
-        prev_creds is not None and prev_creds != has_creds)
+        prev_creds is not None and prev_creds != has_creds) or (
+        prev_real is not None and prev_real != use_real)
     st.session_state._prev_live_trading = live
     st.session_state._prev_has_creds = has_creds
+    st.session_state._prev_use_real_balance = use_real
 
     if rebuild:
-        # Build exchange client only if live trading is ON and creds are available
+        # Build exchange client if live trading OR real balance mode is ON and creds exist
         exchange_client = None
-        if live:
+        if live or use_real:
             ak = st.session_state.get("binance_api_key")
             sk = st.session_state.get("binance_api_secret")
             use_testnet = bool(st.session_state.get("use_testnet", True))

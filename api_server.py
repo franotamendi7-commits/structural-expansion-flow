@@ -2,13 +2,16 @@
 API REST pública para copy trading + track record.
 Sirve signal_log.json + último estado de los bots.
 """
-import json, http.server, time
+import json, http.server, time, logging
 from pathlib import Path
 from urllib.parse import urlparse
+
+logger = logging.getLogger(__name__)
 
 SIGNAL_LOG = Path(__file__).parent / "signal_log.json"
 TRADE_HIST = Path(__file__).parent / "trade_history.json"
 PORT = 8585
+API_KEY = os.environ.get("API_SERVER_KEY", "")
 
 def load_json(path):
     if path.exists():
@@ -20,6 +23,14 @@ def load_json(path):
 
 class Handler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
+        if API_KEY:
+            auth = self.headers.get("Authorization", "")
+            if auth != f"Bearer {API_KEY}":
+                self.send_response(401)
+                self.end_headers()
+                self.wfile.write(b'{"error":"unauthorized"}')
+                return
+
         parsed = urlparse(self.path)
         path = parsed.path.rstrip("/")
 
@@ -62,12 +73,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def _json(self, data):
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
-        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Origin", "")
         self.end_headers()
         self.wfile.write(json.dumps(data, indent=2).encode())
 
     def log_message(self, format, *args):
-        pass  # silent
+        logger.info(f"API: {self.client_address[0]} {args[0]} {args[1]} {args[2]}")
 
 print(f"API server on :{PORT}")
 print(f"  GET /api/last_signal  → last trade signal")

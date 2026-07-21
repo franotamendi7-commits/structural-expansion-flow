@@ -1,0 +1,56 @@
+{
+  "ts": "2026-07-13T23:53:18.772897",
+  "passed": 11,
+  "warnings": 0,
+  "errors": 0,
+  "checks": {
+    "passed": [
+      {
+        "check": "Daemon 24/7",
+        "detail": "PID 34289 | CPU 0,0% | MEM 0,3% | Up m."
+      },
+      {
+        "check": "API Server",
+        "detail": "HTTP 200 /health \u2192 {'status': 'ok'}"
+      },
+      {
+        "check": "Dashboard Streamlit",
+        "detail": "Port 8501 OPEN"
+      },
+      {
+        "check": "Tunnel Dashboard",
+        "detail": "2 process(es)"
+      },
+      {
+        "check": "Tunnel API",
+        "detail": "1 process(es)"
+      },
+      {
+        "check": "Signal Log Integrity",
+        "detail": "2 records | SHA256: YES | ETH sig: YES"
+      },
+      {
+        "check": "Signal Log Last Entry",
+        "detail": "2026-07-13T19:04:59.145896+00:00 BTCUSDT exit"
+      },
+      {
+        "check": "Disk Usage",
+        "detail": "Logs: 93M"
+      },
+      {
+        "check": "Secrets",
+        "detail": "All keys present"
+      },
+      {
+        "check": "Git Latest",
+        "detail": "487ecd8 fix: reset signal_log, old trades had wrong PnL (equity mismatch)"
+      },
+      {
+        "check": "Bot Activity",
+        "detail": "2026-07-13 23:50:26,592 [INFO] Equity: $4386.24 | PnL: $-0.95 | Trades: 0 | WR: 0.0%"
+      }
+    ],
+    "warnings": [],
+    "errors": []
+  }
+}

@@ -61,39 +61,62 @@ _TG_CHANNEL_ID = None    # public channel for signals
 _TG_ENABLED = False
 
 SIGNAL_LOG_PATH = Path(__file__).parent / "signal_log.json"
+_signal_log_lock = threading.Lock()
+
+# ─── Circuit breaker for Binance API ────────────────────────
+_circuit_breaker = {"failures": 0, "open_until": 0, "lock": threading.Lock()}
+
+def _cb_mark_failure():
+    with _circuit_breaker["lock"]:
+        _circuit_breaker["failures"] += 1
+        if _circuit_breaker["failures"] >= 3:
+            _circuit_breaker["open_until"] = time.time() + 300
+
+def _cb_mark_success():
+    with _circuit_breaker["lock"]:
+        _circuit_breaker["failures"] = 0
+
+def _cb_is_open():
+    with _circuit_breaker["lock"]:
+        if _circuit_breaker["failures"] >= 3 and time.time() < _circuit_breaker["open_until"]:
+            return True
+        if time.time() >= _circuit_breaker["open_until"] and _circuit_breaker["failures"] >= 3:
+            _circuit_breaker["failures"] = 0
+        return False
 
 def _signal_log(signal_type: str, symbol: str, direction: int, entry: float,
                 sl: float = None, tp: float = None, pnl: float = None,
                 reason: str = None):
     """Append signal to public log with SHA256 chain (immutable audit trail)."""
-    try:
-        log = []
-        if SIGNAL_LOG_PATH.exists():
-            with open(SIGNAL_LOG_PATH) as f:
-                log = json.load(f)
-        prev_hash = log[-1]["hash"] if log else "GENESIS"
-        record = {
-            "ts": datetime.now(timezone.utc).isoformat(),
-            "type": signal_type,
-            "symbol": symbol,
-            "dir": direction,
-            "entry": round(entry, 2) if entry else None,
-            "sl": round(sl, 2) if sl else None,
-            "tp": round(tp, 2) if tp else None,
-            "pnl": round(pnl, 4) if pnl is not None else None,
-            "reason": reason,
-        }
-        raw = json.dumps(record, sort_keys=True) + prev_hash
-        record["hash"] = hashlib.sha256(raw.encode()).hexdigest()
-        record["prev_hash"] = prev_hash
-        record = sign_trade(record)
-        log.append(record)
-        if len(log) > 100000:
-            log = log[-50000:]
-        with open(SIGNAL_LOG_PATH, "w") as f:
-            json.dump(log, f, indent=2)
-    except Exception as e:
-        logger.warning(f"Signal log error: {e}")
+    with _signal_log_lock:
+        try:
+            log = []
+            if SIGNAL_LOG_PATH.exists():
+                with open(SIGNAL_LOG_PATH) as f:
+                    log = json.load(f)
+            prev_hash = log[-1]["hash"] if log else "GENESIS"
+            record = {
+                "ts": datetime.now(timezone.utc).isoformat(),
+                "type": signal_type,
+                "symbol": symbol,
+                "dir": direction,
+                "entry": round(entry, 2) if entry else None,
+                "sl": round(sl, 2) if sl else None,
+                "tp": round(tp, 2) if tp else None,
+                "pnl": round(pnl, 4) if pnl is not None else None,
+                "reason": reason,
+            }
+            raw = json.dumps(record, sort_keys=True) + prev_hash
+            record["hash"] = hashlib.sha256(raw.encode()).hexdigest()
+            record["prev_hash"] = prev_hash
+            record = sign_trade(record)
+            log.append(record)
+            if len(log) > 100000:
+                log = log[-50000:]
+            with open(SIGNAL_LOG_PATH, "w") as f:
+                json.dump(log, f, indent=2)
+        except Exception as e:
+            logger.warning(f"Signal log error: {e}")
 
 def _init_telegram():
     global _TG_TOKEN, _TG_CHAT_ID, _TG_CHANNEL_ID, _TG_ENABLED
@@ -365,6 +388,8 @@ def fetch_klines(symbol: str, interval: str, limit: int = 1500,
     params = {"symbol": symbol, "interval": interval, "limit": limit}
     if end_time is not None:
         params["endTime"] = end_time
+    if _cb_is_open():
+        raise RuntimeError(f"circuit breaker open for {symbol}")
     for attempt in range(5):
         try:
             r = requests.get(f"{BINANCE_FAPI}/fapi/v1/klines",
@@ -378,6 +403,7 @@ def fetch_klines(symbol: str, interval: str, limit: int = 1500,
         except Exception:
             time.sleep(1.5 ** attempt)
     else:
+        _cb_mark_failure()
         raise RuntimeError(f"failed to fetch {symbol} {interval}")
 
     rows = r.json()
@@ -388,6 +414,7 @@ def fetch_klines(symbol: str, interval: str, limit: int = 1500,
     df["open_time"] = pd.to_datetime(df["open_time"], unit="ms", utc=True)
     for c in ["open","high","low","close","volume"]:
         df[c] = pd.to_numeric(df[c])
+    _cb_mark_success()
     return df
 
 
@@ -744,6 +771,9 @@ class BaseBot:
                 self._df1h = df1h_data
             except Exception as e:
                 return f"[{self.name}] data fetch error: {e}"
+
+            if _cb_is_open():
+                return f"[{self.name}] circuit breaker open"
 
             atr5 = self._atr5_from_data(df5)
 
@@ -1154,18 +1184,21 @@ class BtcBot(BaseBot):
             self._df15 = df15
             self._df5 = df5
             global _cached_data
-            _cached_data[(self.symbol, True)] = (df15, df5, df1h)
+            with _cached_data_lock:
+                _cached_data[(self.symbol, True)] = (df15, df5, df1h)
         return super().on_tick()
 
 
 # Cached data hack (for BtcBot to avoid double-fetch)
 _cached_data: Dict[tuple, tuple] = {}
+_cached_data_lock = threading.Lock()
 _orig_get_recent_data = get_recent_data
 
 def _cached_get_recent_data(symbol, need_1h=False):
     key = (symbol, need_1h)
-    if key in _cached_data:
-        return _cached_data.pop(key)
+    with _cached_data_lock:
+        if key in _cached_data:
+            return _cached_data.pop(key)
     return _orig_get_recent_data(symbol, need_1h)
 
 # Patch the global so BaseBot's _fetch_data uses the cache
@@ -1295,21 +1328,50 @@ class MultiBotSystem:
 
     def _sync_equity_from_exchange(self):
         """When live, set each bot's equity to a share of the real account
-        balance, so sizing and the dashboard reflect actual testnet funds."""
+        balance, so sizing and the dashboard reflect actual testnet funds.
+        Persists synced balance so a subsequent rerun can reuse it even if
+        the exchange API is temporarily unavailable."""
+        bal = None
         try:
             bal = self.exchange_client.get_balance("USDT")
-            if bal and bal > 0:
-                per = bal / len(self.bots)
+        except Exception as e:
+            logger.warning(f"Could not sync balance from exchange: {e}")
+        if bal and bal > 0:
+            per = bal / len(self.bots)
+            for bot in self.bots.values():
+                bot.initial_equity = per
+                bot.equity = per
+            logger.info(f"Equity synced from exchange: ${bal:.2f} "
+                        f"-> ${per:.2f}/bot")
+            # persist so we survive a rerun
+            try:
+                p = Path(__file__).parent / ".synced_equity.json"
+                p.write_text(json.dumps({"total_usdt": bal, "ts": time.time()}))
+            except Exception:
+                pass
+        else:
+            # exchange returned 0 or failed — try persisted fallback
+            fallback_total = None
+            try:
+                p = Path(__file__).parent / ".synced_equity.json"
+                if p.exists():
+                    data = json.loads(p.read_text())
+                    age = time.time() - data.get("ts", 0)
+                    # only use fallback if less than 24h old
+                    if age < 86400 and data.get("total_usdt", 0) > 0:
+                        fallback_total = data["total_usdt"]
+            except Exception:
+                pass
+            if fallback_total:
+                per = fallback_total / len(self.bots)
                 for bot in self.bots.values():
                     bot.initial_equity = per
                     bot.equity = per
-                logger.info(f"Equity synced from exchange: ${bal:.2f} "
-                            f"-> ${per:.2f}/bot")
+                logger.info(f"Exchange balance unavailable (zero/error/b={bal}), "
+                            f"using persisted fallback: ${fallback_total:.2f} -> ${per:.2f}/bot")
             else:
                 logger.warning(f"Exchange balance unavailable/zero ({bal}); "
-                               f"keeping default equity")
-        except Exception as e:
-            logger.warning(f"Could not sync balance from exchange: {e}")
+                               f"no fallback — keeping default equity")
 
     def run_once(self) -> Dict[str, str]:
         """Run a single synchronous tick of all 5 bots (sequential)."""

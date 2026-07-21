@@ -46,5 +46,21 @@
     "bot_name": "BTC",
     "entry_time": "2026-07-09T07:08:37.437843+00:00",
     "size": 0.020734418111028788
+  },
+  {
+    "exit_time": "2026-07-13T19:55:45.435577+00:00",
+    "dir": 1,
+    "entry": 62013.2,
+    "exit": 62161.73785381855,
+    "outcome": "win",
+    "net": 1.6634,
+    "equity_after": 878.33,
+    "hold_minutes": 109.9,
+    "exit_reason": "tp",
+    "regime": "LATERAL",
+    "symbol": "BTCUSDT",
+    "bot_name": "BTC",
+    "entry_time": "2026-07-13T18:05:49.094623+00:00",
+    "size": 0.019241580716809547
   }
 ]

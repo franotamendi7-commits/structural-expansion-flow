@@ -19,3 +19,4 @@ bots_daemon.pid
 *.pid
 .cloudflared/credentials.json
 
+.synced_equity.json
