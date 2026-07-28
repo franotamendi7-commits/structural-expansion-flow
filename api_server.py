@@ -2,7 +2,7 @@
 API REST pública para copy trading + track record.
 Sirve signal_log.json + último estado de los bots.
 """
-import json, http.server, time, logging
+import json, os, http.server, time, logging
 from pathlib import Path
 from urllib.parse import urlparse
 

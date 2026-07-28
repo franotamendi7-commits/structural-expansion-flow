@@ -1,6 +1,79 @@
+# Logs (ephemeral on Railway anyway)
 logs/
+
+# Backup/temp files
 *.bak
+*.bak2
 nohup.out
-.git/
 __pycache__/
 *.pyc
+*.pyo
+
+# Git
+.git/
+.gitignore
+
+# Local secrets (never ship to container)
+.streamlit/secrets.toml
+credentials.enc
+credentials.json
+
+# Data files that are regenerated
+trade_history.json
+paper_state.json
+equity_history.json
+signal_log.json
+risk_state.json
+.stop_monitor_status.json
+.synced_equity.json
+retrain_cron.log
+trading.db
+ml_veto_log.json
+
+# ML models (large, not needed for paper trading)
+ml_model.pkl
+ml_model_3years.pkl
+regime_model.pkl
+guard_model.pkl
+rl_exit_massive.zip
+rl_exit_model.zip
+xgb_model.json
+xgb_features.json
+xgb_historical.json
+xgb_historical_features.json
+
+# Backtest artifacts
+backtest_*.csv
+backtest_*.md
+backtest_*.json
+backtest_cache/
+backtests/
+backtest_results.csv
+walkforward_*.json
+opt_*.json
+optimize_*.json
+historical_*.json
+institutional_*.json
+baseline_results.json
+monte_carlo_*.csv
+monte_carlo_*.png
+experimento_*.json
+validacion_*.json
+bandit_risk_*.json
+vwap_optimal_params.json
+
+# Cache dirs
+cache_15m/
+cache_1h/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+*.swp
+*.swo
+
+# Docs (not needed at runtime)
+docs/
+*.md
+!requirements.txt

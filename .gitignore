@@ -1,22 +1,61 @@
-.streamlit/secrets.toml
-credentials.enc
-credentials.enc.bak
+logs/
+*.bak
+*.bak2
 nohup.out
-trading.db
-cache_15m/
-cache_1h/
 __pycache__/
 *.pyc
-venv/
-.venv/
-.env
-*.egg-info/
-dist/
-build/
-.DS_Store
-logs/
-bots_daemon.pid
-*.pid
-.cloudflared/credentials.json
+*.pyo
 
+# Secrets
+.streamlit/secrets.toml
+credentials.enc
+credentials.json
+
+# State files (ephemeral)
+trade_history.json
+paper_state.json
+equity_history.json
+signal_log.json
+risk_state.json
+.stop_monitor_status.json
 .synced_equity.json
+retrain_cron.log
+trading.db
+ml_veto_log.json
+
+# ML models (large)
+*.pkl
+*.zip
+*.pkl
+
+# Cache
+cache_15m/
+cache_1h/
+backtest_cache/
+
+# Backtest artifacts
+backtest_*.csv
+backtest_*.md
+backtest_*.json
+backtests/
+walkforward_*.json
+opt_*.json
+optimize_*.json
+historical_*.json
+institutional_*.json
+baseline_results.json
+monte_carlo_*.csv
+monte_carlo_*.png
+experimento_*.json
+validacion_*.json
+bandit_risk_*.json
+vwap_optimal_params.json
+xgb_*.json
+
+# IDE
+.vscode/
+.idea/
+.DS_Store
+*.swp
+*.swo
+bots_daemon.pid

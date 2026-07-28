@@ -2,8 +2,9 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
+# System deps for numpy/pandas/sklearn
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc && \
+    gcc g++ libffi-dev && \
     rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
@@ -11,6 +12,16 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-EXPOSE 8501 8585 9999
+# Create dirs for state files and logs
+RUN mkdir -p logs /app/.streamlit
 
-CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+# Paper trading is default — no secrets needed for basic operation
+# Secrets (API keys, Telegram, ETH wallet) are injected via Railway env vars
+
+EXPOSE 8501
+
+# Railway sets $PORT dynamically; Streamlit must listen on it
+# We override in the CMD via env var
+ENV STREAMLIT_SERVER_PORT=8501
+
+CMD ["sh", "-c", "streamlit run app.py --server.port=${PORT:-8501} --server.address=0.0.0.0 --server.headless=true --server.enableCORS=false --server.enableXsrfProtection=false --browser.gatherUsageStats=false"]

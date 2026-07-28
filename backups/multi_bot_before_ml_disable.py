@@ -268,26 +268,18 @@ _guard_model_loaded = False
 
 def _load_ml_models():
     global _ml_filter_loaded, _guard_model_loaded
-    if not USE_ML_FILTER:
-        logger.info("ML filter DISABLED via USE_ML_FILTER=False")
-        _ml_filter_loaded = False
-    else:
-        try:
-            from ml_filter import cargar_modelo as cargar_ml
-            cargar_ml()
-            _ml_filter_loaded = True
-        except Exception:
-            pass
-    if not USE_GUARD_FILTER:
-        logger.info("Guard filter DISABLED via USE_GUARD_FILTER=False")
-        _guard_model_loaded = False
-    else:
-        try:
-            from guard_filter import cargar_modelo as cargar_guard
-            cargar_guard()
-            _guard_model_loaded = True
-        except Exception:
-            pass
+    try:
+        from ml_filter import cargar_modelo as cargar_ml
+        cargar_ml()
+        _ml_filter_loaded = True
+    except Exception:
+        pass
+    try:
+        from guard_filter import cargar_modelo as cargar_guard
+        cargar_guard()
+        _guard_model_loaded = True
+    except Exception:
+        pass
 
 
 def should_execute_trade(features: dict, df15: pd.DataFrame, df5: pd.DataFrame,
@@ -358,15 +350,6 @@ INITIAL_EQUITY      = 100.0
 TP1_FRACTION        = 0.6             # close 60% at first target
 TRAIL_MULT          = 2.0             # trail distance = TRAIL_MULT × ATR(5m)
 TRAIL_ACTIVATE_PCT  = 0.3             # activate trailing only when remaining pos is 0.3% ITM
-
-# ═══════════════════════════════════════════════════════════════
-# ML FILTER TOGGLE — Disabled (Jul 2026)
-# Backtests show ML filter reduces profitability by ~75%
-# Motor institucional solo ya es rentable (+11.40% in 6 months)
-# Set to True to re-enable ML filter gate
-# ═══════════════════════════════════════════════════════════════
-USE_ML_FILTER  = False   # Master switch for ML filter (ml_filter.py)
-USE_GUARD_FILTER = False  # Master switch for Guard filter (guard_filter.py)
 
 
 # ============================================================
