@@ -30,5 +30,53 @@
     "eth_address": "0xBEB7E29B235068F2CD455621db2373e5fc4De79b",
     "eth_signature": "a10b0cec97e36a9c4fda8092b396ff9cbbb5454eb14b349cd58ac88f450e7f642842b040813a5d16bf4a08c84e3d433ba00eaddb38da3f26c7b65c45b1f2ef741b",
     "verify_url": "https://etherscan.io/verifySig/0xBEB7E29B235068F2CD455621db2373e5fc4De79b?msg=cec7df923bbf4c9f1fb215c746c1a4e9f4391b70ef0a5c903ac1f2f5c62a26b7&sig=a10b0cec97e36a9c4fda8092b396ff9cbbb5454eb14b349cd58ac88f450e7f642842b040813a5d16bf4a08c84e3d433ba00eaddb38da3f26c7b65c45b1f2ef741b"
+  },
+  {
+    "ts": "2026-07-28T15:37:30.325227+00:00",
+    "type": "entry",
+    "symbol": "SOLUSDT",
+    "dir": -1,
+    "entry": 74.29,
+    "sl": 74.76,
+    "tp": 73.68,
+    "pnl": null,
+    "reason": null,
+    "hash": "bc8dac354df21aafeffa1574e75d07fe7b6896c2344578707602dbd56c20bf6d",
+    "prev_hash": "573e18fd76a02cf3a9c79370b0be80321981c77aa2c6aa847a95da8bcc7526fb",
+    "eth_address": "0xBEB7E29B235068F2CD455621db2373e5fc4De79b",
+    "eth_signature": "a302e875491da412bff49e03ebdc475d4c4201792c55bbe021d8b50e95ec379a06105015d39b7f630532a96b3b06e8ea8255384078dbb1f5bda0f36a1b9553e61b",
+    "verify_url": "https://etherscan.io/verifySig/0xBEB7E29B235068F2CD455621db2373e5fc4De79b?msg=a970a254e332f96da4a9985c0cfa3967908786424c7d8db61f60270aeebbd8b2&sig=a302e875491da412bff49e03ebdc475d4c4201792c55bbe021d8b50e95ec379a06105015d39b7f630532a96b3b06e8ea8255384078dbb1f5bda0f36a1b9553e61b"
+  },
+  {
+    "ts": "2026-07-28T15:37:30.393473+00:00",
+    "type": "entry",
+    "symbol": "ETHUSDT",
+    "dir": -1,
+    "entry": 1909.43,
+    "sl": 1933.23,
+    "tp": 1889.19,
+    "pnl": null,
+    "reason": null,
+    "hash": "7a16afa999226f7f4b55fad7d949306564ac699eca97e6abd2b160b7d6c8cbba",
+    "prev_hash": "bc8dac354df21aafeffa1574e75d07fe7b6896c2344578707602dbd56c20bf6d",
+    "eth_address": "0xBEB7E29B235068F2CD455621db2373e5fc4De79b",
+    "eth_signature": "0fcbf799df255c20c3eb428558e29991b823ca496fa49bce4fca81b7adbbf91f6eb07417c123d66bb7227ae3bfe3cb5ba9c6522293bd9d5b5fb42bfb240daf261c",
+    "verify_url": "https://etherscan.io/verifySig/0xBEB7E29B235068F2CD455621db2373e5fc4De79b?msg=08fcb1da3225fd0b0f9f3f06a518d68c23886d78d3c0fdbcba3277e9ad195ccc&sig=0fcbf799df255c20c3eb428558e29991b823ca496fa49bce4fca81b7adbbf91f6eb07417c123d66bb7227ae3bfe3cb5ba9c6522293bd9d5b5fb42bfb240daf261c"
+  },
+  {
+    "ts": "2026-07-28T15:47:32.928608+00:00",
+    "type": "entry",
+    "symbol": "XRPUSDT",
+    "dir": -1,
+    "entry": 1.07,
+    "sl": 1.07,
+    "tp": 1.06,
+    "pnl": null,
+    "reason": null,
+    "hash": "fb3384b2bcd92e74b1bfd75a424e8e0d2aacfc95d96f3002eb62cfe982efb0b1",
+    "prev_hash": "7a16afa999226f7f4b55fad7d949306564ac699eca97e6abd2b160b7d6c8cbba",
+    "eth_address": "0xBEB7E29B235068F2CD455621db2373e5fc4De79b",
+    "eth_signature": "9dc71e9a7dc9dee28457269c33b2520ba929c96f7603d878c057f2e74d7ad2a06dca6b0cda8e93e014265e6f790c5b8a7fa127ace916750a7001ebf32fd387ef1c",
+    "verify_url": "https://etherscan.io/verifySig/0xBEB7E29B235068F2CD455621db2373e5fc4De79b?msg=d87747996488df6b720ca932f7351b1d2b7e05491f79e45dd162a3d9ab2af3ae&sig=9dc71e9a7dc9dee28457269c33b2520ba929c96f7603d878c057f2e74d7ad2a06dca6b0cda8e93e014265e6f790c5b8a7fa127ace916750a7001ebf32fd387ef1c"
   }
 ]
