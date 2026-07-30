@@ -120,6 +120,7 @@ class InstitutionalBot:
         capital: float = 1000.0,
         risk_pct: float = 0.01,
         leverage: int = 10,
+        dd_mgr: Optional[DrawdownManager] = None,
     ):
         self.symbol = symbol
         self.capital = capital
@@ -133,7 +134,7 @@ class InstitutionalBot:
             risk_pct=risk_pct,
         )
         self.position_mgr = PositionManager()
-        self.dd_mgr = DrawdownManager(initial_equity=capital)
+        self.dd_mgr = dd_mgr if dd_mgr is not None else DrawdownManager(initial_equity=capital)
         self.param_adapter = ParameterAdapter()
         
         # Execution Manager (Binance testnet)
@@ -160,13 +161,6 @@ class InstitutionalBot:
     def _load_state(self):
         """Load persistent state from files."""
         try:
-            # Load drawdown state
-            dd_file = Path(__file__).parent / "drawdown_state.json"
-            if dd_file.exists():
-                with open(dd_file) as f:
-                    state = json.load(f)
-                    self.dd_mgr.load_state(state)
-            
             # Load parameter state
             param_file = Path(__file__).parent / "parameter_state.json"
             if param_file.exists():
@@ -186,11 +180,6 @@ class InstitutionalBot:
     def _save_state(self):
         """Save persistent state to files."""
         try:
-            # Save drawdown state
-            dd_file = Path(__file__).parent / "drawdown_state.json"
-            with open(dd_file, "w") as f:
-                json.dump(self.dd_mgr.export_state(), f, indent=2)
-            
             # Save parameter state
             param_file = Path(__file__).parent / "parameter_state.json"
             with open(param_file, "w") as f:
@@ -242,6 +231,11 @@ class InstitutionalBot:
         signal = self.engine.run(klines=klines)
         
         if signal["signal"] == "WAIT":
+            return None
+        
+        # Check parameter adapter trading permission
+        if not self.param_adapter.is_trading_allowed():
+            logger.info(f"{self.symbol}: Parameter adapter paused trading")
             return None
         
         # Check minimum score
@@ -356,6 +350,9 @@ class InstitutionalBot:
         # Direction: map from engine's bullish/bearish to 1/-1
         direction = 1 if signal["direction"] == "bullish" else -1
         
+        # Round quantity to 3 decimals for BTC-like pairs
+        qty = round(size, 3)
+        
         # Open position via PositionManager
         pos = self.position_mgr.open_position(
             symbol=self.symbol,
@@ -364,7 +361,7 @@ class InstitutionalBot:
             stop_loss=sl,
             take_profit_1=trade_params["tp1"],
             take_profit_2=trade_params["tp2"],
-            size=size,
+            size=qty,
             atr_at_entry=signal.get("indicators", {}).get("atr_1h", entry * 0.005),
             atr_trail_mult=self.param_adapter.params.get("atr_trail_mult", 2.0),
             breakeven_activate_mult=self.param_adapter.params.get("breakeven_activate_mult", 1.0),
@@ -378,8 +375,6 @@ class InstitutionalBot:
         order_result = None
         try:
             side = "BUY" if direction == 1 else "SELL"
-            # Round quantity to 3 decimals for BTC-like pairs
-            qty = round(size, 3)
             order_result = self.execution_mgr.execute_signal({
                 "symbol": self.symbol,
                 "side": side,
@@ -618,20 +613,54 @@ class MultiBotSystemV2:
         self.risk_pct = risk_pct
         self.leverage = leverage
         
-        # Initialize bots
+        # Create shared ExecutionManager to query exchange balance
+        api_key, api_secret = _load_binance_keys()
+        self.shared_execution_mgr = ExecutionManager(
+            api_key=api_key,
+            api_secret=api_secret,
+            testnet=True,
+        )
+        
+        # Sync capital with actual exchange balance
+        num_bots = len(symbols)
+        actual_balance = self.shared_execution_mgr.get_balance("USDT")
+        if actual_balance > 0:
+            self.capital_per_bot = actual_balance / num_bots
+            logger.info(f"Capital synced from exchange: ${actual_balance:.2f} total "
+                       f"→ ${self.capital_per_bot:.2f} per bot ({num_bots} bots)")
+        else:
+            logger.warning(f"Could not get exchange balance, using default: ${self.capital_per_bot:.2f} per bot")
+        
+        # Create ONE shared DrawdownManager with total capital
+        total_capital = self.capital_per_bot * num_bots
+        self.shared_dd_mgr = DrawdownManager(initial_equity=total_capital)
+        
+        # Load shared DD state from disk
+        dd_file = Path(__file__).parent / "drawdown_state.json"
+        if dd_file.exists():
+            try:
+                with open(dd_file) as f:
+                    state = json.load(f)
+                    self.shared_dd_mgr.load_state(state)
+            except Exception as e:
+                logger.warning(f"Error loading shared DD state: {e}")
+        
+        # Initialize bots with shared DD manager
         self.bots = {}
         for symbol in symbols:
             self.bots[symbol] = InstitutionalBot(
                 symbol=symbol,
-                capital=capital_per_bot,
+                capital=self.capital_per_bot,
                 risk_pct=risk_pct,
                 leverage=leverage,
+                dd_mgr=self.shared_dd_mgr,
             )
         
         # Initialize Telegram
         _init_telegram()
         
-        logger.info(f"MultiBotSystemV2 initialized with {len(symbols)} bots")
+        logger.info(f"MultiBotSystemV2 initialized with {len(symbols)} bots, "
+                    f"shared DD manager (total=${total_capital:.2f})")
     
     def run_once(self) -> Dict[str, Any]:
         """
@@ -649,6 +678,18 @@ class MultiBotSystemV2:
             except Exception as e:
                 logger.exception(f"Error running {symbol} bot")
                 results[symbol] = {"error": str(e)}
+        
+        # Update shared DD manager with sum of all bot capitals
+        total_equity = sum(bot.capital for bot in self.bots.values())
+        self.shared_dd_mgr.update(total_equity)
+        
+        # Save shared DD state
+        dd_file = Path(__file__).parent / "drawdown_state.json"
+        try:
+            with open(dd_file, "w") as f:
+                json.dump(self.shared_dd_mgr.export_state(), f, indent=2)
+        except Exception as e:
+            logger.warning(f"Error saving shared DD state: {e}")
         
         return results
     

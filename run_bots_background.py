@@ -1,6 +1,6 @@
 """
 RUN BOTS BACKGROUND — 24/7 daemon
-Lanza MultiBotSystem.start() como proceso independiente.
+Lanza MultiBotSystemV2.start() como proceso independiente.
 El dashboard puede seguir abierto para monitoreo.
 """
 import time, sys, os, signal, logging
@@ -42,17 +42,16 @@ def daily_report(system):
     """Send daily summary via Telegram."""
     try:
         from multi_bot import telegram_alert
-        summary = system.portfolio_summary()
-        equity = summary['total_equity']
-        pnl = summary['net_pnl']
+        summary = system.get_portfolio_summary()
+        equity = summary['total_capital']
+        pnl = summary['total_pnl']
         trades = summary['total_trades']
         wr = summary['win_rate']
         bots_status = ""
         for name, bot in system.bots.items():
-            s = bot.status()
-            in_pos = s.get("position") is not None
+            in_pos = bot.position is not None
             pos_str = f"In position" if in_pos else "No position"
-            bots_status += f"\n  {name}: ${s['equity']:.2f} | {pos_str}"
+            bots_status += f"\n  {name}: ${bot.capital:.2f} | {pos_str}"
         msg = (
             f"📊 <b>DAILY REPORT</b>\n"
             f"Equity: ${equity:.2f} | PnL: ${pnl:.2f}\n"
@@ -77,35 +76,13 @@ if __name__ == "__main__":
     signal.signal(signal.SIGTERM, cleanup)
     signal.signal(signal.SIGINT, cleanup)
 
-    from multi_bot import MultiBotSystem
-
-    # Load Binance credentials from secrets.toml
-    secrets_path = Path(__file__).parent / ".streamlit" / "secrets.toml"
-    api_key = api_secret = None
-    import tomllib
-    if secrets_path.exists():
-        with open(secrets_path, "rb") as f:
-            secrets = tomllib.load(f)
-        api_key = secrets.get("BINANCE_API_KEY") or os.environ.get("BINANCE_API_KEY")
-        api_secret = secrets.get("BINANCE_SECRET_KEY") or os.environ.get("BINANCE_API_SECRET")
-
-    exchange_client = None
-    if api_key and api_secret:
-        try:
-            from execution_manager import ExecutionManager
-            exchange_client = ExecutionManager(api_key, api_secret, testnet=True)
-            bal = exchange_client.get_balance("USDT")
-            logger.info(f"Exchange client ready, balance: ${bal:.2f}" if bal else "Exchange client ready (balance: $0)")
-        except Exception as e:
-            logger.warning(f"Could not init exchange client: {e}")
-    else:
-        logger.info("No Binance credentials found, running in paper mode")
+    from multi_bot_v2 import MultiBotSystemV2
 
     logger.info("=" * 60)
-    logger.info("Starting VWAP Breakout Bots (24/7 daemon)")
+    logger.info("Starting Institutional V2 Bots (24/7 daemon)")
     logger.info("=" * 60)
 
-    system = MultiBotSystem(exchange_client=exchange_client)
+    system = MultiBotSystemV2()
     system.start()
 
     # Start X/Twitter poster as background thread if API keys configured
@@ -132,10 +109,10 @@ if __name__ == "__main__":
             now = datetime.now(timezone.utc)
             # Log summary every 5 min
             if int(time.time()) % 300 < 60:
-                summary = system.portfolio_summary()
+                summary = system.get_portfolio_summary()
                 logger.info(
-                    f"Equity: ${summary['total_equity']:.2f} | "
-                    f"PnL: ${summary['net_pnl']:+.2f} | "
+                    f"Equity: ${summary['total_capital']:.2f} | "
+                    f"PnL: ${summary['total_pnl']:+.2f} | "
                     f"Trades: {summary['total_trades']} | "
                     f"WR: {summary['win_rate']:.1f}%"
                 )

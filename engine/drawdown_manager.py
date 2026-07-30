@@ -129,12 +129,15 @@ class DrawdownManager:
         # Actualizar peak
         if new_equity > self.peak_equity:
             self.peak_equity = new_equity
-            # Si teníamos stop, verificar recovery
-            if self.is_stopped:
+
+        # Check recovery
+        if self.is_stopped:
+            dd_pct = ((new_equity - self.peak_equity) / self.peak_equity * 100) if self.peak_equity > 0 else 0
+            if dd_pct > RECOVERY_THRESHOLD:
                 self.is_stopped = False
                 self.stop_time = None
                 self.recovery_dd = None
-                logger.info(f"DD RECOVERY: equity ${new_equity:.2f} > peak, trading RESUMED")
+                logger.info(f"DD RECOVERY: DD={dd_pct:.2f}% > {RECOVERY_THRESHOLD}%, trading RESUMED")
 
         # Calcular DD actual
         if self.peak_equity > 0:
