@@ -1,0 +1,2166 @@
+"""
+STRUCTURAL EXPANSION FLOW — Institutional Dashboard LEVEL 2030
+===============================================================
+Bloomberg Terminal meets Cyberpunk 2077.
+Holographic glassmorphism, scanline overlays, neon accents, HUD metrics.
+
+Run: streamlit run app.py
+"""
+import os
+import sys
+import time
+import json
+import hmac
+import hashlib
+import urllib.parse
+import logging
+import subprocess
+from datetime import datetime, timezone, timedelta
+from pathlib import Path
+from typing import Dict, List, Optional, Any
+
+import streamlit as st
+import pandas as pd
+import numpy as np
+import plotly.graph_objects as go
+import plotly.express as px
+from plotly.subplots import make_subplots
+import requests
+
+# ============================================================
+# CONFIGURATION
+# ============================================================
+PAGE_TITLE = "STRUCTURAL EXPANSION FLOW"
+PAGE_ICON = "⚡"
+REFRESH_INTERVAL_SEC = 30
+PAIRS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT", "BNBUSDT"]
+PAIR_LABELS = {
+    "BTCUSDT": "BTC", "ETHUSDT": "ETH", "SOLUSDT": "SOL",
+    "XRPUSDT": "XRP", "BNBUSDT": "BNB"
+}
+APP_DIR = Path(__file__).resolve().parent
+
+# ============================================================
+# LEVEL 2030 CSS — VOID HOLOGRAPHIC THEME
+# ============================================================
+CUSTOM_CSS = """
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@300;400;500;600;700&display=swap');
+
+/* ================================================================
+   ROOT VARIABLES — VOID PALETTE
+   ================================================================ */
+:root {
+    /* Background — near-black with blue undertone */
+    --bg-void: #020208;
+    --bg-primary: #06060f;
+    --bg-secondary: #0c0c1d;
+    --bg-card: rgba(8, 8, 24, 0.75);
+    --bg-card-solid: #0a0a1e;
+    --bg-card-hover: rgba(12, 12, 35, 0.9);
+
+    /* Borders — subtle glow */
+    --border: rgba(0, 212, 255, 0.06);
+    --border-hover: rgba(0, 212, 255, 0.25);
+    --border-active: rgba(0, 212, 255, 0.4);
+
+    /* Text hierarchy */
+    --text-primary: #e8eaed;
+    --text-secondary: #7a8194;
+    --text-dim: #3c4055;
+    --text-ghost: #1e2030;
+
+    /* Neon accents */
+    --neon-cyan: #00d4ff;
+    --neon-magenta: #d946ef;
+    --neon-lime: #84cc16;
+    --neon-amber: #f59e0b;
+    --neon-purple: #a855f7;
+
+    /* Semantic colors */
+    --profit: #00ff88;
+    --loss: #ff4757;
+    --neutral: #5f6368;
+
+    /* Glow effects */
+    --glow-cyan: 0 0 20px rgba(0, 212, 255, 0.12);
+    --glow-cyan-strong: 0 0 40px rgba(0, 212, 255, 0.2), 0 0 80px rgba(0, 212, 255, 0.05);
+    --glow-profit: 0 0 20px rgba(0, 255, 136, 0.12);
+    --glow-loss: 0 0 20px rgba(255, 71, 87, 0.12);
+    --glow-magenta: 0 0 20px rgba(217, 70, 239, 0.12);
+
+    /* Holographic gradient */
+    --holo-gradient: linear-gradient(135deg, var(--neon-cyan), var(--neon-magenta), var(--neon-lime), var(--neon-cyan));
+    --holo-gradient-subtle: linear-gradient(135deg, rgba(0,212,255,0.3), rgba(217,70,239,0.3), rgba(132,204,22,0.3));
+}
+
+/* ================================================================
+   BASE RESET & VOID BACKGROUND
+   ================================================================ */
+* {
+    box-sizing: border-box;
+}
+
+.stApp {
+    background: var(--bg-void) !important;
+    color: var(--text-primary) !important;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Grid + radial background */
+.stApp::before {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background:
+        radial-gradient(ellipse at 15% 50%, rgba(0, 212, 255, 0.025) 0%, transparent 50%),
+        radial-gradient(ellipse at 85% 20%, rgba(217, 70, 239, 0.02) 0%, transparent 50%),
+        radial-gradient(ellipse at 50% 80%, rgba(132, 204, 22, 0.015) 0%, transparent 50%),
+        linear-gradient(rgba(0, 212, 255, 0.015) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 212, 255, 0.015) 1px, transparent 1px);
+    background-size: 100% 100%, 100% 100%, 100% 100%, 48px 48px, 48px 48px;
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* Scanline overlay */
+.stApp::after {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0, 212, 255, 0.012) 2px,
+        rgba(0, 212, 255, 0.012) 4px
+    );
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* Make all content above overlays */
+[data-testid="stAppViewContainer"] > .main {
+    position: relative;
+    z-index: 2;
+}
+
+/* ================================================================
+   HIDE STREAMLIT DEFAULTS
+   ================================================================ */
+#MainMenu, footer, header { visibility: hidden !important; height: 0 !important; }
+.block-container {
+    padding: 1rem 2rem 2rem !important;
+    max-width: 100% !important;
+}
+.stDeployButton { display: none !important; }
+
+/* ================================================================
+   ANIMATIONS
+   ================================================================ */
+@keyframes live-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(0, 255, 136, 0.7); }
+    50% { box-shadow: 0 0 0 6px rgba(0, 255, 136, 0); }
+}
+
+@keyframes neon-flicker {
+    0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% {
+        text-shadow: 0 0 7px rgba(0, 212, 255, 0.6), 0 0 20px rgba(0, 212, 255, 0.3);
+    }
+    20%, 24%, 55% {
+        text-shadow: none;
+    }
+}
+
+@keyframes gradient-shift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+@keyframes holo-border {
+    0% { border-color: rgba(0, 212, 255, 0.15); }
+    33% { border-color: rgba(217, 70, 239, 0.15); }
+    66% { border-color: rgba(132, 204, 22, 0.15); }
+    100% { border-color: rgba(0, 212, 255, 0.15); }
+}
+
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scanline-move {
+    0% { transform: translateY(-100%); }
+    100% { transform: translateY(100vh); }
+}
+
+@keyframes number-glow {
+    0%, 100% { filter: brightness(1); }
+    50% { filter: brightness(1.15); }
+}
+
+@keyframes pulse-ring {
+    0% { transform: scale(0.8); opacity: 1; }
+    100% { transform: scale(2.2); opacity: 0; }
+}
+
+@keyframes border-dance {
+    0%, 100% {
+        border-image: linear-gradient(135deg, rgba(0,212,255,0.3), rgba(217,70,239,0.1), rgba(132,204,22,0.1)) 1;
+    }
+    33% {
+        border-image: linear-gradient(135deg, rgba(217,70,239,0.3), rgba(132,204,22,0.1), rgba(0,212,255,0.1)) 1;
+    }
+    66% {
+        border-image: linear-gradient(135deg, rgba(132,204,22,0.3), rgba(0,212,255,0.1), rgba(217,70,239,0.1)) 1;
+    }
+}
+
+/* ================================================================
+   HEADER — HOLOGRAPHIC COMMAND CENTER
+   ================================================================ */
+.holo-header {
+    position: relative;
+    background: linear-gradient(135deg, rgba(6,6,15,0.95) 0%, rgba(12,12,29,0.95) 50%, rgba(6,6,15,0.95) 100%);
+    backdrop-filter: blur(30px);
+    -webkit-backdrop-filter: blur(30px);
+    border: 1px solid rgba(0, 212, 255, 0.12);
+    border-radius: 16px;
+    padding: 0;
+    margin-bottom: 24px;
+    overflow: hidden;
+    animation: fadeInUp 0.6s ease;
+}
+
+/* Holographic top border */
+.holo-header::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg,
+        transparent 0%,
+        var(--neon-cyan) 20%,
+        var(--neon-magenta) 40%,
+        var(--neon-lime) 60%,
+        var(--neon-cyan) 80%,
+        transparent 100%
+    );
+    background-size: 200% 100%;
+    animation: gradient-shift 6s linear infinite;
+}
+
+/* Scanline effect on header */
+.holo-header::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0, 212, 255, 0.008) 2px,
+        rgba(0, 212, 255, 0.008) 4px
+    );
+    pointer-events: none;
+}
+
+.holo-header-inner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 18px 28px;
+    position: relative;
+    z-index: 1;
+}
+
+.holo-header-left {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.holo-title {
+    font-size: 1.3rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    font-family: 'Inter', sans-serif;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.holo-title-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: linear-gradient(135deg, rgba(0,212,255,0.15), rgba(217,70,239,0.15));
+    border-radius: 8px;
+    font-size: 1rem;
+}
+
+.holo-title-text {
+    background: linear-gradient(135deg, #ffffff 0%, #c0c8e0 50%, #ffffff 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.holo-subtitle {
+    color: var(--text-secondary);
+    font-size: 0.72rem;
+    font-family: 'Inter', sans-serif;
+    letter-spacing: 0.05em;
+    padding-left: 42px;
+}
+
+.holo-header-right {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+}
+
+.holo-stat {
+    text-align: right;
+}
+
+.holo-stat-label {
+    font-size: 0.55rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--text-dim);
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    margin-bottom: 3px;
+}
+
+.holo-stat-value {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    font-family: 'JetBrains Mono', monospace;
+}
+
+/* Live indicator */
+.live-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 14px;
+    border-radius: 20px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.live-indicator-active {
+    background: rgba(0, 255, 136, 0.08);
+    color: var(--profit);
+    border: 1px solid rgba(0, 255, 136, 0.25);
+}
+
+.live-indicator-stopped {
+    background: rgba(255, 71, 87, 0.08);
+    color: var(--loss);
+    border: 1px solid rgba(255, 71, 87, 0.25);
+}
+
+.live-dot-anim {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    position: relative;
+}
+
+.live-dot-anim::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    animation: live-pulse 2s infinite;
+}
+
+.live-dot-anim-green {
+    background: var(--profit);
+}
+.live-dot-anim-green::before {
+    background: var(--profit);
+}
+
+.live-dot-anim-red {
+    background: var(--loss);
+    animation: none;
+}
+
+/* ================================================================
+   HOLOGRAPHIC METRIC CARDS
+   ================================================================ */
+.holo-card {
+    position: relative;
+    background: var(--bg-card);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+    animation: fadeInUp 0.5s ease backwards;
+}
+
+/* Top gradient line */
+.holo-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.2), transparent);
+    opacity: 0;
+    transition: opacity 0.4s ease;
+}
+
+/* Hover glow effect */
+.holo-card::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle at center, rgba(0, 212, 255, 0.03) 0%, transparent 70%);
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    pointer-events: none;
+}
+
+.holo-card:hover {
+    border-color: var(--border-hover);
+    box-shadow: var(--glow-cyan-strong);
+    transform: translateY(-3px);
+}
+
+.holo-card:hover::before {
+    opacity: 1;
+}
+
+.holo-card:hover::after {
+    opacity: 1;
+}
+
+/* Holographic border effect on hover */
+.holo-card:hover {
+    border: 1px solid transparent;
+    background-image:
+        linear-gradient(var(--bg-card), var(--bg-card)),
+        linear-gradient(135deg, var(--neon-cyan), var(--neon-magenta), var(--neon-lime));
+    background-origin: border-box;
+    background-clip: padding-box, border-box;
+}
+
+/* Card inner content */
+.holo-card-label {
+    color: var(--text-secondary);
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    font-weight: 700;
+    margin-bottom: 10px;
+    font-family: 'Inter', sans-serif;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.holo-card-label-dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--neon-cyan);
+    box-shadow: 0 0 6px var(--neon-cyan);
+}
+
+.holo-card-value {
+    color: #fff;
+    font-size: 1.9rem;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+}
+
+.holo-card-sub {
+    font-size: 0.75rem;
+    margin-top: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Value glow effects */
+.holo-card-value.profit-glow {
+    color: var(--profit);
+    text-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
+}
+
+.holo-card-value.loss-glow {
+    color: var(--loss);
+    text-shadow: 0 0 20px rgba(255, 71, 87, 0.3);
+}
+
+.holo-card-value.cyan-glow {
+    color: var(--neon-cyan);
+    text-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+}
+
+/* ================================================================
+   GRID LAYOUTS
+   ================================================================ */
+.grid-4 {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.grid-2 {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+/* ================================================================
+   SECTION HEADERS — HUD STYLE
+   ================================================================ */
+.hud-section {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 28px 0 14px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+}
+
+.hud-section-bar {
+    width: 3px;
+    height: 18px;
+    background: linear-gradient(180deg, var(--neon-cyan), var(--neon-magenta));
+    border-radius: 2px;
+    box-shadow: 0 0 8px rgba(0, 212, 255, 0.3);
+}
+
+.hud-section-text {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--text-secondary);
+    font-family: 'Inter', sans-serif;
+}
+
+.hud-section-line {
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, var(--border), transparent);
+}
+
+/* ================================================================
+   CHART CONTAINER — GLASS PANEL
+   ================================================================ */
+.glass-panel {
+    background: var(--bg-card);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    margin-bottom: 20px;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.glass-panel:hover {
+    border-color: var(--border-hover);
+}
+
+.glass-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(0, 212, 255, 0.05);
+}
+
+.glass-panel-title {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--text-secondary);
+    font-family: 'Inter', sans-serif;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.glass-panel-title::before {
+    content: '';
+    width: 3px;
+    height: 14px;
+    background: var(--neon-cyan);
+    border-radius: 2px;
+    box-shadow: 0 0 6px rgba(0, 212, 255, 0.4);
+}
+
+/* ================================================================
+   TABLES — MONITOR STYLE
+   ================================================================ */
+table.holo-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: transparent;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+table.holo-table thead th {
+    background: rgba(0, 212, 255, 0.03);
+    color: var(--neon-cyan);
+    padding: 12px 14px;
+    text-align: left;
+    font-size: 0.58rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-weight: 700;
+    border-bottom: 1px solid rgba(0, 212, 255, 0.08);
+    font-family: 'Inter', sans-serif;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+table.holo-table tbody td {
+    padding: 11px 14px;
+    color: var(--text-primary);
+    font-size: 0.78rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+    transition: background 0.2s ease;
+}
+
+table.holo-table tbody tr {
+    transition: all 0.2s ease;
+}
+
+table.holo-table tbody tr:hover td {
+    background: rgba(0, 212, 255, 0.03);
+}
+
+table.holo-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* ================================================================
+   BADGES — NEON PILLS
+   ================================================================ */
+.neon-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    border-radius: 50px;
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.neon-badge-long {
+    background: rgba(0, 255, 136, 0.08);
+    color: var(--profit);
+    border: 1px solid rgba(0, 255, 136, 0.25);
+}
+
+.neon-badge-short {
+    background: rgba(255, 71, 87, 0.08);
+    color: var(--loss);
+    border: 1px solid rgba(255, 71, 87, 0.25);
+}
+
+.neon-badge-wait {
+    background: rgba(122, 129, 148, 0.08);
+    color: var(--text-secondary);
+    border: 1px solid rgba(122, 129, 148, 0.2);
+}
+
+.neon-badge-ok {
+    background: rgba(0, 255, 136, 0.08);
+    color: var(--profit);
+    border: 1px solid rgba(0, 255, 136, 0.25);
+}
+
+.neon-badge-warn {
+    background: rgba(245, 158, 11, 0.08);
+    color: var(--neon-amber);
+    border: 1px solid rgba(245, 158, 11, 0.25);
+}
+
+.neon-badge-stop {
+    background: rgba(255, 71, 87, 0.08);
+    color: var(--loss);
+    border: 1px solid rgba(255, 71, 87, 0.25);
+}
+
+.neon-badge-cyan {
+    background: rgba(0, 212, 255, 0.08);
+    color: var(--neon-cyan);
+    border: 1px solid rgba(0, 212, 255, 0.25);
+}
+
+.neon-badge-purple {
+    background: rgba(168, 85, 247, 0.08);
+    color: var(--neon-purple);
+    border: 1px solid rgba(168, 85, 247, 0.25);
+}
+
+/* ================================================================
+   TIMELINE — SIGNAL FLOW
+   ================================================================ */
+.signal-timeline {
+    position: relative;
+    padding-left: 28px;
+}
+
+.signal-timeline::before {
+    content: '';
+    position: absolute;
+    left: 9px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: linear-gradient(180deg,
+        var(--neon-cyan) 0%,
+        rgba(0, 212, 255, 0.3) 50%,
+        transparent 100%
+    );
+}
+
+.signal-item {
+    position: relative;
+    padding: 10px 0;
+    animation: fadeInUp 0.3s ease backwards;
+}
+
+.signal-dot {
+    position: absolute;
+    left: -24px;
+    top: 14px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.signal-dot::after {
+    content: '';
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.signal-dot-long {
+    border-color: var(--profit);
+    color: var(--profit);
+    background: rgba(0, 255, 136, 0.1);
+}
+
+.signal-dot-short {
+    border-color: var(--loss);
+    color: var(--loss);
+    background: rgba(255, 71, 87, 0.1);
+}
+
+.signal-dot-neutral {
+    border-color: var(--neon-cyan);
+    color: var(--neon-cyan);
+    background: rgba(0, 212, 255, 0.1);
+}
+
+/* Pulse ring on latest signal */
+.signal-dot-latest {
+    position: relative;
+}
+
+.signal-dot-latest::before {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border-radius: 50%;
+    border: 1px solid currentColor;
+    animation: pulse-ring 2s infinite;
+    opacity: 0.5;
+}
+
+/* ================================================================
+   PERFORMANCE MATRIX — HUD DISPLAY
+   ================================================================ */
+.hud-matrix {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 0;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    background: var(--bg-card);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    margin-bottom: 24px;
+}
+
+.hud-cell {
+    padding: 18px 16px;
+    text-align: center;
+    border-right: 1px solid rgba(0, 212, 255, 0.04);
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.hud-cell:last-child {
+    border-right: none;
+}
+
+.hud-cell:hover {
+    background: rgba(0, 212, 255, 0.03);
+}
+
+.hud-cell-label {
+    font-size: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--text-dim);
+    font-family: 'Inter', sans-serif;
+    font-weight: 700;
+    margin-bottom: 6px;
+}
+
+.hud-cell-value {
+    font-size: 1.3rem;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: -0.02em;
+}
+
+.hud-cell-sub {
+    font-size: 0.6rem;
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+    margin-top: 4px;
+}
+
+/* Bottom row of HUD */
+.hud-matrix-bottom {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+    border: 1px solid var(--border);
+    border-top: none;
+    border-radius: 0 0 14px 14px;
+    overflow: hidden;
+    background: rgba(8, 8, 24, 0.5);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    margin-top: -1px;
+    margin-bottom: 24px;
+}
+
+/* ================================================================
+   BOT LOG — TERMINAL
+   ================================================================ */
+.terminal-log {
+    background: rgba(2, 2, 8, 0.9);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+}
+
+.terminal-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: rgba(0, 212, 255, 0.03);
+    border-bottom: 1px solid rgba(0, 212, 255, 0.06);
+}
+
+.terminal-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.terminal-dot-red { background: #ff5f57; }
+.terminal-dot-yellow { background: #ffbd2e; }
+.terminal-dot-green { background: #28ca42; }
+
+.terminal-title {
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-dim);
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    margin-left: 8px;
+}
+
+.terminal-body {
+    padding: 14px 16px;
+    max-height: 260px;
+    overflow-y: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    line-height: 1.8;
+}
+
+.terminal-body::-webkit-scrollbar {
+    width: 5px;
+}
+.terminal-body::-webkit-scrollbar-track {
+    background: transparent;
+}
+.terminal-body::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
+}
+
+.log-entry {
+    padding: 1px 0;
+    animation: fadeInUp 0.2s ease;
+    display: flex;
+    gap: 8px;
+}
+
+.log-ts {
+    color: var(--text-dim);
+    flex-shrink: 0;
+}
+
+.log-msg { color: var(--text-secondary); }
+.log-msg-info { color: var(--neon-cyan); }
+.log-msg-success { color: var(--profit); }
+.log-msg-warning { color: var(--neon-amber); }
+.log-msg-error { color: var(--loss); }
+.log-msg-signal { color: var(--neon-magenta); }
+.log-msg-order { color: var(--neon-lime); }
+
+/* ================================================================
+   PROGRESS BARS — NEON
+   ================================================================ */
+.neon-progress {
+    width: 100%;
+    height: 5px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 10px;
+}
+
+.neon-progress-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+}
+
+.neon-progress-fill::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 20px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3));
+    border-radius: 3px;
+}
+
+.neon-progress-green {
+    background: linear-gradient(90deg, rgba(0, 255, 136, 0.6), var(--profit));
+    box-shadow: 0 0 8px rgba(0, 255, 136, 0.3);
+}
+
+.neon-progress-orange {
+    background: linear-gradient(90deg, rgba(245, 158, 11, 0.6), var(--neon-amber));
+    box-shadow: 0 0 8px rgba(245, 158, 11, 0.3);
+}
+
+.neon-progress-red {
+    background: linear-gradient(90deg, rgba(255, 71, 87, 0.6), var(--loss));
+    box-shadow: 0 0 8px rgba(255, 71, 87, 0.3);
+}
+
+/* ================================================================
+   UTILITY CLASSES
+   ================================================================ */
+.positive { color: var(--profit) !important; }
+.negative { color: var(--loss) !important; }
+.neutral { color: var(--text-secondary) !important; }
+.cyan { color: var(--neon-cyan) !important; }
+.magenta { color: var(--neon-magenta) !important; }
+.lime { color: var(--neon-lime) !important; }
+.amber { color: var(--neon-amber) !important; }
+.gold { color: #ffd700 !important; }
+
+.mono { font-family: 'JetBrains Mono', monospace; }
+.inter { font-family: 'Inter', sans-serif; }
+
+.gradient-text {
+    background: linear-gradient(135deg, var(--neon-cyan), var(--neon-magenta));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.gradient-text-profit {
+    background: linear-gradient(135deg, var(--profit), var(--neon-lime));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* ================================================================
+   SCROLLBAR
+   ================================================================ */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(0, 212, 255, 0.1);
+    border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 212, 255, 0.2);
+}
+
+/* ================================================================
+   RESPONSIVE
+   ================================================================ */
+@media (max-width: 1400px) {
+    .hud-matrix { grid-template-columns: repeat(3, 1fr); }
+    .hud-cell:nth-child(3) { border-right: none; }
+    .hud-cell:nth-child(4), .hud-cell:nth-child(5) {
+        border-top: 1px solid rgba(0, 212, 255, 0.04);
+    }
+}
+
+@media (max-width: 1200px) {
+    .grid-4 { grid-template-columns: repeat(2, 1fr); }
+    .hud-matrix { grid-template-columns: repeat(2, 1fr); }
+    .hud-matrix-bottom { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 768px) {
+    .grid-4, .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    .holo-header-inner { flex-direction: column; gap: 16px; text-align: center; }
+    .holo-header-right { flex-direction: column; gap: 12px; }
+    .holo-subtitle { padding-left: 0; }
+    .hud-matrix { grid-template-columns: 1fr 1fr; }
+    .hud-matrix-bottom { grid-template-columns: 1fr 1fr; }
+}
+
+/* ================================================================
+   EMPTY STATE
+   ================================================================ */
+.empty-holo {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-dim);
+    font-family: 'Inter', sans-serif;
+}
+
+.empty-holo-icon {
+    font-size: 2.2rem;
+    margin-bottom: 12px;
+    opacity: 0.4;
+    filter: grayscale(0.5);
+}
+
+.empty-holo-text {
+    font-size: 0.8rem;
+    font-style: italic;
+    color: var(--text-dim);
+}
+
+/* ================================================================
+   PAIR SPARKLINE MINI CHARTS
+   ================================================================ */
+.pair-spark {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 20px;
+}
+
+.pair-spark-bar {
+    width: 3px;
+    border-radius: 1px;
+    transition: height 0.3s ease;
+}
+
+/* ================================================================
+   HOLOGRAPHIC DIVIDER
+   ================================================================ */
+.holo-divider {
+    height: 1px;
+    background: linear-gradient(90deg,
+        transparent 0%,
+        rgba(0, 212, 255, 0.15) 20%,
+        rgba(217, 70, 239, 0.15) 50%,
+        rgba(132, 204, 22, 0.15) 80%,
+        transparent 100%
+    );
+    margin: 20px 0;
+}
+
+/* ================================================================
+   FOOTER
+   ================================================================ */
+.holo-footer {
+    text-align: center;
+    padding: 24px 20px;
+    border-top: 1px solid var(--border);
+    margin-top: 40px;
+    position: relative;
+}
+
+.holo-footer::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 10%; right: 10%;
+    height: 1px;
+    background: linear-gradient(90deg,
+        transparent,
+        rgba(0, 212, 255, 0.15),
+        rgba(217, 70, 239, 0.15),
+        transparent
+    );
+}
+
+.holo-footer-text {
+    font-size: 0.6rem;
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.1em;
+}
+
+/* ================================================================
+   CUSTOM PLOTLY OVERRIDES
+   ================================================================ */
+.js-plotly-plot .plotly .modebar {
+    top: 5px !important;
+    right: 5px !important;
+}
+
+.js-plotly-plot .plotly .modebar-btn {
+    fill: var(--text-dim) !important;
+}
+
+.js-plotly-plot .plotly .modebar-btn:hover {
+    fill: var(--neon-cyan) !important;
+}
+</style>
+"""
+
+
+# ============================================================
+# BINANCE TESTNET HELPERS
+# ============================================================
+def _load_secrets():
+    """Load API keys from secrets.toml."""
+    secrets_path = APP_DIR / ".streamlit" / "secrets.toml"
+    try:
+        import toml
+        secrets = toml.load(secrets_path)
+        return (
+            secrets.get("BINANCE_API_KEY", ""),
+            secrets.get("BINANCE_SECRET_KEY", ""),
+        )
+    except Exception:
+        return "", ""
+
+
+def _sign_params(params: dict, secret: str) -> dict:
+    """Sign Binance API request."""
+    query = urllib.parse.urlencode(params)
+    sig = hmac.new(secret.encode(), query.encode(), hashlib.sha256).hexdigest()
+    params["signature"] = sig
+    return params
+
+
+def _testnet_request(method: str, endpoint: str, params: dict = None) -> Optional[dict]:
+    """Make a signed request to Binance Futures Testnet."""
+    api_key, api_secret = _load_secrets()
+    if not api_key or not api_secret:
+        return None
+    if params is None:
+        params = {}
+    params["timestamp"] = int(time.time() * 1000)
+    signed = _sign_params(params, api_secret)
+    headers = {"X-MBX-APIKEY": api_key}
+    base = "https://testnet.binancefuture.com"
+    try:
+        if method == "GET":
+            r = requests.get(f"{base}{endpoint}", params=signed, headers=headers, timeout=10)
+        else:
+            r = requests.post(f"{base}{endpoint}", params=signed, headers=headers, timeout=10)
+        if r.status_code == 200:
+            return r.json()
+    except Exception:
+        pass
+    return None
+
+
+def get_testnet_balance() -> float:
+    """Get USDT balance from testnet."""
+    data = _testnet_request("GET", "/fapi/v3/balance")
+    if data:
+        for b in data:
+            if b.get("asset") == "USDT":
+                return float(b.get("balance", 0))
+    return 0.0
+
+
+def get_testnet_positions() -> List[Dict]:
+    """Get open positions from testnet."""
+    data = _testnet_request("GET", "/fapi/v3/positionRisk")
+    if data:
+        return [p for p in data if float(p.get("positionAmt", 0)) != 0]
+    return []
+
+
+def get_live_price(symbol: str) -> Optional[float]:
+    """Get latest price from mainnet."""
+    try:
+        r = requests.get("https://fapi.binance.com/fapi/v1/ticker/price",
+                         params={"symbol": symbol}, timeout=5)
+        if r.status_code == 200:
+            return float(r.json()["price"])
+    except Exception:
+        pass
+    return None
+
+
+# ============================================================
+# STATE FILE READERS
+# ============================================================
+def load_json(path: Path, default=None):
+    """Load a JSON file safely."""
+    try:
+        if path.exists():
+            with open(path) as f:
+                return json.load(f)
+    except Exception:
+        pass
+    return default if default is not None else {}
+
+
+def get_drawdown_state() -> Dict:
+    """Read drawdown manager state."""
+    return load_json(APP_DIR / "drawdown_state.json", {
+        "peak_equity": 0, "current_equity": 0,
+        "current_dd_pct": 0, "is_stopped": False,
+    })
+
+
+def get_parameter_state() -> Dict:
+    """Read parameter adapter state."""
+    return load_json(APP_DIR / "parameter_state.json", {
+        "params": {}, "is_paused": False, "total_trades_recorded": 0,
+    })
+
+
+def get_signal_log() -> List[Dict]:
+    """Read signal log (last 30 entries)."""
+    data = load_json(APP_DIR / "signal_log.json", [])
+    if isinstance(data, list):
+        return data[-30:]
+    return []
+
+
+def get_trade_history() -> List[Dict]:
+    """Read trade history (last 50 entries)."""
+    data = load_json(APP_DIR / "trade_history.json", [])
+    if isinstance(data, list):
+        return data[-50:]
+    return []
+
+
+def get_equity_history() -> List[Dict]:
+    """Read equity history."""
+    data = load_json(APP_DIR / "equity_history.json", [])
+    if isinstance(data, list):
+        return data
+    return []
+
+
+def get_bot_status() -> str:
+    """Check if bot process is running."""
+    try:
+        result = subprocess.run(["pgrep", "-f", "multi_bot_v2"],
+                              capture_output=True, text=True, timeout=5)
+        if result.returncode == 0:
+            pid = result.stdout.strip().split("\n")[0]
+            return f"RUNNING (PID {pid})"
+    except Exception:
+        pass
+    return "STOPPED"
+
+
+def get_last_log_lines(n: int = 20) -> List[str]:
+    """Read last N lines from bot log."""
+    log_files = [
+        APP_DIR / "logs" / "paper_trading.log",
+        APP_DIR / "logs" / "bot.log",
+    ]
+    for log_path in log_files:
+        try:
+            if log_path.exists():
+                with open(log_path) as f:
+                    lines = f.readlines()
+                    return [l.rstrip() for l in lines[-n:]]
+        except Exception:
+            pass
+    return []
+
+
+def calculate_performance_metrics(trades: List[Dict]) -> Dict:
+    """Calculate comprehensive performance metrics from trade history."""
+    if not trades:
+        return {
+            "sharpe": 0, "sortino": 0, "profit_factor": 0,
+            "win_rate": 0, "total_trades": 0, "avg_trade_duration": 0,
+            "best_trade": 0, "worst_trade": 0, "total_pnl": 0,
+            "avg_win": 0, "avg_loss": 0, "expectancy": 0
+        }
+
+    pnls = [t.get("net", 0) for t in trades]
+    wins = [p for p in pnls if p > 0]
+    losses = [p for p in pnls if p < 0]
+
+    total_trades = len(trades)
+    win_rate = (len(wins) / total_trades * 100) if total_trades > 0 else 0
+    total_pnl = sum(pnls)
+
+    gross_profit = sum(wins) if wins else 0
+    gross_loss = abs(sum(losses)) if losses else 0
+    profit_factor = (gross_profit / gross_loss) if gross_loss > 0 else float('inf')
+
+    durations = [t.get("hold_minutes", 0) for t in trades]
+    avg_duration = np.mean(durations) if durations else 0
+
+    best_trade = max(pnls) if pnls else 0
+    worst_trade = min(pnls) if pnls else 0
+
+    avg_win = np.mean(wins) if wins else 0
+    avg_loss = np.mean(losses) if losses else 0
+
+    expectancy = (win_rate / 100 * avg_win) + ((1 - win_rate / 100) * avg_loss)
+
+    if len(pnls) > 1:
+        returns = np.array(pnls)
+        sharpe = (np.mean(returns) / np.std(returns)) * np.sqrt(252) if np.std(returns) > 0 else 0
+        downside_returns = returns[returns < 0]
+        downside_std = np.std(downside_returns) if len(downside_returns) > 0 else 1
+        sortino = (np.mean(returns) / downside_std) * np.sqrt(252) if downside_std > 0 else 0
+    else:
+        sharpe = 0
+        sortino = 0
+
+    return {
+        "sharpe": round(sharpe, 2),
+        "sortino": round(sortino, 2),
+        "profit_factor": round(profit_factor, 2),
+        "win_rate": round(win_rate, 1),
+        "total_trades": total_trades,
+        "avg_trade_duration": round(avg_duration, 0),
+        "best_trade": round(best_trade, 4),
+        "worst_trade": round(worst_trade, 4),
+        "total_pnl": round(total_pnl, 4),
+        "avg_win": round(avg_win, 4),
+        "avg_loss": round(avg_loss, 4),
+        "expectancy": round(expectancy, 4)
+    }
+
+
+# ============================================================
+# PLOTLY THEME — VOID HOLOGRAPHIC
+# ============================================================
+PLOTLY_LAYOUT = dict(
+    template="plotly_dark",
+    paper_bgcolor="rgba(0,0,0,0)",
+    plot_bgcolor="rgba(0,0,0,0)",
+    font=dict(color="#e8eaed", family="JetBrains Mono", size=11),
+    margin=dict(l=8, r=8, t=35, b=8),
+    xaxis=dict(
+        showgrid=False,
+        showline=False,
+        zeroline=False,
+        tickfont=dict(size=9, color="#3c4055")
+    ),
+    yaxis=dict(
+        showgrid=True,
+        gridcolor="rgba(0, 212, 255, 0.04)",
+        showline=False,
+        zeroline=False,
+        tickfont=dict(size=9, color="#3c4055")
+    ),
+    hoverlabel=dict(
+        bgcolor="#0c0c1d",
+        bordercolor="rgba(0, 212, 255, 0.2)",
+        font=dict(color="#e8eaed", family="JetBrains Mono", size=11)
+    ),
+    legend=dict(
+        bgcolor="rgba(0,0,0,0)",
+        bordercolor="rgba(0,0,0,0)",
+        font=dict(size=10, color="#7a8194")
+    ),
+    modebar=dict(
+        bgcolor="rgba(0,0,0,0)",
+        color="#3c4055",
+        activecolor="#00d4ff"
+    )
+)
+
+
+# ============================================================
+# HELPER: Format timestamp
+# ============================================================
+def fmt_ts(ts_val) -> str:
+    """Format a timestamp value to short string."""
+    if isinstance(ts_val, str) and "T" in ts_val:
+        try:
+            dt = datetime.fromisoformat(ts_val.replace("Z", "+00:00"))
+            return dt.strftime("%m/%d %H:%M")
+        except Exception:
+            return ts_val[:16].replace("T", " ")
+    return str(ts_val)[:16] if ts_val else "?"
+
+
+def fmt_ts_time(ts_val) -> str:
+    """Extract just the time portion."""
+    if isinstance(ts_val, str) and "T" in ts_val:
+        try:
+            dt = datetime.fromisoformat(ts_val.replace("Z", "+00:00"))
+            return dt.strftime("%H:%M")
+        except Exception:
+            return ts_val[-8:]
+    return "?"
+
+
+# ============================================================
+# STREAMLIT APP
+# ============================================================
+def main():
+    st.set_page_config(
+        page_title=PAGE_TITLE,
+        page_icon=PAGE_ICON,
+        layout="wide",
+        initial_sidebar_state="collapsed",
+    )
+
+    # Inject CSS
+    st.html(CUSTOM_CSS)
+
+    # Auto-refresh
+    try:
+        from streamlit_autorefresh import st_autorefresh
+        st_autorefresh(interval=REFRESH_INTERVAL_SEC * 1000, key="refresh")
+    except Exception:
+        pass
+
+    # ============================================================
+    # 1. HEADER — HOLOGRAPHIC COMMAND CENTER
+    # ============================================================
+    now = datetime.now(timezone.utc)
+    bot_status = get_bot_status()
+    is_running = "RUNNING" in bot_status
+
+    balance = get_testnet_balance()
+    dd_state = get_drawdown_state()
+    peak_equity = dd_state.get("peak_equity", 0)
+    dd_pct = dd_state.get("current_dd_pct", 0)
+    param_state = get_parameter_state()
+    total_trades = param_state.get("total_trades_recorded", 0)
+
+    # Risk mode
+    is_paused = param_state.get("is_paused", False)
+    if is_paused:
+        risk_mode, risk_badge, risk_color = "PAUSED", "neon-badge-stop", "var(--loss)"
+    elif dd_pct < -7:
+        risk_mode, risk_badge, risk_color = "REDUCED", "neon-badge-warn", "var(--neon-amber)"
+    elif dd_pct < -3:
+        risk_mode, risk_badge, risk_color = "CAUTION", "neon-badge-warn", "var(--neon-amber)"
+    else:
+        risk_mode, risk_badge, risk_color = "NORMAL", "neon-badge-ok", "var(--profit)"
+
+    # Live status
+    if is_running:
+        live_html = f'''
+        <span class="live-indicator live-indicator-active">
+            <span class="live-dot-anim live-dot-anim-green"></span>
+            LIVE
+        </span>'''
+    else:
+        live_html = f'''
+        <span class="live-indicator live-indicator-stopped">
+            <span class="live-dot-anim live-dot-anim-red"></span>
+            STOPPED
+        </span>'''
+
+    st.html(f'''
+    <div class="holo-header">
+        <div class="holo-header-inner">
+            <div class="holo-header-left">
+                <div class="holo-title">
+                    <span class="holo-title-icon">⚡</span>
+                    <span class="holo-title-text">STRUCTURAL EXPANSION FLOW</span>
+                </div>
+                <div class="holo-subtitle">Institutional Engine V2 · BTC · ETH · SOL · XRP · BNB · VOID THEME</div>
+            </div>
+            <div class="holo-header-right">
+                <div class="holo-stat">
+                    <div class="holo-stat-label">STATUS</div>
+                    <div class="holo-stat-value">{live_html}</div>
+                </div>
+                <div class="holo-stat">
+                    <div class="holo-stat-label">EQUITY</div>
+                    <div class="holo-stat-value" style="color:var(--neon-cyan);">${balance:,.2f}</div>
+                </div>
+                <div class="holo-stat">
+                    <div class="holo-stat-label">DRAWDOWN</div>
+                    <div class="holo-stat-value" style="color:{'var(--profit)' if dd_pct >= 0 else 'var(--loss)'};">{dd_pct:+.2f}%</div>
+                </div>
+                <div class="holo-stat">
+                    <div class="holo-stat-label">RISK</div>
+                    <div class="holo-stat-value">
+                        <span class="neon-badge {risk_badge}" style="font-size:0.65rem;">{risk_mode}</span>
+                    </div>
+                </div>
+                <div class="holo-stat">
+                    <div class="holo-stat-label">UTC</div>
+                    <div class="holo-stat-value">{now.strftime('%H:%M:%S')}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    ''')
+
+    # ============================================================
+    # 2. TOP METRIC CARDS — HOLOGRAPHIC
+    # ============================================================
+    positions = get_testnet_positions()
+    unrealized_pnl = sum(float(p.get("unRealizedProfit", 0)) for p in positions)
+    n_positions = len(positions)
+    trade_history = get_trade_history()
+    last_trade_pnl = trade_history[-1].get("net", 0) if trade_history else 0
+
+    # DD progress
+    dd_abs = abs(dd_pct)
+    dd_progress = min(dd_abs / 10 * 100, 100)
+    if dd_abs < 3:
+        dd_bar = "neon-progress-green"
+    elif dd_abs < 7:
+        dd_bar = "neon-progress-orange"
+    else:
+        dd_bar = "neon-progress-red"
+
+    # PnL direction arrow
+    pnl_arrow = "▲" if unrealized_pnl >= 0 else "▼"
+    pnl_class = "profit-glow" if unrealized_pnl >= 0 else "loss-glow"
+    last_arrow = "▲" if last_trade_pnl >= 0 else "▼"
+    last_class = "positive" if last_trade_pnl >= 0 else "negative"
+
+    st.html(f'''
+    <div class="grid-4">
+        <!-- EQUITY -->
+        <div class="holo-card" style="animation-delay: 0s;">
+            <div class="holo-card-label">
+                <span class="holo-card-label-dot"></span>
+                EQUITY
+            </div>
+            <div class="holo-card-value cyan-glow">${balance:,.2f}</div>
+            <div class="holo-card-sub">
+                <span class="{last_class}" style="font-weight:600;">{last_arrow} ${abs(last_trade_pnl):.2f}</span>
+                <span class="neutral">last trade</span>
+            </div>
+        </div>
+
+        <!-- UNREALIZED PNL -->
+        <div class="holo-card" style="animation-delay: 0.05s;">
+            <div class="holo-card-label">
+                <span class="holo-card-label-dot" style="background:var(--profit);box-shadow:0 0 6px var(--profit);"></span>
+                UNREALIZED PNL
+            </div>
+            <div class="holo-card-value {pnl_class}">
+                {'+' if unrealized_pnl >= 0 else ''}${unrealized_pnl:.2f}
+            </div>
+            <div class="holo-card-sub">
+                <span class="cyan" style="font-weight:600;">{n_positions}</span>
+                <span class="neutral">position{'s' if n_positions != 1 else ''} open</span>
+            </div>
+        </div>
+
+        <!-- DRAWDOWN -->
+        <div class="holo-card" style="animation-delay: 0.1s;">
+            <div class="holo-card-label">
+                <span class="holo-card-label-dot" style="background:var(--loss);box-shadow:0 0 6px var(--loss);"></span>
+                DRAWDOWN
+            </div>
+            <div class="holo-card-value {'profit-glow' if dd_pct >= 0 else 'loss-glow'}">
+                {dd_pct:+.2f}%
+            </div>
+            <div class="holo-card-sub">
+                <span class="neutral">peak</span>
+                <span class="gold" style="font-weight:600;">${peak_equity:,.2f}</span>
+            </div>
+            <div class="neon-progress">
+                <div class="neon-progress-fill {dd_bar}" style="width:{dd_progress}%;"></div>
+            </div>
+        </div>
+
+        <!-- RISK MODE -->
+        <div class="holo-card" style="animation-delay: 0.15s;">
+            <div class="holo-card-label">
+                <span class="holo-card-label-dot" style="background:{risk_color};box-shadow:0 0 6px {risk_color};"></span>
+                RISK MODE
+            </div>
+            <div class="holo-card-value" style="color:{risk_color};text-shadow:0 0 20px {risk_color}40;">
+                <span class="neon-badge {risk_badge}" style="font-size:0.75rem;padding:6px 18px;">{risk_mode}</span>
+            </div>
+            <div class="holo-card-sub">
+                <span class="neutral">trades</span>
+                <span class="cyan" style="font-weight:600;">{total_trades}</span>
+            </div>
+        </div>
+    </div>
+    ''')
+
+    # ============================================================
+    # 3. EQUITY CURVE — PREMIUM CHART
+    # ============================================================
+    equity_hist = get_equity_history()
+    if len(equity_hist) > 1:
+        st.html('''
+        <div class="hud-section">
+            <div class="hud-section-bar"></div>
+            <div class="hud-section-text">EQUITY CURVE</div>
+            <div class="hud-section-line"></div>
+        </div>
+        ''')
+
+        df = pd.DataFrame(equity_hist)
+        df["peak"] = df["equity"].cummax()
+        df["dd"] = (df["equity"] - df["peak"]) / df["peak"] * 100
+
+        fig = make_subplots(
+            rows=2, cols=1,
+            shared_xaxes=True,
+            vertical_spacing=0.06,
+            row_heights=[0.72, 0.28],
+            subplot_titles=("", "")
+        )
+
+        # Equity line with gradient fill
+        fig.add_trace(
+            go.Scatter(
+                x=df["time"], y=df["equity"],
+                mode="lines",
+                line=dict(color="#00d4ff", width=2, shape="spline"),
+                fill="tozeroy",
+                fillcolor="rgba(0, 212, 255, 0.06)",
+                name="Equity",
+                hovertemplate="<b>Equity</b><br>$%{y:,.2f}<extra></extra>"
+            ),
+            row=1, col=1
+        )
+
+        # Peak line (dotted)
+        fig.add_trace(
+            go.Scatter(
+                x=df["time"], y=df["peak"],
+                mode="lines",
+                line=dict(color="rgba(255, 215, 0, 0.2)", width=1, dash="dot"),
+                name="Peak",
+                hoverinfo="skip"
+            ),
+            row=1, col=1
+        )
+
+        # Drawdown area
+        fig.add_trace(
+            go.Scatter(
+                x=df["time"], y=df["dd"],
+                mode="lines",
+                line=dict(color="#ff4757", width=1.5, shape="spline"),
+                fill="tozeroy",
+                fillcolor="rgba(255, 71, 87, 0.08)",
+                name="Drawdown",
+                hovertemplate="<b>Drawdown</b><br>%{y:.2f}%<extra></extra>"
+            ),
+            row=2, col=1
+        )
+
+        # Zero line
+        fig.add_hline(y=0, row=2, col=1,
+                      line_color="rgba(255,255,255,0.06)", line_width=1)
+
+        # -3% warning line
+        fig.add_hline(y=-3, row=2, col=1,
+                      line_color="rgba(245, 158, 11, 0.15)", line_width=1,
+                      line_dash="dot")
+
+        fig.update_layout(
+            height=420,
+            showlegend=False,
+            **PLOTLY_LAYOUT
+        )
+        fig.update_xaxes(showgrid=False, row=1, col=1)
+        fig.update_xaxes(showgrid=False, row=2, col=1)
+        fig.update_yaxes(gridcolor="rgba(0, 212, 255, 0.03)", row=1, col=1)
+        fig.update_yaxes(gridcolor="rgba(0, 212, 255, 0.03)", row=2, col=1)
+
+        st.plotly_chart(fig, width="stretch", use_container_width=True)
+    else:
+        st.html('''
+        <div class="glass-panel">
+            <div class="empty-holo">
+                <div class="empty-holo-icon">📊</div>
+                <div class="empty-holo-text">Waiting for equity data to accumulate...</div>
+            </div>
+        </div>
+        ''')
+
+    # ============================================================
+    # 4. POSITIONS + SIGNALS — SIDE BY SIDE
+    # ============================================================
+    col_pos, col_sig = st.columns(2)
+
+    with col_pos:
+        st.html('''
+        <div class="hud-section">
+            <div class="hud-section-bar"></div>
+            <div class="hud-section-text">OPEN POSITIONS</div>
+            <div class="hud-section-line"></div>
+        </div>
+        ''')
+
+        if positions:
+            rows = ""
+            for p in positions:
+                symbol = p.get("symbol", "?")
+                amt = float(p.get("positionAmt", 0))
+                entry = float(p.get("entryPrice", 0))
+                mark = float(p.get("markPrice", 0))
+                pnl = float(p.get("unRealizedProfit", 0))
+                lev = p.get("leverage", "?")
+                side = "LONG" if amt > 0 else "SHORT"
+                badge = "neon-badge-long" if amt > 0 else "neon-badge-short"
+                pnl_cls = "positive" if pnl >= 0 else "negative"
+                notional = abs(amt) * entry
+                pnl_pct = (pnl / notional * 100) if notional > 0 else 0
+
+                rows += f'''
+                <tr>
+                    <td style="color:var(--neon-cyan);font-weight:700;">{PAIR_LABELS.get(symbol, symbol)}</td>
+                    <td><span class="neon-badge {badge}">{side}</span></td>
+                    <td>{abs(amt):.6f}</td>
+                    <td>${entry:,.2f}</td>
+                    <td>${mark:,.2f}</td>
+                    <td class="{pnl_cls}" style="font-weight:700;">
+                        {'+' if pnl >= 0 else ''}${pnl:.2f}
+                        <span style="font-size:0.65rem;opacity:0.6;">({pnl_pct:+.1f}%)</span>
+                    </td>
+                    <td><span class="neon-badge neon-badge-cyan">{lev}×</span></td>
+                </tr>'''
+
+            st.html(f'''
+            <div class="glass-panel" style="padding:0;overflow:hidden;">
+                <table class="holo-table">
+                    <thead><tr>
+                        <th>PAIR</th><th>SIDE</th><th>SIZE</th>
+                        <th>ENTRY</th><th>MARK</th><th>PNL</th><th>LEV</th>
+                    </tr></thead>
+                    <tbody>{rows}</tbody>
+                </table>
+            </div>
+            ''')
+        else:
+            st.html('''
+            <div class="glass-panel">
+                <div class="empty-holo">
+                    <div class="empty-holo-icon">🎯</div>
+                    <div class="empty-holo-text">No open positions — scanning for entries</div>
+                </div>
+            </div>
+            ''')
+
+    with col_sig:
+        st.html('''
+        <div class="hud-section">
+            <div class="hud-section-bar"></div>
+            <div class="hud-section-text">SIGNAL HISTORY</div>
+            <div class="hud-section-line"></div>
+        </div>
+        ''')
+
+        signals = get_signal_log()
+        if signals:
+            timeline_html = '<div class="signal-timeline">'
+
+            for idx, s in enumerate(reversed(signals[-10:])):
+                ts = s.get("ts", "?")
+                ts_short = fmt_ts_time(ts)
+                ts_date = fmt_ts(ts)[:5] if fmt_ts(ts) != "?" else ""
+
+                sym = s.get("symbol", "?")
+                dtype = s.get("type", "?")
+                direction = s.get("dir", 0)
+                entry = s.get("entry", 0)
+                score = s.get("score", None)
+
+                is_latest = (idx == 0)
+
+                if direction == 1:
+                    dir_badge = '<span class="neon-badge neon-badge-long">LONG</span>'
+                    dot_cls = "signal-dot signal-dot-long"
+                elif direction == -1:
+                    dir_badge = '<span class="neon-badge neon-badge-short">SHORT</span>'
+                    dot_cls = "signal-dot signal-dot-short"
+                else:
+                    dir_badge = '<span class="neon-badge neon-badge-wait">—</span>'
+                    dot_cls = "signal-dot signal-dot-neutral"
+
+                if is_latest:
+                    dot_cls += " signal-dot-latest"
+
+                dtype_lower = dtype.lower() if dtype else ""
+                if dtype_lower == "entry":
+                    type_badge = '<span class="neon-badge neon-badge-long" style="font-size:0.5rem;">ENTRY</span>'
+                elif dtype_lower == "exit":
+                    type_badge = '<span class="neon-badge neon-badge-short" style="font-size:0.5rem;">EXIT</span>'
+                else:
+                    type_badge = f'<span class="neon-badge neon-badge-wait" style="font-size:0.5rem;">{dtype.upper()}</span>'
+
+                score_html = ""
+                if score is not None:
+                    sv = float(score)
+                    sc = "var(--profit)" if sv >= 70 else "var(--neon-amber)" if sv >= 50 else "var(--loss)"
+                    score_html = f'<span style="color:{sc};font-size:0.68rem;font-family:JetBrains Mono;font-weight:600;">{sv:.0f}</span>'
+
+                timeline_html += f'''
+                <div class="signal-item" style="animation-delay:{idx * 0.05}s;">
+                    <div class="{dot_cls}"></div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <span style="color:var(--neon-cyan);font-weight:700;font-size:0.82rem;font-family:JetBrains Mono;">{PAIR_LABELS.get(sym, sym)}</span>
+                            {dir_badge}
+                            {type_badge}
+                        </div>
+                        <div style="text-align:right;">
+                            <div style="color:var(--text-dim);font-size:0.65rem;font-family:JetBrains Mono;">{ts_date} {ts_short}</div>
+                        </div>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <span style="color:var(--text-secondary);font-size:0.72rem;font-family:JetBrains Mono;">${entry:,.2f}</span>
+                        {score_html}
+                    </div>
+                </div>'''
+
+            timeline_html += '</div>'
+            st.html(f'''
+            <div class="glass-panel" style="max-height:420px;overflow-y:auto;">
+                {timeline_html}
+            </div>
+            ''')
+        else:
+            st.html('''
+            <div class="glass-panel">
+                <div class="empty-holo">
+                    <div class="empty-holo-icon">📡</div>
+                    <div class="empty-holo-text">No signals recorded yet</div>
+                </div>
+            </div>
+            ''')
+
+    # ============================================================
+    # 5. PERFORMANCE MATRIX — HUD DISPLAY
+    # ============================================================
+    perf = calculate_performance_metrics(trade_history)
+
+    # Determine quality colors
+    sharpe_cls = "positive" if perf["sharpe"] > 1 else "negative" if perf["sharpe"] < 0 else "neutral"
+    sortino_cls = "positive" if perf["sortino"] > 1.5 else "neutral"
+    pf_cls = "positive" if perf["profit_factor"] > 1.3 else "negative" if perf["profit_factor"] < 1 else "neutral"
+    wr_cls = "positive" if perf["win_rate"] > 50 else "neutral"
+    exp_cls = "positive" if perf["expectancy"] > 0 else "negative"
+
+    st.html('''
+    <div class="hud-section">
+        <div class="hud-section-bar"></div>
+        <div class="hud-section-text">PERFORMANCE MATRIX</div>
+        <div class="hud-section-line"></div>
+    </div>
+    ''')
+
+    st.html(f'''
+    <div class="hud-matrix">
+        <div class="hud-cell">
+            <div class="hud-cell-label">SHARPE</div>
+            <div class="hud-cell-value {sharpe_cls}">{perf["sharpe"]:.2f}</div>
+            <div class="hud-cell-sub">target &gt; 1.0</div>
+        </div>
+        <div class="hud-cell">
+            <div class="hud-cell-label">SORTINO</div>
+            <div class="hud-cell-value {sortino_cls}">{perf["sortino"]:.2f}</div>
+            <div class="hud-cell-sub">target &gt; 1.5</div>
+        </div>
+        <div class="hud-cell">
+            <div class="hud-cell-label">PROFIT FACTOR</div>
+            <div class="hud-cell-value {pf_cls}">{perf["profit_factor"]:.2f}</div>
+            <div class="hud-cell-sub">target &gt; 1.3</div>
+        </div>
+        <div class="hud-cell">
+            <div class="hud-cell-label">WIN RATE</div>
+            <div class="hud-cell-value {wr_cls}">{perf["win_rate"]:.1f}%</div>
+            <div class="hud-cell-sub">target &gt; 45%</div>
+        </div>
+        <div class="hud-cell">
+            <div class="hud-cell-label">EXPECTANCY</div>
+            <div class="hud-cell-value {exp_cls}">{'+' if perf["expectancy"] >= 0 else ''}${perf["expectancy"]:.2f}</div>
+            <div class="hud-cell-sub">per trade</div>
+        </div>
+    </div>
+    <div class="hud-matrix-bottom">
+        <div class="hud-cell">
+            <div class="hud-cell-label">TOTAL TRADES</div>
+            <div class="hud-cell-value cyan">{perf["total_trades"]}</div>
+        </div>
+        <div class="hud-cell">
+            <div class="hud-cell-label">AVG TRADE</div>
+            <div class="hud-cell-value {'positive' if perf['total_pnl'] >= 0 else 'negative'}">
+                {'+' if perf['total_pnl'] >= 0 else ''}${perf["total_pnl"] / max(perf["total_trades"], 1):.2f}
+            </div>
+        </div>
+        <div class="hud-cell">
+            <div class="hud-cell-label">BEST TRADE</div>
+            <div class="hud-cell-value positive">+${perf["best_trade"]:.2f}</div>
+        </div>
+        <div class="hud-cell">
+            <div class="hud-cell-label">WORST TRADE</div>
+            <div class="hud-cell-value negative">${perf["worst_trade"]:.2f}</div>
+        </div>
+    </div>
+    ''')
+
+    # ============================================================
+    # 6. TRADE HISTORY TABLE
+    # ============================================================
+    if trade_history:
+        st.html('''
+        <div class="hud-section">
+            <div class="hud-section-bar"></div>
+            <div class="hud-section-text">RECENT TRADES</div>
+            <div class="hud-section-line"></div>
+        </div>
+        ''')
+
+        rows = ""
+        for t in reversed(trade_history[-10:]):
+            exit_time = fmt_ts(t.get("exit_time", "?"))
+            sym = t.get("symbol", "?")
+            bot = t.get("bot_name", "?")
+            d = t.get("dir", 0)
+            entry = t.get("entry", 0)
+            exit_p = t.get("exit", 0)
+            net = t.get("net", 0)
+            reason = t.get("exit_reason", "?")
+            hold = t.get("hold_minutes", 0)
+
+            pnl_cls = "positive" if net >= 0 else "negative"
+            side = "LONG" if d == 1 else "SHORT"
+            badge = "neon-badge-long" if d == 1 else "neon-badge-short"
+
+            if hold < 60:
+                hold_str = f"{hold:.0f}m"
+            else:
+                hold_str = f"{hold / 60:.1f}h"
+
+            rows += f'''
+            <tr>
+                <td style="color:var(--text-dim);font-size:0.72rem;">{exit_time}</td>
+                <td style="color:var(--neon-cyan);font-weight:600;">{bot}</td>
+                <td><span class="neon-badge {badge}">{side}</span></td>
+                <td>${entry:,.2f}</td>
+                <td>${exit_p:,.2f}</td>
+                <td class="{pnl_cls}" style="font-weight:700;">
+                    {'+' if net >= 0 else ''}${net:.2f}
+                </td>
+                <td><span class="neon-badge neon-badge-wait">{reason.upper()}</span></td>
+                <td style="color:var(--text-secondary);">{hold_str}</td>
+            </tr>'''
+
+        st.html(f'''
+        <div class="glass-panel" style="padding:0;overflow:hidden;">
+            <table class="holo-table">
+                <thead><tr>
+                    <th>TIME</th><th>BOT</th><th>SIDE</th>
+                    <th>ENTRY</th><th>EXIT</th><th>PNL</th><th>REASON</th><th>HOLD</th>
+                </tr></thead>
+                <tbody>{rows}</tbody>
+            </table>
+        </div>
+        ''')
+
+    # ============================================================
+    # 7. BOT LOG — TERMINAL STYLE
+    # ============================================================
+    st.html('''
+    <div class="hud-section">
+        <div class="hud-section-bar"></div>
+        <div class="hud-section-text">BOT LOG</div>
+        <div class="hud-section-line"></div>
+    </div>
+    ''')
+
+    log_lines = get_last_log_lines(20)
+    if log_lines:
+        log_html = '''
+        <div class="terminal-log">
+            <div class="terminal-header">
+                <div class="terminal-dot terminal-dot-red"></div>
+                <div class="terminal-dot terminal-dot-yellow"></div>
+                <div class="terminal-dot terminal-dot-green"></div>
+                <div class="terminal-title">system — paper_trading.log</div>
+            </div>
+            <div class="terminal-body">
+        '''
+
+        for line in reversed(log_lines):
+            # Syntax highlighting
+            if "ERROR" in line or "FAIL" in line:
+                msg_cls = "log-msg-error"
+            elif "WARNING" in line or "WARN" in line:
+                msg_cls = "log-msg-warning"
+            elif "SUCCESS" in line or "PROFIT" in line or "WIN" in line:
+                msg_cls = "log-msg-success"
+            elif "Signal" in line or "SIGNAL" in line or "LONG" in line or "SHORT" in line:
+                msg_cls = "log-msg-signal"
+            elif "Order" in line or "ORDER" in line or "executed" in line:
+                msg_cls = "log-msg-order"
+            elif "INFO" in line or "Tick" in line:
+                msg_cls = "log-msg-info"
+            else:
+                msg_cls = "log-msg"
+
+            # Extract timestamp if present
+            ts_str = ""
+            msg_str = line
+            if line.startswith("[") and "]" in line:
+                bracket_end = line.index("]")
+                ts_str = line[1:bracket_end]
+                msg_str = line[bracket_end + 2:]
+
+            # Truncate
+            if len(msg_str) > 130:
+                msg_str = msg_str[:127] + "..."
+
+            if ts_str:
+                log_html += f'<div class="log-entry"><span class="log-ts">[{ts_str}]</span><span class="{msg_cls}">{msg_str}</span></div>'
+            else:
+                log_html += f'<div class="log-entry"><span class="{msg_cls}">{msg_str}</span></div>'
+
+        log_html += '''
+            </div>
+        </div>
+        '''
+        st.html(log_html)
+    else:
+        st.html('''
+        <div class="glass-panel">
+            <div class="empty-holo">
+                <div class="empty-holo-icon">📋</div>
+                <div class="empty-holo-text">No logs available</div>
+            </div>
+        </div>
+        ''')
+
+    # ============================================================
+    # 8. ACTIVE PARAMETERS
+    # ============================================================
+    params = param_state.get("params", {})
+    if params:
+        st.html('''
+        <div class="hud-section">
+            <div class="hud-section-bar"></div>
+            <div class="hud-section-text">ACTIVE PARAMETERS</div>
+            <div class="hud-section-line"></div>
+        </div>
+        ''')
+
+        param_html = '<div class="glass-panel" style="padding:0;overflow:hidden;">'
+        for i, (k, v) in enumerate(params.items()):
+            border = "" if i == len(params) - 1 else "border-bottom: 1px solid rgba(0,212,255,0.04);"
+            param_html += f'''
+            <div style="display:flex;justify-content:space-between;align-items:center;
+                        padding:12px 20px;{border}transition:background 0.2s ease;"
+                 onmouseover="this.style.background='rgba(0,212,255,0.02)'"
+                 onmouseout="this.style.background='transparent'">
+                <span style="color:var(--text-secondary);font-size:0.8rem;font-family:Inter,sans-serif;">
+                    {k.replace('_', ' ').title()}
+                </span>
+                <span style="color:var(--neon-cyan);font-family:JetBrains Mono,monospace;font-weight:600;font-size:0.82rem;">
+                    {v}
+                </span>
+            </div>'''
+
+        param_html += '</div>'
+        st.html(param_html)
+
+    # ============================================================
+    # 9. FOOTER
+    # ============================================================
+    st.html(f'''
+    <div class="holo-footer">
+        <div class="holo-footer-text">
+            STRUCTURAL EXPANSION FLOW · INSTITUTIONAL ENGINE V2 · VOID THEME 2030 ·
+            REFRESH {now.strftime('%H:%M:%S UTC')} · MODE TESTNET ·
+            {'● RUNNING' if is_running else '○ STOPPED'}
+        </div>
+    </div>
+    ''')
+
+
+if __name__ == "__main__":
+    main()

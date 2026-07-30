@@ -1,0 +1,23 @@
+{
+  "timestamp": "2026-07-29T15:00:00Z",
+  "strategy": "Adaptive VWAP Engine",
+  "symbol": "BTCUSDT",
+  "interval": "15m",
+  "period": {
+    "start": "2026-01-30",
+    "end": "2026-07-29",
+    "bars": 17280
+  },
+  "results": {
+    "original": {"sl": 2.0, "tp": 2.5, "trades": 110, "wr": 64.5, "pf": 0.81, "rr": 0.45, "return": -3.13},
+    "tight_sl": {"sl": 1.0, "tp": 2.5, "trades": 108, "wr": 54.6, "pf": 0.81, "rr": 0.67, "return": -5.50},
+    "wide_tp": {"sl": 2.0, "tp": 4.0, "trades": 98, "wr": 64.3, "pf": 0.86, "rr": 0.48, "return": -2.68},
+    "balanced": {"sl": 1.5, "tp": 3.5, "trades": 99, "wr": 60.6, "pf": 0.89, "rr": 0.58, "return": -2.54},
+    "aggressive": {"sl": 1.0, "tp": 3.0, "trades": 104, "wr": 52.9, "pf": 0.82, "rr": 0.73, "return": -5.56},
+    "conservative": {"sl": 1.0, "tp": 2.0, "trades": 108, "wr": 52.8, "pf": 0.63, "rr": 0.57, "return": -10.34}
+  },
+  "best_config": "balanced",
+  "best_pf": 0.89,
+  "conclusion": "VWAP strategy is NOT profitable in this period. All configurations lose money.",
+  "recommendation": "Explore Trend Following or Momentum strategies instead."
+}

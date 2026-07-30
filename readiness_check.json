@@ -1,0 +1,81 @@
+{
+  "timestamp": "2026-07-29T20:45:35.371750+00:00",
+  "checks": {
+    "tp_ratio_adjusted": {
+      "description": "tp_ratio set to 1.3",
+      "passed": true,
+      "details": "Confirmed in engine/institutional_engine_v2.py",
+      "timestamp": "2026-07-29T20:45:35.369866+00:00"
+    },
+    "mc_profit_prob": {
+      "description": "Monte Carlo profit prob > 85% in all scenarios",
+      "passed": false,
+      "details": "extreme_worst_20pp: 0.0%",
+      "timestamp": "2026-07-29T20:45:35.370463+00:00"
+    },
+    "mc_drawdown": {
+      "description": "Monte Carlo DD > 10% prob < 15% in all scenarios",
+      "passed": false,
+      "details": "worst_case_10pp: 16.1%; extreme_worst_20pp: 99.4%; high_volatility: 42.5%",
+      "timestamp": "2026-07-29T20:45:35.370551+00:00"
+    },
+    "trading_costs": {
+      "description": "Trading costs < 0.15% per round trip",
+      "passed": false,
+      "details": "Actual: 0.22%",
+      "timestamp": "2026-07-29T20:45:35.370775+00:00"
+    },
+    "lookahead_bias": {
+      "description": "No look-ahead bias",
+      "passed": true,
+      "details": "Backtest uses only closed bars",
+      "timestamp": "2026-07-29T20:45:35.370900+00:00"
+    },
+    "execution_manager": {
+      "description": "Execution manager has error handling",
+      "passed": true,
+      "details": "Retry logic: False, Error handling: True",
+      "timestamp": "2026-07-29T20:45:35.371030+00:00"
+    },
+    "dashboard_v2": {
+      "description": "Dashboard V2 extensions available",
+      "passed": true,
+      "details": "dashboard_v2_extensions.py exists",
+      "timestamp": "2026-07-29T20:45:35.371185+00:00"
+    },
+    "dashboard_risk": {
+      "description": "Dashboard risk tab improved",
+      "passed": true,
+      "details": "Improved risk section available",
+      "timestamp": "2026-07-29T20:45:35.371216+00:00"
+    },
+    "multi_bot_v2": {
+      "description": "multi_bot_v2.py integrated with V2 engine",
+      "passed": true,
+      "details": "Engine: True, Position: True, DD: True",
+      "timestamp": "2026-07-29T20:45:35.371381+00:00"
+    },
+    "api_keys": {
+      "description": "API keys configured (placeholder)",
+      "passed": true,
+      "details": ".streamlit/secrets.toml exists",
+      "timestamp": "2026-07-29T20:45:35.371393+00:00"
+    },
+    "logging": {
+      "description": "Logging directory exists",
+      "passed": true,
+      "details": "Found 13 log files",
+      "timestamp": "2026-07-29T20:45:35.371709+00:00"
+    },
+    "persistence": {
+      "description": "State files exist for persistence",
+      "passed": true,
+      "details": "Existing: ['drawdown_state.json', 'parameter_state.json', 'trade_history.json'], Missing: []",
+      "timestamp": "2026-07-29T20:45:35.371740+00:00"
+    }
+  },
+  "passed": 9,
+  "total": 12,
+  "all_pass": false,
+  "ready_for_paper_trading": false
+}

@@ -1,0 +1,32 @@
+{
+  "timestamp": "2026-07-29T21:05:24.733518+00:00",
+  "checks": {
+    "handles_requotes": false,
+    "handles_partial_fills": true,
+    "has_retry_logic": false,
+    "has_timeout": true,
+    "handles_api_errors": true,
+    "has_rate_limiting": true,
+    "logs_errors": false,
+    "has_emergency_stop": false,
+    "error_handler_count": 7,
+    "retry_pattern_count": 0,
+    "file_exists": true,
+    "file_size_lines": 222,
+    "position_manager_exists": true,
+    "has_trailing_stop": true,
+    "has_breakeven": true,
+    "has_partial_exit": true,
+    "has_time_exit": true,
+    "drawdown_manager_exists": true,
+    "has_5_levels": true,
+    "has_stop_total": true
+  },
+  "passed": 13,
+  "total": 17,
+  "score": 76.5,
+  "criterion": {
+    "target": "All critical checks pass",
+    "pass": false
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "params": {
+    "ci_neutral_threshold": 71.0,
+    "ci_trend_threshold": 38.2,
+    "min_score": 60,
+    "supertrend_multiplier": 2.8,
+    "tp_ratio": 1.5,
+    "fibonacci_days": 30,
+    "atr_trail_mult": 2.0,
+    "breakeven_activate_mult": 1.0,
+    "partial_exit_pct": 0.5,
+    "time_exit_bars": 24
+  },
+  "consecutive_losses": 0,
+  "total_trades_recorded": 83,
+  "last_review_trade": 50,
+  "is_paused": false,
+  "pause_reason": ""
+}

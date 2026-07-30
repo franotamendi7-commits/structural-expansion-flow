@@ -1,0 +1,502 @@
+{
+  "BTCUSDT": {
+    "symbol": "BTCUSDT",
+    "timestamp": "2026-07-29T21:05:24.731982+00:00",
+    "commission": {
+      "per_side": 0.00018,
+      "round_trip": 0.00036,
+      "on_100usd": 0.036000000000000004,
+      "on_500usd": 0.18000000000000002,
+      "on_1000usd": 0.36000000000000004,
+      "annualized_365_trades": 65.7
+    },
+    "spread": {
+      "min": 0.0001,
+      "max": 0.0003,
+      "avg": 0.0002,
+      "on_100usd": 0.02,
+      "on_500usd": 0.1,
+      "on_1000usd": 0.2,
+      "description": "High liquidity"
+    },
+    "slippage": {
+      "small": {
+        "min_pct": 0.0001,
+        "max_pct": 0.0005,
+        "avg_pct": 0.0003,
+        "on_100usd": 0.03,
+        "on_500usd": 0.15,
+        "on_1000usd": 0.3
+      },
+      "medium": {
+        "min_pct": 0.0005,
+        "max_pct": 0.0015,
+        "avg_pct": 0.001,
+        "on_100usd": 0.1,
+        "on_500usd": 0.5,
+        "on_1000usd": 1.0
+      },
+      "large": {
+        "min_pct": 0.0015,
+        "max_pct": 0.005,
+        "avg_pct": 0.003,
+        "on_100usd": 0.3,
+        "on_500usd": 1.5,
+        "on_1000usd": 3.0
+      }
+    },
+    "funding": {
+      "rate_per_8h": 0.0001,
+      "rate_per_day": 0.00030000000000000003,
+      "rate_per_week": 0.0021000000000000003,
+      "on_500usd_position_per_day": 0.15000000000000002,
+      "on_500usd_position_per_week": 1.0500000000000003,
+      "note": "Longs pay in bull, shorts pay in bear"
+    },
+    "total_cost_per_round_trip": [
+      {
+        "order_size": "small",
+        "commission": 0.00036,
+        "spread": 0.0002,
+        "slippage": 0.00015,
+        "total_cost_pct": 0.071,
+        "total_cost_on_100usd": 0.071,
+        "total_cost_on_500usd": 0.355
+      },
+      {
+        "order_size": "medium",
+        "commission": 0.00036,
+        "spread": 0.0002,
+        "slippage": 0.0005,
+        "total_cost_pct": 0.106,
+        "total_cost_on_100usd": 0.106,
+        "total_cost_on_500usd": 0.53
+      },
+      {
+        "order_size": "large",
+        "commission": 0.00036,
+        "spread": 0.0002,
+        "slippage": 0.0015,
+        "total_cost_pct": 0.206,
+        "total_cost_on_100usd": 0.206,
+        "total_cost_on_500usd": 1.03
+      }
+    ],
+    "historical_comparison": {
+      "commission_per_side": 0.0005,
+      "commission_round_trip": 0.001,
+      "total_medium": 0.22
+    },
+    "savings": {
+      "commission_savings_pct": 0.064,
+      "commission_savings_per_500usd": 0.32
+    },
+    "criterion": {
+      "target": "< 0.15% per round trip",
+      "actual_small": "0.071%",
+      "actual_medium": "0.106%",
+      "actual_large": "0.206%",
+      "pass": true
+    }
+  },
+  "ETHUSDT": {
+    "symbol": "ETHUSDT",
+    "timestamp": "2026-07-29T21:05:24.732007+00:00",
+    "commission": {
+      "per_side": 0.00018,
+      "round_trip": 0.00036,
+      "on_100usd": 0.036000000000000004,
+      "on_500usd": 0.18000000000000002,
+      "on_1000usd": 0.36000000000000004,
+      "annualized_365_trades": 65.7
+    },
+    "spread": {
+      "min": 0.0002,
+      "max": 0.0005,
+      "avg": 0.00035,
+      "on_100usd": 0.034999999999999996,
+      "on_500usd": 0.175,
+      "on_1000usd": 0.35,
+      "description": "Good liquidity"
+    },
+    "slippage": {
+      "small": {
+        "min_pct": 0.0001,
+        "max_pct": 0.0005,
+        "avg_pct": 0.0003,
+        "on_100usd": 0.03,
+        "on_500usd": 0.15,
+        "on_1000usd": 0.3
+      },
+      "medium": {
+        "min_pct": 0.0005,
+        "max_pct": 0.0015,
+        "avg_pct": 0.001,
+        "on_100usd": 0.1,
+        "on_500usd": 0.5,
+        "on_1000usd": 1.0
+      },
+      "large": {
+        "min_pct": 0.0015,
+        "max_pct": 0.005,
+        "avg_pct": 0.003,
+        "on_100usd": 0.3,
+        "on_500usd": 1.5,
+        "on_1000usd": 3.0
+      }
+    },
+    "funding": {
+      "rate_per_8h": 0.0001,
+      "rate_per_day": 0.00030000000000000003,
+      "rate_per_week": 0.0021000000000000003,
+      "on_500usd_position_per_day": 0.15000000000000002,
+      "on_500usd_position_per_week": 1.0500000000000003,
+      "note": "Longs pay in bull, shorts pay in bear"
+    },
+    "total_cost_per_round_trip": [
+      {
+        "order_size": "small",
+        "commission": 0.00036,
+        "spread": 0.00035,
+        "slippage": 0.00015,
+        "total_cost_pct": 0.086,
+        "total_cost_on_100usd": 0.086,
+        "total_cost_on_500usd": 0.43
+      },
+      {
+        "order_size": "medium",
+        "commission": 0.00036,
+        "spread": 0.00035,
+        "slippage": 0.0005,
+        "total_cost_pct": 0.121,
+        "total_cost_on_100usd": 0.121,
+        "total_cost_on_500usd": 0.605
+      },
+      {
+        "order_size": "large",
+        "commission": 0.00036,
+        "spread": 0.00035,
+        "slippage": 0.0015,
+        "total_cost_pct": 0.221,
+        "total_cost_on_100usd": 0.221,
+        "total_cost_on_500usd": 1.105
+      }
+    ],
+    "historical_comparison": {
+      "commission_per_side": 0.0005,
+      "commission_round_trip": 0.001,
+      "total_medium": 0.235
+    },
+    "savings": {
+      "commission_savings_pct": 0.064,
+      "commission_savings_per_500usd": 0.32
+    },
+    "criterion": {
+      "target": "< 0.15% per round trip",
+      "actual_small": "0.086%",
+      "actual_medium": "0.121%",
+      "actual_large": "0.221%",
+      "pass": true
+    }
+  },
+  "SOLUSDT": {
+    "symbol": "SOLUSDT",
+    "timestamp": "2026-07-29T21:05:24.732019+00:00",
+    "commission": {
+      "per_side": 0.00018,
+      "round_trip": 0.00036,
+      "on_100usd": 0.036000000000000004,
+      "on_500usd": 0.18000000000000002,
+      "on_1000usd": 0.36000000000000004,
+      "annualized_365_trades": 65.7
+    },
+    "spread": {
+      "min": 0.0003,
+      "max": 0.0008,
+      "avg": 0.00055,
+      "on_100usd": 0.055,
+      "on_500usd": 0.275,
+      "on_1000usd": 0.55,
+      "description": "Medium liquidity"
+    },
+    "slippage": {
+      "small": {
+        "min_pct": 0.0001,
+        "max_pct": 0.0005,
+        "avg_pct": 0.0003,
+        "on_100usd": 0.03,
+        "on_500usd": 0.15,
+        "on_1000usd": 0.3
+      },
+      "medium": {
+        "min_pct": 0.0005,
+        "max_pct": 0.0015,
+        "avg_pct": 0.001,
+        "on_100usd": 0.1,
+        "on_500usd": 0.5,
+        "on_1000usd": 1.0
+      },
+      "large": {
+        "min_pct": 0.0015,
+        "max_pct": 0.005,
+        "avg_pct": 0.003,
+        "on_100usd": 0.3,
+        "on_500usd": 1.5,
+        "on_1000usd": 3.0
+      }
+    },
+    "funding": {
+      "rate_per_8h": 0.0001,
+      "rate_per_day": 0.00030000000000000003,
+      "rate_per_week": 0.0021000000000000003,
+      "on_500usd_position_per_day": 0.15000000000000002,
+      "on_500usd_position_per_week": 1.0500000000000003,
+      "note": "Longs pay in bull, shorts pay in bear"
+    },
+    "total_cost_per_round_trip": [
+      {
+        "order_size": "small",
+        "commission": 0.00036,
+        "spread": 0.00055,
+        "slippage": 0.00015,
+        "total_cost_pct": 0.106,
+        "total_cost_on_100usd": 0.106,
+        "total_cost_on_500usd": 0.53
+      },
+      {
+        "order_size": "medium",
+        "commission": 0.00036,
+        "spread": 0.00055,
+        "slippage": 0.0005,
+        "total_cost_pct": 0.141,
+        "total_cost_on_100usd": 0.141,
+        "total_cost_on_500usd": 0.705
+      },
+      {
+        "order_size": "large",
+        "commission": 0.00036,
+        "spread": 0.00055,
+        "slippage": 0.0015,
+        "total_cost_pct": 0.241,
+        "total_cost_on_100usd": 0.241,
+        "total_cost_on_500usd": 1.205
+      }
+    ],
+    "historical_comparison": {
+      "commission_per_side": 0.0005,
+      "commission_round_trip": 0.001,
+      "total_medium": 0.255
+    },
+    "savings": {
+      "commission_savings_pct": 0.064,
+      "commission_savings_per_500usd": 0.32
+    },
+    "criterion": {
+      "target": "< 0.15% per round trip",
+      "actual_small": "0.106%",
+      "actual_medium": "0.141%",
+      "actual_large": "0.241%",
+      "pass": true
+    }
+  },
+  "XRPUSDT": {
+    "symbol": "XRPUSDT",
+    "timestamp": "2026-07-29T21:05:24.732027+00:00",
+    "commission": {
+      "per_side": 0.00018,
+      "round_trip": 0.00036,
+      "on_100usd": 0.036000000000000004,
+      "on_500usd": 0.18000000000000002,
+      "on_1000usd": 0.36000000000000004,
+      "annualized_365_trades": 65.7
+    },
+    "spread": {
+      "min": 0.0002,
+      "max": 0.0006,
+      "avg": 0.0004,
+      "on_100usd": 0.04,
+      "on_500usd": 0.2,
+      "on_1000usd": 0.4,
+      "description": "Good liquidity"
+    },
+    "slippage": {
+      "small": {
+        "min_pct": 0.0001,
+        "max_pct": 0.0005,
+        "avg_pct": 0.0003,
+        "on_100usd": 0.03,
+        "on_500usd": 0.15,
+        "on_1000usd": 0.3
+      },
+      "medium": {
+        "min_pct": 0.0005,
+        "max_pct": 0.0015,
+        "avg_pct": 0.001,
+        "on_100usd": 0.1,
+        "on_500usd": 0.5,
+        "on_1000usd": 1.0
+      },
+      "large": {
+        "min_pct": 0.0015,
+        "max_pct": 0.005,
+        "avg_pct": 0.003,
+        "on_100usd": 0.3,
+        "on_500usd": 1.5,
+        "on_1000usd": 3.0
+      }
+    },
+    "funding": {
+      "rate_per_8h": 0.0001,
+      "rate_per_day": 0.00030000000000000003,
+      "rate_per_week": 0.0021000000000000003,
+      "on_500usd_position_per_day": 0.15000000000000002,
+      "on_500usd_position_per_week": 1.0500000000000003,
+      "note": "Longs pay in bull, shorts pay in bear"
+    },
+    "total_cost_per_round_trip": [
+      {
+        "order_size": "small",
+        "commission": 0.00036,
+        "spread": 0.0004,
+        "slippage": 0.00015,
+        "total_cost_pct": 0.091,
+        "total_cost_on_100usd": 0.091,
+        "total_cost_on_500usd": 0.455
+      },
+      {
+        "order_size": "medium",
+        "commission": 0.00036,
+        "spread": 0.0004,
+        "slippage": 0.0005,
+        "total_cost_pct": 0.126,
+        "total_cost_on_100usd": 0.126,
+        "total_cost_on_500usd": 0.63
+      },
+      {
+        "order_size": "large",
+        "commission": 0.00036,
+        "spread": 0.0004,
+        "slippage": 0.0015,
+        "total_cost_pct": 0.226,
+        "total_cost_on_100usd": 0.226,
+        "total_cost_on_500usd": 1.13
+      }
+    ],
+    "historical_comparison": {
+      "commission_per_side": 0.0005,
+      "commission_round_trip": 0.001,
+      "total_medium": 0.24
+    },
+    "savings": {
+      "commission_savings_pct": 0.064,
+      "commission_savings_per_500usd": 0.32
+    },
+    "criterion": {
+      "target": "< 0.15% per round trip",
+      "actual_small": "0.091%",
+      "actual_medium": "0.126%",
+      "actual_large": "0.226%",
+      "pass": true
+    }
+  },
+  "BNBUSDT": {
+    "symbol": "BNBUSDT",
+    "timestamp": "2026-07-29T21:05:24.732036+00:00",
+    "commission": {
+      "per_side": 0.00018,
+      "round_trip": 0.00036,
+      "on_100usd": 0.036000000000000004,
+      "on_500usd": 0.18000000000000002,
+      "on_1000usd": 0.36000000000000004,
+      "annualized_365_trades": 65.7
+    },
+    "spread": {
+      "min": 0.0003,
+      "max": 0.0007,
+      "avg": 0.0005,
+      "on_100usd": 0.05,
+      "on_500usd": 0.25,
+      "on_1000usd": 0.5,
+      "description": "Medium liquidity"
+    },
+    "slippage": {
+      "small": {
+        "min_pct": 0.0001,
+        "max_pct": 0.0005,
+        "avg_pct": 0.0003,
+        "on_100usd": 0.03,
+        "on_500usd": 0.15,
+        "on_1000usd": 0.3
+      },
+      "medium": {
+        "min_pct": 0.0005,
+        "max_pct": 0.0015,
+        "avg_pct": 0.001,
+        "on_100usd": 0.1,
+        "on_500usd": 0.5,
+        "on_1000usd": 1.0
+      },
+      "large": {
+        "min_pct": 0.0015,
+        "max_pct": 0.005,
+        "avg_pct": 0.003,
+        "on_100usd": 0.3,
+        "on_500usd": 1.5,
+        "on_1000usd": 3.0
+      }
+    },
+    "funding": {
+      "rate_per_8h": 0.0001,
+      "rate_per_day": 0.00030000000000000003,
+      "rate_per_week": 0.0021000000000000003,
+      "on_500usd_position_per_day": 0.15000000000000002,
+      "on_500usd_position_per_week": 1.0500000000000003,
+      "note": "Longs pay in bull, shorts pay in bear"
+    },
+    "total_cost_per_round_trip": [
+      {
+        "order_size": "small",
+        "commission": 0.00036,
+        "spread": 0.0005,
+        "slippage": 0.00015,
+        "total_cost_pct": 0.101,
+        "total_cost_on_100usd": 0.101,
+        "total_cost_on_500usd": 0.505
+      },
+      {
+        "order_size": "medium",
+        "commission": 0.00036,
+        "spread": 0.0005,
+        "slippage": 0.0005,
+        "total_cost_pct": 0.136,
+        "total_cost_on_100usd": 0.136,
+        "total_cost_on_500usd": 0.68
+      },
+      {
+        "order_size": "large",
+        "commission": 0.00036,
+        "spread": 0.0005,
+        "slippage": 0.0015,
+        "total_cost_pct": 0.236,
+        "total_cost_on_100usd": 0.236,
+        "total_cost_on_500usd": 1.18
+      }
+    ],
+    "historical_comparison": {
+      "commission_per_side": 0.0005,
+      "commission_round_trip": 0.001,
+      "total_medium": 0.25
+    },
+    "savings": {
+      "commission_savings_pct": 0.064,
+      "commission_savings_per_500usd": 0.32
+    },
+    "criterion": {
+      "target": "< 0.15% per round trip",
+      "actual_small": "0.101%",
+      "actual_medium": "0.136%",
+      "actual_large": "0.236%",
+      "pass": true
+    }
+  }
+}

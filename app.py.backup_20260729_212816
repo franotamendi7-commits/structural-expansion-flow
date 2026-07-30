@@ -1,0 +1,660 @@
+"""
+Structural Expansion Flow — Trading Dashboard V2
+================================================
+Minimal live monitor for multi_bot_v2.py system.
+Shows: balance, positions, signals, drawdown, risk mode.
+
+Run: streamlit run app.py
+"""
+import os
+import sys
+import time
+import json
+import hmac
+import hashlib
+import urllib.parse
+import logging
+from datetime import datetime, timezone, timedelta
+from pathlib import Path
+from typing import Dict, List, Optional, Any
+
+import streamlit as st
+import pandas as pd
+import plotly.graph_objects as go
+import requests
+
+# ============================================================
+# CONFIGURATION
+# ============================================================
+PAGE_TITLE = "STRUCTURAL EXPANSION FLOW"
+PAGE_ICON = "⚡"
+REFRESH_INTERVAL_SEC = 60
+PAIRS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT", "BNBUSDT"]
+PAIR_LABELS = {"BTCUSDT": "BTC", "ETHUSDT": "ETH", "SOLUSDT": "SOL",
+               "XRPUSDT": "XRP", "BNBUSDT": "BNB"}
+APP_DIR = Path(__file__).resolve().parent
+
+# ============================================================
+# CSS
+# ============================================================
+CUSTOM_CSS = """
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+    --bg-primary: #0f1117;
+    --bg-card: #1a1d27;
+    --border: rgba(255,255,255,0.06);
+    --gold: #D4AF37;
+    --green: #4ADE80;
+    --red: #F87171;
+    --orange: #FB923C;
+    --text: #E2E8F0;
+    --muted: #94A3B8;
+}
+.stApp { background: var(--bg-primary) !important; }
+#MainMenu, footer, header { visibility: hidden; }
+.block-container { padding: 1rem 2rem !important; max-width: 100% !important; }
+
+.card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px 24px;
+    margin-bottom: 12px;
+}
+.card-label {
+    color: var(--muted);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+.card-value {
+    color: #fff;
+    font-size: 1.8rem;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+}
+.card-sub {
+    font-size: 0.85rem;
+    margin-top: 6px;
+    font-family: 'JetBrains Mono', monospace;
+}
+.positive { color: var(--green); }
+.negative { color: var(--red); }
+.muted { color: var(--muted); }
+
+.live-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--green); display: inline-block;
+    box-shadow: 0 0 8px var(--green);
+    animation: pulse 2s infinite;
+    margin-right: 8px;
+}
+@keyframes pulse {
+    0%,100% { opacity: 1; } 50% { opacity: 0.5; }
+}
+
+.badge {
+    display: inline-block; padding: 3px 10px;
+    border-radius: 50px; font-size: 0.7rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.05em;
+}
+.badge-long { background: rgba(74,222,128,0.15); color: var(--green); border: 1px solid rgba(74,222,128,0.3); }
+.badge-short { background: rgba(248,113,113,0.15); color: var(--red); border: 1px solid rgba(248,113,113,0.3); }
+.badge-wait { background: rgba(148,163,184,0.1); color: var(--muted); border: 1px solid rgba(148,163,184,0.2); }
+.badge-ok { background: rgba(74,222,128,0.15); color: var(--green); border: 1px solid rgba(74,222,128,0.3); }
+.badge-warn { background: rgba(251,146,60,0.15); color: var(--orange); border: 1px solid rgba(251,146,60,0.3); }
+.badge-stop { background: rgba(248,113,113,0.15); color: var(--red); border: 1px solid rgba(248,113,113,0.3); }
+
+table.monitor {
+    width: 100%; border-collapse: collapse;
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 12px; overflow: hidden;
+}
+table.monitor th {
+    background: rgba(212,175,55,0.06); color: var(--gold);
+    padding: 12px 16px; text-align: left; font-size: 0.7rem;
+    text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600;
+    border-bottom: 1px solid rgba(212,175,55,0.12);
+}
+table.monitor td {
+    padding: 12px 16px; color: var(--text); font-size: 0.85rem;
+    border-bottom: 1px solid var(--border);
+    font-family: 'JetBrains Mono', monospace;
+}
+table.monitor tbody tr:hover td { background: rgba(212,175,55,0.03); }
+table.monitor tbody tr:last-child td { border-bottom: none; }
+
+.footer {
+    color: var(--muted); font-size: 0.75rem; text-align: center;
+    padding: 16px; border-top: 1px solid var(--border); margin-top: 24px;
+    font-family: 'JetBrains Mono', monospace;
+}
+</style>
+"""
+
+
+# ============================================================
+# BINANCE TESTNET HELPERS
+# ============================================================
+def _load_secrets():
+    """Load API keys from secrets.toml."""
+    secrets_path = APP_DIR / ".streamlit" / "secrets.toml"
+    try:
+        import toml
+        secrets = toml.load(secrets_path)
+        return (
+            secrets.get("BINANCE_API_KEY", ""),
+            secrets.get("BINANCE_SECRET_KEY", ""),
+        )
+    except Exception:
+        return "", ""
+
+
+def _sign_params(params: dict, secret: str) -> dict:
+    """Sign Binance API request."""
+    query = urllib.parse.urlencode(params)
+    sig = hmac.new(secret.encode(), query.encode(), hashlib.sha256).hexdigest()
+    params["signature"] = sig
+    return params
+
+
+def _testnet_request(method: str, endpoint: str, params: dict = None) -> Optional[dict]:
+    """Make a signed request to Binance Futures Testnet."""
+    api_key, api_secret = _load_secrets()
+    if not api_key or not api_secret:
+        return None
+    if params is None:
+        params = {}
+    params["timestamp"] = int(time.time() * 1000)
+    signed = _sign_params(params, api_secret)
+    headers = {"X-MBX-APIKEY": api_key}
+    base = "https://testnet.binancefuture.com"
+    try:
+        if method == "GET":
+            r = requests.get(f"{base}{endpoint}", params=signed, headers=headers, timeout=10)
+        else:
+            r = requests.post(f"{base}{endpoint}", params=signed, headers=headers, timeout=10)
+        if r.status_code == 200:
+            return r.json()
+    except Exception:
+        pass
+    return None
+
+
+def get_testnet_balance() -> float:
+    """Get USDT balance from testnet."""
+    data = _testnet_request("GET", "/fapi/v3/balance")
+    if data:
+        for b in data:
+            if b.get("asset") == "USDT":
+                return float(b.get("balance", 0))
+    return 0.0
+
+
+def get_testnet_positions() -> List[Dict]:
+    """Get open positions from testnet."""
+    data = _testnet_request("GET", "/fapi/v3/positionRisk")
+    if data:
+        return [p for p in data if float(p.get("positionAmt", 0)) != 0]
+    return []
+
+
+def get_live_price(symbol: str) -> Optional[float]:
+    """Get latest price from mainnet (more reliable for data)."""
+    try:
+        r = requests.get("https://fapi.binance.com/fapi/v1/ticker/price",
+                         params={"symbol": symbol}, timeout=5)
+        if r.status_code == 200:
+            return float(r.json()["price"])
+    except Exception:
+        pass
+    return None
+
+
+# ============================================================
+# STATE FILE READERS
+# ============================================================
+def load_json(path: Path, default=None):
+    """Load a JSON file safely."""
+    try:
+        if path.exists():
+            with open(path) as f:
+                return json.load(f)
+    except Exception:
+        pass
+    return default if default is not None else {}
+
+
+def get_drawdown_state() -> Dict:
+    """Read drawdown manager state."""
+    return load_json(APP_DIR / "drawdown_state.json", {
+        "peak_equity": 0, "current_equity": 0,
+        "current_dd_pct": 0, "is_stopped": False,
+    })
+
+
+def get_parameter_state() -> Dict:
+    """Read parameter adapter state."""
+    return load_json(APP_DIR / "parameter_state.json", {
+        "params": {}, "is_paused": False, "total_trades_recorded": 0,
+    })
+
+
+def get_signal_log() -> List[Dict]:
+    """Read signal log (last 20 entries)."""
+    data = load_json(APP_DIR / "signal_log.json", [])
+    if isinstance(data, list):
+        return data[-20:]
+    return []
+
+
+def get_trade_history() -> List[Dict]:
+    """Read trade history (last 20 entries)."""
+    data = load_json(APP_DIR / "trade_history.json", [])
+    if isinstance(data, list):
+        return data[-20:]
+    return []
+
+
+def get_equity_history() -> List[Dict]:
+    """Read equity history."""
+    data = load_json(APP_DIR / "equity_history.json", [])
+    if isinstance(data, list):
+        return data
+    return []
+
+
+def get_bot_status() -> str:
+    """Check if bot process is running."""
+    import subprocess
+    try:
+        result = subprocess.run(["pgrep", "-f", "multi_bot_v2"],
+                              capture_output=True, text=True, timeout=5)
+        if result.returncode == 0:
+            pid = result.stdout.strip().split("\n")[0]
+            return f"RUNNING (PID {pid})"
+    except Exception:
+        pass
+    return "STOPPED"
+
+
+def get_last_log_lines(n: int = 15) -> List[str]:
+    """Read last N lines from bot log."""
+    log_path = APP_DIR / "logs" / "paper_trading.log"
+    try:
+        if log_path.exists():
+            with open(log_path) as f:
+                lines = f.readlines()
+                return [l.rstrip() for l in lines[-n:]]
+    except Exception:
+        pass
+    return []
+
+
+# ============================================================
+# STREAMLIT APP
+# ============================================================
+def main():
+    st.set_page_config(
+        page_title=PAGE_TITLE,
+        page_icon=PAGE_ICON,
+        layout="wide",
+        initial_sidebar_state="collapsed",
+    )
+
+    # Inject CSS
+    if hasattr(st, "html"):
+        st.html(CUSTOM_CSS)
+
+    # Auto-refresh
+    try:
+        from streamlit_autorefresh import st_autorefresh
+        st_autorefresh(interval=REFRESH_INTERVAL_SEC * 1000, key="refresh")
+    except Exception:
+        pass
+
+    # ============================================================
+    # HEADER
+    # ============================================================
+    now = datetime.now(timezone.utc)
+    bot_status = get_bot_status()
+    is_running = "RUNNING" in bot_status
+    status_color = "var(--green)" if is_running else "var(--red)"
+    status_badge = "badge-ok" if is_running else "badge-stop"
+
+    st.html(f"""
+    <div style="display:flex;justify-content:space-between;align-items:center;
+                padding:16px 24px;background:var(--bg-card);border:1px solid var(--border);
+                border-radius:16px;margin-bottom:16px;">
+        <div>
+            <div style="font-size:1.5rem;font-weight:700;color:#fff;
+                        font-family:'JetBrains Mono',monospace;">
+                STRUCTURAL EXPANSION FLOW
+            </div>
+            <div style="color:var(--muted);font-size:0.85rem;margin-top:4px;">
+                BTC · ETH · SOL · XRP · BNB — 5-bot portfolio
+            </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px;">
+            <span class="badge {status_badge}">
+                <span class="live-dot" style="background:{status_color};
+                      box-shadow:0 0 8px {status_color};
+                      {'animation:pulse 2s infinite' if is_running else ''}"></span>
+                {bot_status}
+            </span>
+            <span style="color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:0.85rem;">
+                {now.strftime('%Y-%m-%d %H:%M:%S')} UTC
+            </span>
+        </div>
+    </div>
+    """)
+
+    # ============================================================
+    # METRIC CARDS ROW
+    # ============================================================
+    balance = get_testnet_balance()
+    dd_state = get_drawdown_state()
+    param_state = get_parameter_state()
+    dd_pct = dd_state.get("current_dd_pct", 0)
+    is_paused = param_state.get("is_paused", False)
+    total_trades = param_state.get("total_trades_recorded", 0)
+
+    # Determine risk mode
+    if is_paused:
+        risk_mode = "PAUSADO"
+        risk_badge = "badge-stop"
+    elif dd_pct < -7:
+        risk_mode = "REDUCIDO"
+        risk_badge = "badge-warn"
+    elif dd_pct < -3:
+        risk_mode = "PRECAUCIÓN"
+        risk_badge = "badge-warn"
+    else:
+        risk_mode = "NORMAL"
+        risk_badge = "badge-ok"
+
+    # Open positions PnL
+    positions = get_testnet_positions()
+    n_positions = len(positions)
+
+    cards = f"""
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px;">
+        <div class="card">
+            <div class="card-label">Balance Testnet</div>
+            <div class="card-value">${balance:,.2f}</div>
+            <div class="card-sub muted">USDT available</div>
+        </div>
+        <div class="card">
+            <div class="card-label">Drawdown</div>
+            <div class="card-value {'positive' if dd_pct >= 0 else 'negative'}">{dd_pct:+.2f}%</div>
+            <div class="card-sub muted">peak: ${dd_state.get('peak_equity', 0):,.2f}</div>
+        </div>
+        <div class="card">
+            <div class="card-label">Risk Mode</div>
+            <div class="card-value" style="font-size:1.3rem;">
+                <span class="badge {risk_badge}">{risk_mode}</span>
+            </div>
+            <div class="card-sub muted">{'Paused' if is_paused else 'Active'}</div>
+        </div>
+        <div class="card">
+            <div class="card-label">Posiciones Abiertas</div>
+            <div class="card-value">{n_positions}</div>
+            <div class="card-sub muted">of 5 pairs</div>
+        </div>
+        <div class="card">
+            <div class="card-label">Señales Totales</div>
+            <div class="card-value">{total_trades}</div>
+            <div class="card-sub muted">recorded by adapter</div>
+        </div>
+    </div>
+    """
+    st.html(cards)
+
+    # ============================================================
+    # POSITIONS TABLE
+    # ============================================================
+    if positions:
+        st.html('<div style="font-size:0.95rem;font-weight:600;color:#fff;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border);">Posiciones Abiertas (Testnet)</div>')
+        rows = ""
+        for p in positions:
+            symbol = p.get("symbol", "?")
+            amt = float(p.get("positionAmt", 0))
+            entry = float(p.get("entryPrice", 0))
+            mark = float(p.get("markPrice", 0))
+            pnl = float(p.get("unRealizedProfit", 0))
+            lev = p.get("leverage", "?")
+            side = "LONG" if amt > 0 else "SHORT"
+            badge = "badge-long" if amt > 0 else "badge-short"
+            pnl_class = "positive" if pnl >= 0 else "negative"
+            rows += f"""
+            <tr>
+                <td style="color:var(--gold);font-weight:600;">{PAIR_LABELS.get(symbol, symbol)}</td>
+                <td><span class="badge {badge}">{side}</span></td>
+                <td>{abs(amt):.6f}</td>
+                <td>${entry:.2f}</td>
+                <td>${mark:.2f}</td>
+                <td class="{pnl_class}" style="font-weight:600;">${pnl:+.4f}</td>
+                <td>{lev}x</td>
+            </tr>
+            """
+        st.html(f"""
+        <table class="monitor">
+            <thead><tr>
+                <th>Par</th><th>Lado</th><th>Tamaño</th>
+                <th>Entry</th><th>Mark</th><th>PnL</th><th>Lev</th>
+            </tr></thead>
+            <tbody>{rows}</tbody>
+        </table>
+        """)
+    else:
+        st.html("""
+        <div class="card" style="text-align:center;padding:24px;">
+            <span class="muted">Sin posiciones abiertas</span>
+        </div>
+        """)
+
+    # ============================================================
+    # RECENT SIGNALS
+    # ============================================================
+    st.html('<div style="font-size:0.95rem;font-weight:600;color:#fff;margin:16px 0 10px;padding-bottom:8px;border-bottom:1px solid var(--border);">Señales Recientes</div>')
+    signals = get_signal_log()
+    if signals:
+        rows = ""
+        for s in reversed(signals[-10:]):
+            ts = s.get("ts", "?")
+            if isinstance(ts, str) and "T" in ts:
+                ts = ts[:19].replace("T", " ")
+            sym = s.get("symbol", "?")
+            dtype = s.get("type", "?")
+            direction = s.get("dir", 0)
+            entry = s.get("entry", 0)
+            pnl = s.get("pnl")
+            reason = s.get("reason", "")
+
+            if direction == 1:
+                dir_badge = '<span class="badge badge-long">LONG</span>'
+            elif direction == -1:
+                dir_badge = '<span class="badge badge-short">SHORT</span>'
+            else:
+                dir_badge = '<span class="badge badge-wait">—</span>'
+
+            dtype_lower = dtype.lower() if dtype else ""
+            type_badge = "badge-long" if dtype_lower == "entry" else "badge-short" if dtype_lower == "exit" else "badge-wait"
+            pnl_str = f"${pnl:+.4f}" if pnl is not None else "—"
+            pnl_class = ""
+            if pnl is not None:
+                pnl_class = "positive" if pnl >= 0 else "negative"
+
+            rows += f"""
+            <tr>
+                <td class="muted" style="font-size:0.8rem;">{ts}</td>
+                <td style="color:var(--gold);font-weight:600;">{PAIR_LABELS.get(sym, sym)}</td>
+                <td><span class="badge {type_badge}">{dtype.upper()}</span></td>
+                <td>{dir_badge}</td>
+                <td>${entry:.2f}</td>
+                <td class="{pnl_class}" style="font-weight:600;">{pnl_str}</td>
+                <td class="muted">{reason}</td>
+            </tr>
+            """
+        st.html(f"""
+        <table class="monitor">
+            <thead><tr>
+                <th>Timestamp</th><th>Par</th><th>Tipo</th>
+                <th>Dirección</th><th>Entry</th><th>PnL</th><th>Razón</th>
+            </tr></thead>
+            <tbody>{rows}</tbody>
+        </table>
+        """)
+    else:
+        st.html("""
+        <div class="card" style="text-align:center;padding:24px;">
+            <span class="muted">Sin señales registradas</span>
+        </div>
+        """)
+
+    # ============================================================
+    # EQUITY CURVE + DRAWDOWN
+    # ============================================================
+    equity_hist = get_equity_history()
+    if len(equity_hist) > 1:
+        col1, col2 = st.columns(2)
+        with col1:
+            st.html('<div style="font-size:0.95rem;font-weight:600;color:#fff;margin:16px 0 10px;">Equity Curve</div>')
+            df = pd.DataFrame(equity_hist)
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(
+                x=df["time"], y=df["equity"], mode="lines",
+                line=dict(color="#D4AF37", width=2),
+                fill="tozeroy", fillcolor="rgba(212,175,55,0.1)",
+            ))
+            fig.update_layout(
+                template="plotly_dark", height=250,
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                font=dict(color="#E2E8F0", family="JetBrains Mono"),
+                margin=dict(l=10, r=10, t=10, b=10),
+                xaxis=dict(showgrid=False), yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)"),
+            )
+            st.plotly_chart(fig, width="stretch")
+        with col2:
+            st.html('<div style="font-size:0.95rem;font-weight:600;color:#fff;margin:16px 0 10px;">Drawdown</div>')
+            df["peak"] = df["equity"].cummax()
+            df["dd"] = (df["equity"] - df["peak"]) / df["peak"] * 100
+            fig2 = go.Figure()
+            fig2.add_trace(go.Scatter(
+                x=df["time"], y=df["dd"], mode="lines",
+                line=dict(color="#F87171", width=2),
+                fill="tozeroy", fillcolor="rgba(248,113,113,0.15)",
+            ))
+            fig2.update_layout(
+                template="plotly_dark", height=250,
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                font=dict(color="#E2E8F0", family="JetBrains Mono"),
+                margin=dict(l=10, r=10, t=10, b=10),
+                xaxis=dict(showgrid=False), yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)"),
+            )
+            st.plotly_chart(fig2, width="stretch")
+
+    # ============================================================
+    # BOT LOG (last lines)
+    # ============================================================
+    st.html('<div style="font-size:0.95rem;font-weight:600;color:#fff;margin:16px 0 10px;padding-bottom:8px;border-bottom:1px solid var(--border);">Bot Log (últimas líneas)</div>')
+    log_lines = get_last_log_lines(20)
+    if log_lines:
+        log_html = '<div style="background:#0a0c10;border:1px solid var(--border);border-radius:12px;padding:16px;max-height:300px;overflow-y:auto;font-family:\'JetBrains Mono\',monospace;font-size:0.78rem;line-height:1.6;">'
+        for line in log_lines:
+            if "WARNING" in line:
+                color = "var(--orange)"
+            elif "ERROR" in line:
+                color = "var(--red)"
+            elif "INFO" in line:
+                color = "var(--muted)"
+            else:
+                color = "var(--text)"
+            log_html += f'<div style="color:{color};">{line}</div>'
+        log_html += '</div>'
+        st.html(log_html)
+    else:
+        st.html('<div class="card muted" style="text-align:center;padding:20px;">Sin logs disponibles</div>')
+
+    # ============================================================
+    # TRADE HISTORY (last closed)
+    # ============================================================
+    trades = get_trade_history()
+    if trades:
+        st.html('<div style="font-size:0.95rem;font-weight:600;color:#fff;margin:16px 0 10px;padding-bottom:8px;border-bottom:1px solid var(--border);">Últimos Trades Cerrados</div>')
+        rows = ""
+        for t in reversed(trades[-10:]):
+            exit_time = t.get("exit_time", "?")
+            if isinstance(exit_time, str) and "T" in exit_time:
+                exit_time = exit_time[:19].replace("T", " ")
+            sym = t.get("symbol", "?")
+            bot = t.get("bot_name", "?")
+            d = t.get("dir", 0)
+            entry = t.get("entry", 0)
+            exit_p = t.get("exit", 0)
+            net = t.get("net", 0)
+            reason = t.get("exit_reason", "?")
+            hold = t.get("hold_minutes", 0)
+            pnl_class = "positive" if net >= 0 else "negative"
+            side = "LONG" if d == 1 else "SHORT"
+            badge = "badge-long" if d == 1 else "badge-short"
+
+            rows += f"""
+            <tr>
+                <td class="muted" style="font-size:0.8rem;">{exit_time}</td>
+                <td style="color:var(--gold);font-weight:600;">{bot}</td>
+                <td><span class="badge {badge}">{side}</span></td>
+                <td>${entry:.2f}</td>
+                <td>${exit_p:.2f}</td>
+                <td class="{pnl_class}" style="font-weight:600;">${net:+.4f}</td>
+                <td>{reason}</td>
+                <td class="muted">{hold:.0f}m</td>
+            </tr>
+            """
+        st.html(f"""
+        <table class="monitor">
+            <thead><tr>
+                <th>Time</th><th>Bot</th><th>Lado</th>
+                <th>Entry</th><th>Exit</th><th>Net PnL</th><th>Razón</th><th>Hold</th>
+            </tr></thead>
+            <tbody>{rows}</tbody>
+        </table>
+        """)
+
+    # ============================================================
+    # PARAMETERS (compact)
+    # ============================================================
+    params = param_state.get("params", {})
+    if params:
+        st.html('<div style="font-size:0.95rem;font-weight:600;color:#fff;margin:16px 0 10px;padding-bottom:8px;border-bottom:1px solid var(--border);">Parámetros Activos</div>')
+        param_items = ""
+        for k, v in params.items():
+            param_items += f"""
+            <div style="display:flex;justify-content:space-between;padding:8px 16px;
+                        border-bottom:1px solid var(--border);font-size:0.85rem;">
+                <span class="muted">{k}</span>
+                <span style="font-family:'JetBrains Mono',monospace;color:#fff;">{v}</span>
+            </div>
+            """
+        st.html(f"""
+        <div class="card" style="padding:0;overflow:hidden;">
+            {param_items}
+        </div>
+        """)
+
+    # ============================================================
+    # FOOTER
+    # ============================================================
+    st.html(f"""
+    <div class="footer">
+        {PAGE_TITLE} · Last refresh: {now.strftime('%H:%M:%S UTC')} ·
+        Mode: TESTNET · Status: {'RUNNING' if is_running else 'STOPPED'}
+    </div>
+    """)
+
+
+if __name__ == "__main__":
+    main()

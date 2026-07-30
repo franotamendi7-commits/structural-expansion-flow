@@ -1,0 +1,256 @@
+{
+  "BTCUSDT": {
+    "BTCUSDT_1h": {
+      "symbol": "BTCUSDT",
+      "timeframe": "1h",
+      "rows": 40057,
+      "start": "2022-01-01 03:00:00",
+      "end": "2026-07-28 03:00:00",
+      "file": "/Users/franciscootamendi/ai-agents-v3/research/data/BTCUSDT/BTCUSDT_1h.parquet"
+    },
+    "BTCUSDT_4h": {
+      "symbol": "BTCUSDT",
+      "timeframe": "4h",
+      "rows": 10014,
+      "start": "2022-01-01 04:00:00",
+      "end": "2026-07-28 00:00:00",
+      "file": "/Users/franciscootamendi/ai-agents-v3/research/data/BTCUSDT/BTCUSDT_4h.parquet"
+    },
+    "BTCUSDT_1d": {
+      "symbol": "BTCUSDT",
+      "timeframe": "1d",
+      "rows": 1669,
+      "start": "2022-01-02 00:00:00",
+      "end": "2026-07-28 00:00:00",
+      "file": "/Users/franciscootamendi/ai-agents-v3/research/data/BTCUSDT/BTCUSDT_1d.parquet"
+    }
+  },
+  "ETHUSDT": {
+    "ETHUSDT_1h": {
+      "symbol": "ETHUSDT",
+      "timeframe": "1h",
+      "rows": 40057,
+      "start": "2022-01-01 03:00:00",
+      "end": "2026-07-28 03:00:00",
+      "file": "/Users/franciscootamendi/ai-agents-v3/research/data/ETHUSDT/ETHUSDT_1h.parquet"
+    },
+    "ETHUSDT_4h": {
+      "symbol": "ETHUSDT",
+      "timeframe": "4h",
+      "rows": 10014,
+      "start": "2022-01-01 04:00:00",
+      "end": "2026-07-28 00:00:00",
+      "file": "/Users/franciscootamendi/ai-agents-v3/research/data/ETHUSDT/ETHUSDT_4h.parquet"
+    },
+    "ETHUSDT_1d": {
+      "symbol": "ETHUSDT",
+      "timeframe": "1d",
+      "rows": 1669,
+      "start": "2022-01-02 00:00:00",
+      "end": "2026-07-28 00:00:00",
+      "file": "/Users/franciscootamendi/ai-agents-v3/research/data/ETHUSDT/ETHUSDT_1d.parquet"
+    }
+  },
+  "SOLUSDT": {
+    "SOLUSDT_1h": {
+      "symbol": "SOLUSDT",
+      "timeframe": "1h",
+      "rows": 40057,
+      "start": "2022-01-01 03:00:00",
+      "end": "2026-07-28 03:00:00",
+      "file": "/Users/franciscootamendi/ai-agents-v3/research/data/SOLUSDT/SOLUSDT_1h.parquet"
+    },
+    "SOLUSDT_4h": {
+      "symbol": "SOLUSDT",
+      "timeframe": "4h",
+      "rows": 10014,
+      "start": "2022-01-01 04:00:00",
+      "end": "2026-07-28 00:00:00",
+      "file": "/Users/franciscootamendi/ai-agents-v3/research/data/SOLUSDT/SOLUSDT_4h.parquet"
+    },
+    "SOLUSDT_1d": {
+      "symbol": "SOLUSDT",
+      "timeframe": "1d",
+      "rows": 1669,
+      "start": "2022-01-02 00:00:00",
+      "end": "2026-07-28 00:00:00",
+      "file": "/Users/franciscootamendi/ai-agents-v3/research/data/SOLUSDT/SOLUSDT_1d.parquet"
+    }
+  },
+  "XRPUSDT": {
+    "XRPUSDT_1h": {
+      "symbol": "XRPUSDT",
+      "timeframe": "1h",
+      "rows": 40057,
+      "start": "2022-01-01 03:00:00",
+      "end": "2026-07-28 03:00:00",
+      "file": "/Users/franciscootamendi/ai-agents-v3/research/data/XRPUSDT/XRPUSDT_1h.parquet"
+    },
+    "XRPUSDT_4h": {
+      "symbol": "XRPUSDT",
+      "timeframe": "4h",
+      "rows": 10014,
+      "start": "2022-01-01 04:00:00",
+      "end": "2026-07-28 00:00:00",
+      "file": "/Users/franciscootamendi/ai-agents-v3/research/data/XRPUSDT/XRPUSDT_4h.parquet"
+    },
+    "XRPUSDT_1d": {
+      "symbol": "XRPUSDT",
+      "timeframe": "1d",
+      "rows": 1669,
+      "start": "2022-01-02 00:00:00",
+      "end": "2026-07-28 00:00:00",
+      "file": "/Users/franciscootamendi/ai-agents-v3/research/data/XRPUSDT/XRPUSDT_1d.parquet"
+    }
+  },
+  "BNBUSDT": {
+    "BNBUSDT_1h": {
+      "symbol": "BNBUSDT",
+      "timeframe": "1h",
+      "rows": 40057,
+      "start": "2022-01-01 03:00:00",
+      "end": "2026-07-28 03:00:00",
+      "file": "/Users/franciscootamendi/ai-agents-v3/research/data/BNBUSDT/BNBUSDT_1h.parquet"
+    },
+    "BNBUSDT_4h": {
+      "symbol": "BNBUSDT",
+      "timeframe": "4h",
+      "rows": 10014,
+      "start": "2022-01-01 04:00:00",
+      "end": "2026-07-28 00:00:00",
+      "file": "/Users/franciscootamendi/ai-agents-v3/research/data/BNBUSDT/BNBUSDT_4h.parquet"
+    },
+    "BNBUSDT_1d": {
+      "symbol": "BNBUSDT",
+      "timeframe": "1d",
+      "rows": 1669,
+      "start": "2022-01-02 00:00:00",
+      "end": "2026-07-28 00:00:00",
+      "file": "/Users/franciscootamendi/ai-agents-v3/research/data/BNBUSDT/BNBUSDT_1d.parquet"
+    }
+  },
+  "forex": {
+    "EURUSD": {
+      "symbol": "EURUSD=X",
+      "timeframe": "1h",
+      "rows": 12315,
+      "start": "2024-07-29 00:00:00",
+      "end": "2026-07-28 18:00:00",
+      "file": "/Users/franciscootamendi/ai-agents-v3/research/data/EURUSD/EURUSD_1h.parquet"
+    },
+    "GBPUSD": {
+      "symbol": "GBPUSD=X",
+      "timeframe": "1h",
+      "rows": 12317,
+      "start": "2024-07-29 00:00:00",
+      "end": "2026-07-28 18:00:00",
+      "file": "/Users/franciscootamendi/ai-agents-v3/research/data/GBPUSD/GBPUSD_1h.parquet"
+    },
+    "USDJPY": {
+      "symbol": "USDJPY=X",
+      "timeframe": "1h",
+      "rows": 12245,
+      "start": "2024-07-29 00:00:00",
+      "end": "2026-07-28 18:00:00",
+      "file": "/Users/franciscootamendi/ai-agents-v3/research/data/USDJPY/USDJPY_1h.parquet"
+    },
+    "AUDUSD": {
+      "symbol": "AUDUSD=X",
+      "timeframe": "1h",
+      "rows": 12380,
+      "start": "2024-07-29 00:00:00",
+      "end": "2026-07-28 18:00:00",
+      "file": "/Users/franciscootamendi/ai-agents-v3/research/data/AUDUSD/AUDUSD_1h.parquet"
+    },
+    "USDCAD": {
+      "symbol": "USDCAD=X",
+      "timeframe": "1h",
+      "rows": 12384,
+      "start": "2024-07-29 00:00:00",
+      "end": "2026-07-28 18:00:00",
+      "file": "/Users/franciscootamendi/ai-agents-v3/research/data/USDCAD/USDCAD_1h.parquet"
+    }
+  },
+  "stocks": {
+    "AAPL": {
+      "symbol": "AAPL",
+      "timeframe": "1d",
+      "rows": 501,
+      "start": "2024-07-29 00:00:00",
+      "end": "2026-07-28 00:00:00",
+      "file": "/Users/franciscootamendi/ai-agents-v3/research/data/AAPL/AAPL_1d.parquet"
+    },
+    "MSFT": {
+      "symbol": "MSFT",
+      "timeframe": "1d",
+      "rows": 501,
+      "start": "2024-07-29 00:00:00",
+      "end": "2026-07-28 00:00:00",
+      "file": "/Users/franciscootamendi/ai-agents-v3/research/data/MSFT/MSFT_1d.parquet"
+    },
+    "GOOGL": {
+      "symbol": "GOOGL",
+      "timeframe": "1d",
+      "rows": 501,
+      "start": "2024-07-29 00:00:00",
+      "end": "2026-07-28 00:00:00",
+      "file": "/Users/franciscootamendi/ai-agents-v3/research/data/GOOGL/GOOGL_1d.parquet"
+    },
+    "AMZN": {
+      "symbol": "AMZN",
+      "timeframe": "1d",
+      "rows": 501,
+      "start": "2024-07-29 00:00:00",
+      "end": "2026-07-28 00:00:00",
+      "file": "/Users/franciscootamendi/ai-agents-v3/research/data/AMZN/AMZN_1d.parquet"
+    },
+    "TSLA": {
+      "symbol": "TSLA",
+      "timeframe": "1d",
+      "rows": 501,
+      "start": "2024-07-29 00:00:00",
+      "end": "2026-07-28 00:00:00",
+      "file": "/Users/franciscootamendi/ai-agents-v3/research/data/TSLA/TSLA_1d.parquet"
+    },
+    "NVDA": {
+      "symbol": "NVDA",
+      "timeframe": "1d",
+      "rows": 501,
+      "start": "2024-07-29 00:00:00",
+      "end": "2026-07-28 00:00:00",
+      "file": "/Users/franciscootamendi/ai-agents-v3/research/data/NVDA/NVDA_1d.parquet"
+    },
+    "META": {
+      "symbol": "META",
+      "timeframe": "1d",
+      "rows": 501,
+      "start": "2024-07-29 00:00:00",
+      "end": "2026-07-28 00:00:00",
+      "file": "/Users/franciscootamendi/ai-agents-v3/research/data/META/META_1d.parquet"
+    },
+    "JPM": {
+      "symbol": "JPM",
+      "timeframe": "1d",
+      "rows": 501,
+      "start": "2024-07-29 00:00:00",
+      "end": "2026-07-28 00:00:00",
+      "file": "/Users/franciscootamendi/ai-agents-v3/research/data/JPM/JPM_1d.parquet"
+    },
+    "V": {
+      "symbol": "V",
+      "timeframe": "1d",
+      "rows": 501,
+      "start": "2024-07-29 00:00:00",
+      "end": "2026-07-28 00:00:00",
+      "file": "/Users/franciscootamendi/ai-agents-v3/research/data/V/V_1d.parquet"
+    },
+    "JNJ": {
+      "symbol": "JNJ",
+      "timeframe": "1d",
+      "rows": 501,
+      "start": "2024-07-29 00:00:00",
+      "end": "2026-07-28 00:00:00",
+      "file": "/Users/franciscootamendi/ai-agents-v3/research/data/JNJ/JNJ_1d.parquet"
+    }
+  }
+}

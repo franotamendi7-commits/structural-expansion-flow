@@ -89,11 +89,16 @@ class ExecutionManager:
             time.sleep(0.5)
         return resp
 
-    def execute_signal(self, signal_dict: dict, reduce_only: bool = False) -> dict:
+    def execute_signal(self, signal_dict: dict, reduce_only: bool = False, 
+                      order_type: str = 'MARKET', price: float = None) -> dict:
         """
-        Ejecuta una orden de mercado.
+        Ejecuta una orden con soporte para Post-Only (Maker).
+        
         signal_dict: {symbol, side, quantity}
         reduce_only=True para cerrar posiciones.
+        order_type: 'MARKET' (taker) o 'LIMIT_MAKER' (post-only)
+        price: precio para órdenes limit (requerido para LIMIT_MAKER)
+        
         Devuelve order_id, status, executed_price (precio real), error.
         """
         self.set_isolated_margin(signal_dict.get("symbol"))
@@ -104,49 +109,100 @@ class ExecutionManager:
 
         if not all([symbol, quantity]):
             return {'error': 'Missing required fields: symbol, quantity'}
+        
+        # Validar price para órdenes LIMIT_MAKER
+        if order_type == 'LIMIT_MAKER' and price is None:
+            return {'error': 'Price required for LIMIT_MAKER orders'}
 
-        # Usamos FULL para obtener fills si la ejecución es instantánea
-        order_params = self._sign_request({
+        # Configurar parámetros según tipo de orden
+        order_params = {
             'symbol': symbol,
             'side': side,
-            'type': 'MARKET',
             'quantity': str(quantity),
             'reduceOnly': 'true' if reduce_only else 'false',
-            'newOrderRespType': 'FULL'
-        })
-        initial_resp = self._send_request('POST', '/fapi/v1/order', order_params)
+        }
+        
+        if order_type == 'LIMIT_MAKER':
+            # Post-Only: GTX = Good Till Crossing (maker only)
+            order_params['type'] = 'LIMIT_MAKER'
+            order_params['timeInForce'] = 'GTX'
+            order_params['price'] = str(price)
+        else:
+            # Market order (taker)
+            order_params['type'] = 'MARKET'
+            order_params['newOrderRespType'] = 'FULL'
+
+        # Firmar y enviar
+        signed_params = self._sign_request(order_params)
+        initial_resp = self._send_request('POST', '/fapi/v1/order', signed_params)
 
         if 'error' in initial_resp:
-            return {'error': f"Market order failed: {initial_resp.get('msg', initial_resp['error'])}"}
+            return {'error': f"{order_type} order failed: {initial_resp.get('msg', initial_resp['error'])}"}
 
         order_id = initial_resp.get('orderId')
+        
+        # Para LIMIT_MAKER, verificar si se ejecutó inmediatamente
+        if order_type == 'LIMIT_MAKER':
+            # Si la orden se ejecuta inmediatamente como maker, está bien
+            # Si intenta ser taker, Binance la rechaza automáticamente (por GTX)
+            if initial_resp.get('status') == 'FILLED':
+                price_exec = self._extract_price(initial_resp)
+                return {
+                    'order_id': order_id,
+                    'status': 'FILLED',
+                    'executed_price': round(price_exec, 4),
+                    'error': None,
+                    'order_type': 'LIMIT_MAKER'
+                }
+            elif initial_resp.get('status') == 'NEW':
+                # Orden colocada pero no ejecutada aún (pendiente en el libro)
+                return {
+                    'order_id': order_id,
+                    'status': 'NEW',
+                    'executed_price': 0.0,
+                    'error': None,
+                    'order_type': 'LIMIT_MAKER',
+                    'message': 'Order placed, waiting for fill'
+                }
+            elif initial_resp.get('status') == 'CANCELED':
+                # GTX rechazada porque se ejecutaría como taker
+                return {
+                    'order_id': order_id,
+                    'status': 'CANCELED',
+                    'executed_price': 0.0,
+                    'error': 'Post-only order would execute as taker',
+                    'order_type': 'LIMIT_MAKER'
+                }
 
-        # Si la respuesta inicial ya tiene estado FILLED, extraemos el precio de inmediato
+        # Para MARKET orders, manejar como antes
         if initial_resp.get('status') == 'FILLED':
-            price = self._extract_price(initial_resp)
+            price_exec = self._extract_price(initial_resp)
             return {
                 'order_id': order_id,
                 'status': 'FILLED',
-                'executed_price': round(price, 4),
-                'error': None
+                'executed_price': round(price_exec, 4),
+                'error': None,
+                'order_type': 'MARKET'
             }
 
-        # Si no, hacemos polling hasta que esté FILLED
+        # Polling para órdenes que no se ejecutan inmediatamente
         final_resp = self._poll_order(symbol, order_id)
         if isinstance(final_resp, dict) and final_resp.get('status') == 'FILLED':
-            price = self._extract_price(final_resp)
+            price_exec = self._extract_price(final_resp)
             return {
                 'order_id': order_id,
                 'status': 'FILLED',
-                'executed_price': round(price, 4),
-                'error': None
+                'executed_price': round(price_exec, 4),
+                'error': None,
+                'order_type': order_type
             }
         else:
             return {
                 'order_id': order_id,
                 'status': final_resp.get('status', 'UNKNOWN') if final_resp else 'UNKNOWN',
                 'executed_price': 0.0,
-                'error': 'Order not filled within timeout'
+                'error': 'Order not filled within timeout',
+                'order_type': order_type
             }
 
     def get_balance(self, asset="USDT"):

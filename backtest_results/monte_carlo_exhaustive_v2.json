@@ -1,0 +1,316 @@
+{
+  "timestamp": "2026-07-29T21:05:08.441546+00:00",
+  "symbol": "BTCUSDT",
+  "period": "2026-01-30 to 2026-07-29",
+  "initial_capital": 1000.0,
+  "n_sims_per_scenario": 10000,
+  "total_trades": 81,
+  "scenarios": {
+    "base": {
+      "description": "Trades as-is",
+      "wr_adjustment": 0.0,
+      "size_multiplier": 1.0,
+      "n_sims": 10000,
+      "n_trades": 81,
+      "results": {
+        "mean_return": 50.24,
+        "median_return": 50.24,
+        "std_return": 0.0,
+        "percentiles": {
+          "p5": 50.24,
+          "p25": 50.24,
+          "p50": 50.24,
+          "p75": 50.24,
+          "p95": 50.24
+        },
+        "max_dd": {
+          "mean": -3.85,
+          "worst": -11.04,
+          "std": 1.13
+        },
+        "prob_profit": 1.0,
+        "prob_dd_exceeds_10": 0.0004,
+        "prob_dd_exceeds_15": 0.0,
+        "prob_blowing_up": 0.0,
+        "sharpe": {
+          "mean": 70.25,
+          "median": 70.26,
+          "worst": 66.98,
+          "std": 1.95
+        },
+        "final_equity": {
+          "mean": 1502.4,
+          "median": 1502.4,
+          "std": 0.0
+        }
+      }
+    },
+    "worst_case_10pp": {
+      "description": "Reduce WR by 10pp",
+      "wr_adjustment": -10.0,
+      "size_multiplier": 1.0,
+      "n_sims": 10000,
+      "n_trades": 81,
+      "results": {
+        "mean_return": 31.06,
+        "median_return": 31.06,
+        "std_return": 0.0,
+        "percentiles": {
+          "p5": 31.06,
+          "p25": 31.06,
+          "p50": 31.06,
+          "p75": 31.06,
+          "p95": 31.06
+        },
+        "max_dd": {
+          "mean": -5.43,
+          "worst": -16.77,
+          "std": 1.58
+        },
+        "prob_profit": 1.0,
+        "prob_dd_exceeds_10": 0.0136,
+        "prob_dd_exceeds_15": 0.0002,
+        "prob_blowing_up": 0.0,
+        "sharpe": {
+          "mean": 43.27,
+          "median": 43.29,
+          "worst": 41.23,
+          "std": 1.21
+        },
+        "final_equity": {
+          "mean": 1310.62,
+          "median": 1310.62,
+          "std": 0.0
+        }
+      }
+    },
+    "extreme_worst_20pp": {
+      "description": "Reduce WR by 20pp",
+      "wr_adjustment": -20.0,
+      "size_multiplier": 1.0,
+      "n_sims": 10000,
+      "n_trades": 81,
+      "results": {
+        "mean_return": 12.52,
+        "median_return": 12.52,
+        "std_return": 0.0,
+        "percentiles": {
+          "p5": 12.52,
+          "p25": 12.52,
+          "p50": 12.52,
+          "p75": 12.52,
+          "p95": 12.52
+        },
+        "max_dd": {
+          "mean": -8.62,
+          "worst": -23.23,
+          "std": 2.39
+        },
+        "prob_profit": 1.0,
+        "prob_dd_exceeds_10": 0.2481,
+        "prob_dd_exceeds_15": 0.0159,
+        "prob_blowing_up": 0.0,
+        "sharpe": {
+          "mean": 17.86,
+          "median": 17.86,
+          "worst": 16.96,
+          "std": 0.54
+        },
+        "final_equity": {
+          "mean": 1125.19,
+          "median": 1125.19,
+          "std": 0.0
+        }
+      }
+    },
+    "high_volatility": {
+      "description": "Increase trade sizes 50%",
+      "wr_adjustment": 0.0,
+      "size_multiplier": 1.5,
+      "n_sims": 10000,
+      "n_trades": 81,
+      "results": {
+        "mean_return": 113.04,
+        "median_return": 113.04,
+        "std_return": 0.0,
+        "percentiles": {
+          "p5": 113.04,
+          "p25": 113.04,
+          "p50": 113.04,
+          "p75": 113.04,
+          "p95": 113.04
+        },
+        "max_dd": {
+          "mean": -7.3,
+          "worst": -24.27,
+          "std": 2.4
+        },
+        "prob_profit": 1.0,
+        "prob_dd_exceeds_10": 0.1255,
+        "prob_dd_exceeds_15": 0.0118,
+        "prob_blowing_up": 0.0,
+        "sharpe": {
+          "mean": 69.32,
+          "median": 69.4,
+          "worst": 63.47,
+          "std": 3.47
+        },
+        "final_equity": {
+          "mean": 2130.4,
+          "median": 2130.4,
+          "std": 0.0
+        }
+      }
+    },
+    "low_volatility": {
+      "description": "Reduce trade sizes 50%",
+      "wr_adjustment": 0.0,
+      "size_multiplier": 0.5,
+      "n_sims": 10000,
+      "n_trades": 81,
+      "results": {
+        "mean_return": 12.56,
+        "median_return": 12.56,
+        "std_return": 0.0,
+        "percentiles": {
+          "p5": 12.56,
+          "p25": 12.56,
+          "p50": 12.56,
+          "p75": 12.56,
+          "p95": 12.56
+        },
+        "max_dd": {
+          "mean": -1.11,
+          "worst": -3.14,
+          "std": 0.31
+        },
+        "prob_profit": 1.0,
+        "prob_dd_exceeds_10": 0.0,
+        "prob_dd_exceeds_15": 0.0,
+        "prob_blowing_up": 0.0,
+        "sharpe": {
+          "mean": 70.35,
+          "median": 70.35,
+          "worst": 69.41,
+          "std": 0.57
+        },
+        "final_equity": {
+          "mean": 1125.6,
+          "median": 1125.6,
+          "std": 0.0
+        }
+      }
+    }
+  },
+  "criteria": {
+    "prob_profit_above_85": {
+      "base": {
+        "value": 1.0,
+        "threshold": 0.85,
+        "pass": true
+      },
+      "worst_case_10pp": {
+        "value": 1.0,
+        "threshold": 0.85,
+        "pass": true
+      },
+      "extreme_worst_20pp": {
+        "value": 1.0,
+        "threshold": 0.85,
+        "pass": true
+      },
+      "high_volatility": {
+        "value": 1.0,
+        "threshold": 0.85,
+        "pass": true
+      },
+      "low_volatility": {
+        "value": 1.0,
+        "threshold": 0.85,
+        "pass": true
+      }
+    },
+    "prob_dd_10_below_15": {
+      "base": {
+        "value": 0.0004,
+        "threshold": 0.15,
+        "pass": true
+      },
+      "worst_case_10pp": {
+        "value": 0.0136,
+        "threshold": 0.15,
+        "pass": true
+      },
+      "extreme_worst_20pp": {
+        "value": 0.2481,
+        "threshold": 0.15,
+        "pass": false
+      },
+      "high_volatility": {
+        "value": 0.1255,
+        "threshold": 0.15,
+        "pass": true
+      },
+      "low_volatility": {
+        "value": 0.0,
+        "threshold": 0.15,
+        "pass": true
+      }
+    },
+    "prob_blowup_below_5": {
+      "base": {
+        "value": 0.0,
+        "threshold": 0.05,
+        "pass": true
+      },
+      "worst_case_10pp": {
+        "value": 0.0,
+        "threshold": 0.05,
+        "pass": true
+      },
+      "extreme_worst_20pp": {
+        "value": 0.0,
+        "threshold": 0.05,
+        "pass": true
+      },
+      "high_volatility": {
+        "value": 0.0,
+        "threshold": 0.05,
+        "pass": true
+      },
+      "low_volatility": {
+        "value": 0.0,
+        "threshold": 0.05,
+        "pass": true
+      }
+    },
+    "sharpe_above_1_5": {
+      "base": {
+        "value": 70.25,
+        "threshold": 1.5,
+        "pass": true
+      },
+      "worst_case_10pp": {
+        "value": 43.27,
+        "threshold": 1.5,
+        "pass": true
+      },
+      "extreme_worst_20pp": {
+        "value": 17.86,
+        "threshold": 1.5,
+        "pass": true
+      },
+      "high_volatility": {
+        "value": 69.32,
+        "threshold": 1.5,
+        "pass": true
+      },
+      "low_volatility": {
+        "value": 70.35,
+        "threshold": 1.5,
+        "pass": true
+      }
+    }
+  },
+  "overall_pass": false
+}

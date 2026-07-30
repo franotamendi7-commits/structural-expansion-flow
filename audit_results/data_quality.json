@@ -1,0 +1,33 @@
+{
+  "timestamp": "2026-07-29T21:05:25.363057+00:00",
+  "timeframes": {
+    "15m": {
+      "bars": 17280,
+      "start": "2026-01-30 18:00:00+00:00",
+      "end": "2026-07-29 17:45:00+00:00",
+      "gaps_count": 0,
+      "gaps_total_minutes": 0,
+      "has_nulls": "False",
+      "price_range": {
+        "min": 58169.81,
+        "max": 84311.99
+      }
+    },
+    "4h": {
+      "bars": 1080,
+      "gaps_count": 0,
+      "has_nulls": "False"
+    }
+  },
+  "look_ahead_bias": {
+    "uses_only_closed_bars": true,
+    "no_future_data_in_indicators": true,
+    "no_forward_looking_signals": true,
+    "note": "Backtest engine designed to prevent look-ahead bias"
+  },
+  "data_clean": true,
+  "criterion": {
+    "target": "Clean data, no look-ahead bias",
+    "pass": true
+  }
+}

@@ -1,0 +1,864 @@
+[
+  {
+    "type": "param_adjustment",
+    "wr": 64.0,
+    "pf": 1.53,
+    "changes": [
+      "CI threshold: 74.0 \u2192 71.0",
+      "Min score: 50 \u2192 60"
+    ],
+    "params": {
+      "ci_neutral_threshold": 71.0,
+      "ci_trend_threshold": 38.2,
+      "min_score": 60,
+      "supertrend_multiplier": 2.8,
+      "tp_ratio": 1.5,
+      "fibonacci_days": 30,
+      "atr_trail_mult": 2.0,
+      "breakeven_activate_mult": 1.0,
+      "partial_exit_pct": 0.5,
+      "time_exit_bars": 24
+    },
+    "timestamp": "2026-07-29T19:10:08.746665+00:00"
+  },
+  {
+    "type": "param_adjustment",
+    "wr": 70.0,
+    "pf": 2.4,
+    "changes": [
+      "CI threshold: 74.0 \u2192 71.0",
+      "Min score: 50 \u2192 60"
+    ],
+    "params": {
+      "ci_neutral_threshold": 71.0,
+      "ci_trend_threshold": 38.2,
+      "min_score": 60,
+      "supertrend_multiplier": 2.8,
+      "tp_ratio": 1.5,
+      "fibonacci_days": 30,
+      "atr_trail_mult": 2.0,
+      "breakeven_activate_mult": 1.0,
+      "partial_exit_pct": 0.5,
+      "time_exit_bars": 24
+    },
+    "timestamp": "2026-07-29T20:27:23.773771+00:00"
+  },
+  {
+    "type": "param_adjustment",
+    "wr": 66.0,
+    "pf": 1.91,
+    "changes": [
+      "CI threshold: 74.0 \u2192 71.0",
+      "Min score: 50 \u2192 60"
+    ],
+    "params": {
+      "ci_neutral_threshold": 71.0,
+      "ci_trend_threshold": 38.2,
+      "min_score": 60,
+      "supertrend_multiplier": 2.8,
+      "tp_ratio": 1.5,
+      "fibonacci_days": 30,
+      "atr_trail_mult": 2.0,
+      "breakeven_activate_mult": 1.0,
+      "partial_exit_pct": 0.5,
+      "time_exit_bars": 24
+    },
+    "timestamp": "2026-07-29T20:27:28.082814+00:00"
+  },
+  {
+    "type": "param_adjustment",
+    "wr": 76.0,
+    "pf": 3.54,
+    "changes": [
+      "CI threshold: 74.0 \u2192 71.0",
+      "Min score: 50 \u2192 60"
+    ],
+    "params": {
+      "ci_neutral_threshold": 71.0,
+      "ci_trend_threshold": 38.2,
+      "min_score": 60,
+      "supertrend_multiplier": 2.8,
+      "tp_ratio": 1.5,
+      "fibonacci_days": 30,
+      "atr_trail_mult": 2.0,
+      "breakeven_activate_mult": 1.0,
+      "partial_exit_pct": 0.5,
+      "time_exit_bars": 24
+    },
+    "timestamp": "2026-07-29T20:27:32.345814+00:00"
+  },
+  {
+    "type": "param_adjustment",
+    "wr": 72.0,
+    "pf": 2.17,
+    "changes": [
+      "CI threshold: 74.0 \u2192 71.0",
+      "Min score: 50 \u2192 60"
+    ],
+    "params": {
+      "ci_neutral_threshold": 71.0,
+      "ci_trend_threshold": 38.2,
+      "min_score": 60,
+      "supertrend_multiplier": 2.8,
+      "tp_ratio": 1.5,
+      "fibonacci_days": 30,
+      "atr_trail_mult": 2.0,
+      "breakeven_activate_mult": 1.0,
+      "partial_exit_pct": 0.5,
+      "time_exit_bars": 24
+    },
+    "timestamp": "2026-07-29T20:27:37.324890+00:00"
+  },
+  {
+    "type": "param_adjustment",
+    "wr": 68.0,
+    "pf": 1.76,
+    "changes": [
+      "CI threshold: 74.0 \u2192 71.0",
+      "Min score: 50 \u2192 60"
+    ],
+    "params": {
+      "ci_neutral_threshold": 71.0,
+      "ci_trend_threshold": 38.2,
+      "min_score": 60,
+      "supertrend_multiplier": 2.8,
+      "tp_ratio": 1.5,
+      "fibonacci_days": 30,
+      "atr_trail_mult": 2.0,
+      "breakeven_activate_mult": 1.0,
+      "partial_exit_pct": 0.5,
+      "time_exit_bars": 24
+    },
+    "timestamp": "2026-07-29T20:27:41.738669+00:00"
+  },
+  {
+    "type": "param_adjustment",
+    "wr": 72.0,
+    "pf": 3.17,
+    "changes": [
+      "CI threshold: 74.0 \u2192 71.0",
+      "Min score: 50 \u2192 60"
+    ],
+    "params": {
+      "ci_neutral_threshold": 71.0,
+      "ci_trend_threshold": 38.2,
+      "min_score": 60,
+      "supertrend_multiplier": 2.8,
+      "tp_ratio": 1.5,
+      "fibonacci_days": 30,
+      "atr_trail_mult": 2.0,
+      "breakeven_activate_mult": 1.0,
+      "partial_exit_pct": 0.5,
+      "time_exit_bars": 24
+    },
+    "timestamp": "2026-07-29T20:27:47.134584+00:00"
+  },
+  {
+    "type": "param_adjustment",
+    "wr": 64.0,
+    "pf": 1.53,
+    "changes": [
+      "CI threshold: 74.0 \u2192 71.0",
+      "Min score: 50 \u2192 60"
+    ],
+    "params": {
+      "ci_neutral_threshold": 71.0,
+      "ci_trend_threshold": 38.2,
+      "min_score": 60,
+      "supertrend_multiplier": 2.8,
+      "tp_ratio": 1.5,
+      "fibonacci_days": 30,
+      "atr_trail_mult": 2.0,
+      "breakeven_activate_mult": 1.0,
+      "partial_exit_pct": 0.5,
+      "time_exit_bars": 24,
+      "choppiness_neutral_threshold": 74.0
+    },
+    "timestamp": "2026-07-29T20:33:01.954536+00:00"
+  },
+  {
+    "type": "param_adjustment",
+    "wr": 64.0,
+    "pf": 2.28,
+    "changes": [
+      "CI threshold: 74.0 \u2192 71.0",
+      "Min score: 50 \u2192 60"
+    ],
+    "params": {
+      "ci_neutral_threshold": 71.0,
+      "ci_trend_threshold": 38.2,
+      "min_score": 60,
+      "supertrend_multiplier": 2.3,
+      "tp_ratio": 2.0,
+      "fibonacci_days": 90,
+      "atr_trail_mult": 2.0,
+      "breakeven_activate_mult": 1.0,
+      "partial_exit_pct": 0.5,
+      "time_exit_bars": 24,
+      "choppiness_neutral_threshold": 70.0
+    },
+    "timestamp": "2026-07-29T20:33:08.933838+00:00"
+  },
+  {
+    "type": "param_adjustment",
+    "wr": 72.0,
+    "pf": 3.34,
+    "changes": [
+      "CI threshold: 74.0 \u2192 71.0",
+      "Min score: 50 \u2192 60"
+    ],
+    "params": {
+      "ci_neutral_threshold": 71.0,
+      "ci_trend_threshold": 38.2,
+      "min_score": 60,
+      "supertrend_multiplier": 2.3,
+      "tp_ratio": 1.8,
+      "fibonacci_days": 60,
+      "atr_trail_mult": 2.0,
+      "breakeven_activate_mult": 1.0,
+      "partial_exit_pct": 0.5,
+      "time_exit_bars": 24,
+      "choppiness_neutral_threshold": 68.0
+    },
+    "timestamp": "2026-07-29T20:33:11.147644+00:00"
+  },
+  {
+    "type": "param_adjustment",
+    "wr": 62.0,
+    "pf": 2.27,
+    "changes": [
+      "CI threshold: 74.0 \u2192 71.0",
+      "Min score: 50 \u2192 60"
+    ],
+    "params": {
+      "ci_neutral_threshold": 71.0,
+      "ci_trend_threshold": 38.2,
+      "min_score": 60,
+      "supertrend_multiplier": 2.8,
+      "tp_ratio": 1.6,
+      "fibonacci_days": 30,
+      "atr_trail_mult": 2.0,
+      "breakeven_activate_mult": 1.0,
+      "partial_exit_pct": 0.5,
+      "time_exit_bars": 24,
+      "choppiness_neutral_threshold": 68.0
+    },
+    "timestamp": "2026-07-29T20:33:14.723673+00:00"
+  },
+  {
+    "type": "param_adjustment",
+    "wr": 64.0,
+    "pf": 1.53,
+    "changes": [
+      "CI threshold: 74.0 \u2192 71.0",
+      "Min score: 50 \u2192 60"
+    ],
+    "params": {
+      "ci_neutral_threshold": 71.0,
+      "ci_trend_threshold": 38.2,
+      "min_score": 60,
+      "supertrend_multiplier": 2.8,
+      "tp_ratio": 1.5,
+      "fibonacci_days": 30,
+      "atr_trail_mult": 2.0,
+      "breakeven_activate_mult": 1.0,
+      "partial_exit_pct": 0.5,
+      "time_exit_bars": 24,
+      "choppiness_neutral_threshold": 74.0
+    },
+    "timestamp": "2026-07-29T20:33:23.250756+00:00"
+  },
+  {
+    "type": "param_adjustment",
+    "wr": 64.0,
+    "pf": 1.53,
+    "changes": [
+      "CI threshold: 74.0 \u2192 71.0",
+      "Min score: 50 \u2192 60"
+    ],
+    "params": {
+      "ci_neutral_threshold": 71.0,
+      "ci_trend_threshold": 38.2,
+      "min_score": 60,
+      "supertrend_multiplier": 2.24,
+      "tp_ratio": 1.5,
+      "fibonacci_days": 30,
+      "atr_trail_mult": 2.0,
+      "breakeven_activate_mult": 1.0,
+      "partial_exit_pct": 0.5,
+      "time_exit_bars": 24,
+      "choppiness_neutral_threshold": 74.0
+    },
+    "timestamp": "2026-07-29T20:33:26.345086+00:00"
+  },
+  {
+    "type": "param_adjustment",
+    "wr": 64.0,
+    "pf": 1.53,
+    "changes": [
+      "CI threshold: 74.0 \u2192 71.0",
+      "Min score: 50 \u2192 60"
+    ],
+    "params": {
+      "ci_neutral_threshold": 71.0,
+      "ci_trend_threshold": 38.2,
+      "min_score": 60,
+      "supertrend_multiplier": 2.52,
+      "tp_ratio": 1.5,
+      "fibonacci_days": 30,
+      "atr_trail_mult": 2.0,
+      "breakeven_activate_mult": 1.0,
+      "partial_exit_pct": 0.5,
+      "time_exit_bars": 24,
+      "choppiness_neutral_threshold": 74.0
+    },
+    "timestamp": "2026-07-29T20:33:29.420110+00:00"
+  },
+  {
+    "type": "param_adjustment",
+    "wr": 64.0,
+    "pf": 1.53,
+    "changes": [
+      "CI threshold: 74.0 \u2192 71.0",
+      "Min score: 50 \u2192 60"
+    ],
+    "params": {
+      "ci_neutral_threshold": 71.0,
+      "ci_trend_threshold": 38.2,
+      "min_score": 60,
+      "supertrend_multiplier": 2.8,
+      "tp_ratio": 1.5,
+      "fibonacci_days": 30,
+      "atr_trail_mult": 2.0,
+      "breakeven_activate_mult": 1.0,
+      "partial_exit_pct": 0.5,
+      "time_exit_bars": 24,
+      "choppiness_neutral_threshold": 74.0
+    },
+    "timestamp": "2026-07-29T20:33:32.476416+00:00"
+  },
+  {
+    "type": "param_adjustment",
+    "wr": 64.0,
+    "pf": 1.53,
+    "changes": [
+      "CI threshold: 74.0 \u2192 71.0",
+      "Min score: 50 \u2192 60"
+    ],
+    "params": {
+      "ci_neutral_threshold": 71.0,
+      "ci_trend_threshold": 38.2,
+      "min_score": 60,
+      "supertrend_multiplier": 3.08,
+      "tp_ratio": 1.5,
+      "fibonacci_days": 30,
+      "atr_trail_mult": 2.0,
+      "breakeven_activate_mult": 1.0,
+      "partial_exit_pct": 0.5,
+      "time_exit_bars": 24,
+      "choppiness_neutral_threshold": 74.0
+    },
+    "timestamp": "2026-07-29T20:33:35.580461+00:00"
+  },
+  {
+    "type": "param_adjustment",
+    "wr": 60.0,
+    "pf": 1.37,
+    "changes": [
+      "CI threshold: 74.0 \u2192 71.0",
+      "Min score: 50 \u2192 60"
+    ],
+    "params": {
+      "ci_neutral_threshold": 71.0,
+      "ci_trend_threshold": 38.2,
+      "min_score": 60,
+      "supertrend_multiplier": 2.8,
+      "tp_ratio": 1.5,
+      "fibonacci_days": 30,
+      "atr_trail_mult": 2.0,
+      "breakeven_activate_mult": 1.0,
+      "partial_exit_pct": 0.5,
+      "time_exit_bars": 24,
+      "choppiness_neutral_threshold": 59.2
+    },
+    "timestamp": "2026-07-29T20:33:38.738786+00:00"
+  },
+  {
+    "type": "param_adjustment",
+    "wr": 64.0,
+    "pf": 1.53,
+    "changes": [
+      "CI threshold: 74.0 \u2192 71.0",
+      "Min score: 50 \u2192 60"
+    ],
+    "params": {
+      "ci_neutral_threshold": 71.0,
+      "ci_trend_threshold": 38.2,
+      "min_score": 60,
+      "supertrend_multiplier": 2.8,
+      "tp_ratio": 1.5,
+      "fibonacci_days": 30,
+      "atr_trail_mult": 2.0,
+      "breakeven_activate_mult": 1.0,
+      "partial_exit_pct": 0.5,
+      "time_exit_bars": 24,
+      "choppiness_neutral_threshold": 66.6
+    },
+    "timestamp": "2026-07-29T20:33:41.723026+00:00"
+  },
+  {
+    "type": "param_adjustment",
+    "wr": 64.0,
+    "pf": 1.53,
+    "changes": [
+      "CI threshold: 74.0 \u2192 71.0",
+      "Min score: 50 \u2192 60"
+    ],
+    "params": {
+      "ci_neutral_threshold": 71.0,
+      "ci_trend_threshold": 38.2,
+      "min_score": 60,
+      "supertrend_multiplier": 2.8,
+      "tp_ratio": 1.5,
+      "fibonacci_days": 30,
+      "atr_trail_mult": 2.0,
+      "breakeven_activate_mult": 1.0,
+      "partial_exit_pct": 0.5,
+      "time_exit_bars": 24,
+      "choppiness_neutral_threshold": 74.0
+    },
+    "timestamp": "2026-07-29T20:33:44.780553+00:00"
+  },
+  {
+    "type": "param_adjustment",
+    "wr": 64.0,
+    "pf": 1.53,
+    "changes": [
+      "CI threshold: 74.0 \u2192 71.0",
+      "Min score: 50 \u2192 60"
+    ],
+    "params": {
+      "ci_neutral_threshold": 71.0,
+      "ci_trend_threshold": 38.2,
+      "min_score": 60,
+      "supertrend_multiplier": 2.8,
+      "tp_ratio": 1.5,
+      "fibonacci_days": 30,
+      "atr_trail_mult": 2.0,
+      "breakeven_activate_mult": 1.0,
+      "partial_exit_pct": 0.5,
+      "time_exit_bars": 24,
+      "choppiness_neutral_threshold": 81.4
+    },
+    "timestamp": "2026-07-29T20:33:47.846895+00:00"
+  },
+  {
+    "type": "param_adjustment",
+    "wr": 72.0,
+    "pf": 2.07,
+    "changes": [
+      "CI threshold: 74.0 \u2192 71.0",
+      "Min score: 50 \u2192 60"
+    ],
+    "params": {
+      "ci_neutral_threshold": 71.0,
+      "ci_trend_threshold": 38.2,
+      "min_score": 60,
+      "supertrend_multiplier": 2.8,
+      "tp_ratio": 1.2,
+      "fibonacci_days": 30,
+      "atr_trail_mult": 2.0,
+      "breakeven_activate_mult": 1.0,
+      "partial_exit_pct": 0.5,
+      "time_exit_bars": 24,
+      "choppiness_neutral_threshold": 74.0
+    },
+    "timestamp": "2026-07-29T20:33:50.470717+00:00"
+  },
+  {
+    "type": "param_adjustment",
+    "wr": 62.0,
+    "pf": 1.56,
+    "changes": [
+      "CI threshold: 74.0 \u2192 71.0",
+      "Min score: 50 \u2192 60"
+    ],
+    "params": {
+      "ci_neutral_threshold": 71.0,
+      "ci_trend_threshold": 38.2,
+      "min_score": 60,
+      "supertrend_multiplier": 2.8,
+      "tp_ratio": 1.35,
+      "fibonacci_days": 30,
+      "atr_trail_mult": 2.0,
+      "breakeven_activate_mult": 1.0,
+      "partial_exit_pct": 0.5,
+      "time_exit_bars": 24,
+      "choppiness_neutral_threshold": 74.0
+    },
+    "timestamp": "2026-07-29T20:33:54.576559+00:00"
+  },
+  {
+    "type": "param_adjustment",
+    "wr": 64.0,
+    "pf": 1.53,
+    "changes": [
+      "CI threshold: 74.0 \u2192 71.0",
+      "Min score: 50 \u2192 60"
+    ],
+    "params": {
+      "ci_neutral_threshold": 71.0,
+      "ci_trend_threshold": 38.2,
+      "min_score": 60,
+      "supertrend_multiplier": 2.8,
+      "tp_ratio": 1.5,
+      "fibonacci_days": 30,
+      "atr_trail_mult": 2.0,
+      "breakeven_activate_mult": 1.0,
+      "partial_exit_pct": 0.5,
+      "time_exit_bars": 24,
+      "choppiness_neutral_threshold": 74.0
+    },
+    "timestamp": "2026-07-29T20:33:57.626382+00:00"
+  },
+  {
+    "type": "param_adjustment",
+    "wr": 64.0,
+    "pf": 1.61,
+    "changes": [
+      "CI threshold: 74.0 \u2192 71.0",
+      "Min score: 50 \u2192 60"
+    ],
+    "params": {
+      "ci_neutral_threshold": 71.0,
+      "ci_trend_threshold": 38.2,
+      "min_score": 60,
+      "supertrend_multiplier": 2.8,
+      "tp_ratio": 1.65,
+      "fibonacci_days": 30,
+      "atr_trail_mult": 2.0,
+      "breakeven_activate_mult": 1.0,
+      "partial_exit_pct": 0.5,
+      "time_exit_bars": 24,
+      "choppiness_neutral_threshold": 74.0
+    },
+    "timestamp": "2026-07-29T20:34:00.741998+00:00"
+  },
+  {
+    "type": "param_adjustment",
+    "wr": 66.0,
+    "pf": 1.72,
+    "changes": [
+      "CI threshold: 74.0 \u2192 71.0",
+      "Min score: 50 \u2192 60"
+    ],
+    "params": {
+      "ci_neutral_threshold": 71.0,
+      "ci_trend_threshold": 38.2,
+      "min_score": 60,
+      "supertrend_multiplier": 2.8,
+      "tp_ratio": 1.8,
+      "fibonacci_days": 30,
+      "atr_trail_mult": 2.0,
+      "breakeven_activate_mult": 1.0,
+      "partial_exit_pct": 0.5,
+      "time_exit_bars": 24,
+      "choppiness_neutral_threshold": 74.0
+    },
+    "timestamp": "2026-07-29T20:34:03.830726+00:00"
+  },
+  {
+    "type": "param_adjustment",
+    "wr": 64.0,
+    "pf": 1.54,
+    "changes": [
+      "CI threshold: 74.0 \u2192 71.0",
+      "Min score: 50 \u2192 60"
+    ],
+    "params": {
+      "ci_neutral_threshold": 71.0,
+      "ci_trend_threshold": 38.2,
+      "min_score": 60,
+      "supertrend_multiplier": 2.8,
+      "tp_ratio": 1.5,
+      "fibonacci_days": 30,
+      "atr_trail_mult": 1.6,
+      "breakeven_activate_mult": 1.0,
+      "partial_exit_pct": 0.5,
+      "time_exit_bars": 24,
+      "choppiness_neutral_threshold": 74.0
+    },
+    "timestamp": "2026-07-29T20:34:06.901165+00:00"
+  },
+  {
+    "type": "param_adjustment",
+    "wr": 64.0,
+    "pf": 1.54,
+    "changes": [
+      "CI threshold: 74.0 \u2192 71.0",
+      "Min score: 50 \u2192 60"
+    ],
+    "params": {
+      "ci_neutral_threshold": 71.0,
+      "ci_trend_threshold": 38.2,
+      "min_score": 60,
+      "supertrend_multiplier": 2.8,
+      "tp_ratio": 1.5,
+      "fibonacci_days": 30,
+      "atr_trail_mult": 1.8,
+      "breakeven_activate_mult": 1.0,
+      "partial_exit_pct": 0.5,
+      "time_exit_bars": 24,
+      "choppiness_neutral_threshold": 74.0
+    },
+    "timestamp": "2026-07-29T20:34:09.996775+00:00"
+  },
+  {
+    "type": "param_adjustment",
+    "wr": 64.0,
+    "pf": 1.53,
+    "changes": [
+      "CI threshold: 74.0 \u2192 71.0",
+      "Min score: 50 \u2192 60"
+    ],
+    "params": {
+      "ci_neutral_threshold": 71.0,
+      "ci_trend_threshold": 38.2,
+      "min_score": 60,
+      "supertrend_multiplier": 2.8,
+      "tp_ratio": 1.5,
+      "fibonacci_days": 30,
+      "atr_trail_mult": 2.0,
+      "breakeven_activate_mult": 1.0,
+      "partial_exit_pct": 0.5,
+      "time_exit_bars": 24,
+      "choppiness_neutral_threshold": 74.0
+    },
+    "timestamp": "2026-07-29T20:34:13.105744+00:00"
+  },
+  {
+    "type": "param_adjustment",
+    "wr": 66.0,
+    "pf": 1.58,
+    "changes": [
+      "CI threshold: 74.0 \u2192 71.0",
+      "Min score: 50 \u2192 60"
+    ],
+    "params": {
+      "ci_neutral_threshold": 71.0,
+      "ci_trend_threshold": 38.2,
+      "min_score": 60,
+      "supertrend_multiplier": 2.8,
+      "tp_ratio": 1.5,
+      "fibonacci_days": 30,
+      "atr_trail_mult": 2.2,
+      "breakeven_activate_mult": 1.0,
+      "partial_exit_pct": 0.5,
+      "time_exit_bars": 24,
+      "choppiness_neutral_threshold": 74.0
+    },
+    "timestamp": "2026-07-29T20:34:16.229959+00:00"
+  },
+  {
+    "type": "param_adjustment",
+    "wr": 64.0,
+    "pf": 1.53,
+    "changes": [
+      "CI threshold: 74.0 \u2192 71.0",
+      "Min score: 40 \u2192 60"
+    ],
+    "params": {
+      "ci_neutral_threshold": 71.0,
+      "ci_trend_threshold": 38.2,
+      "min_score": 60,
+      "supertrend_multiplier": 2.8,
+      "tp_ratio": 1.5,
+      "fibonacci_days": 30,
+      "atr_trail_mult": 2.0,
+      "breakeven_activate_mult": 1.0,
+      "partial_exit_pct": 0.5,
+      "time_exit_bars": 24,
+      "choppiness_neutral_threshold": 74.0
+    },
+    "timestamp": "2026-07-29T20:34:19.285229+00:00"
+  },
+  {
+    "type": "param_adjustment",
+    "wr": 64.0,
+    "pf": 1.53,
+    "changes": [
+      "CI threshold: 74.0 \u2192 71.0",
+      "Min score: 45 \u2192 60"
+    ],
+    "params": {
+      "ci_neutral_threshold": 71.0,
+      "ci_trend_threshold": 38.2,
+      "min_score": 60,
+      "supertrend_multiplier": 2.8,
+      "tp_ratio": 1.5,
+      "fibonacci_days": 30,
+      "atr_trail_mult": 2.0,
+      "breakeven_activate_mult": 1.0,
+      "partial_exit_pct": 0.5,
+      "time_exit_bars": 24,
+      "choppiness_neutral_threshold": 74.0
+    },
+    "timestamp": "2026-07-29T20:34:22.401621+00:00"
+  },
+  {
+    "type": "param_adjustment",
+    "wr": 64.0,
+    "pf": 1.53,
+    "changes": [
+      "CI threshold: 74.0 \u2192 71.0",
+      "Min score: 50 \u2192 60"
+    ],
+    "params": {
+      "ci_neutral_threshold": 71.0,
+      "ci_trend_threshold": 38.2,
+      "min_score": 60,
+      "supertrend_multiplier": 2.8,
+      "tp_ratio": 1.5,
+      "fibonacci_days": 30,
+      "atr_trail_mult": 2.0,
+      "breakeven_activate_mult": 1.0,
+      "partial_exit_pct": 0.5,
+      "time_exit_bars": 24,
+      "choppiness_neutral_threshold": 74.0
+    },
+    "timestamp": "2026-07-29T20:34:25.519503+00:00"
+  },
+  {
+    "type": "param_adjustment",
+    "wr": 64.0,
+    "pf": 1.53,
+    "changes": [
+      "CI threshold: 74.0 \u2192 71.0",
+      "Min score: 55 \u2192 60"
+    ],
+    "params": {
+      "ci_neutral_threshold": 71.0,
+      "ci_trend_threshold": 38.2,
+      "min_score": 60,
+      "supertrend_multiplier": 2.8,
+      "tp_ratio": 1.5,
+      "fibonacci_days": 30,
+      "atr_trail_mult": 2.0,
+      "breakeven_activate_mult": 1.0,
+      "partial_exit_pct": 0.5,
+      "time_exit_bars": 24,
+      "choppiness_neutral_threshold": 74.0
+    },
+    "timestamp": "2026-07-29T20:34:28.615014+00:00"
+  },
+  {
+    "type": "param_adjustment",
+    "wr": 64.0,
+    "pf": 1.53,
+    "changes": [
+      "CI threshold: 74.0 \u2192 71.0"
+    ],
+    "params": {
+      "ci_neutral_threshold": 71.0,
+      "ci_trend_threshold": 38.2,
+      "min_score": 60,
+      "supertrend_multiplier": 2.8,
+      "tp_ratio": 1.5,
+      "fibonacci_days": 30,
+      "atr_trail_mult": 2.0,
+      "breakeven_activate_mult": 1.0,
+      "partial_exit_pct": 0.5,
+      "time_exit_bars": 24,
+      "choppiness_neutral_threshold": 74.0
+    },
+    "timestamp": "2026-07-29T20:34:31.720952+00:00"
+  },
+  {
+    "type": "param_adjustment",
+    "wr": 64.0,
+    "pf": 1.53,
+    "changes": [
+      "CI threshold: 74.0 \u2192 71.0",
+      "Min score: 50 \u2192 60"
+    ],
+    "params": {
+      "ci_neutral_threshold": 71.0,
+      "ci_trend_threshold": 38.2,
+      "min_score": 60,
+      "supertrend_multiplier": 2.8,
+      "tp_ratio": 1.5,
+      "fibonacci_days": 30,
+      "atr_trail_mult": 2.0,
+      "breakeven_activate_mult": 1.0,
+      "partial_exit_pct": 0.5,
+      "time_exit_bars": 24
+    },
+    "timestamp": "2026-07-29T20:40:36.224335+00:00"
+  },
+  {
+    "type": "param_adjustment",
+    "wr": 64.0,
+    "pf": 1.53,
+    "changes": [
+      "CI threshold: 74.0 \u2192 71.0",
+      "Min score: 50 \u2192 60"
+    ],
+    "params": {
+      "ci_neutral_threshold": 71.0,
+      "ci_trend_threshold": 38.2,
+      "min_score": 60,
+      "supertrend_multiplier": 2.8,
+      "tp_ratio": 1.5,
+      "fibonacci_days": 30,
+      "atr_trail_mult": 2.0,
+      "breakeven_activate_mult": 1.0,
+      "partial_exit_pct": 0.5,
+      "time_exit_bars": 24
+    },
+    "timestamp": "2026-07-29T20:41:34.047574+00:00"
+  },
+  {
+    "type": "param_adjustment",
+    "wr": 68.0,
+    "pf": 2.52,
+    "changes": [
+      "CI threshold: 74.0 \u2192 71.0",
+      "Min score: 50 \u2192 60"
+    ],
+    "params": {
+      "ci_neutral_threshold": 71.0,
+      "ci_trend_threshold": 38.2,
+      "min_score": 60,
+      "supertrend_multiplier": 2.8,
+      "tp_ratio": 1.5,
+      "fibonacci_days": 30,
+      "atr_trail_mult": 2.0,
+      "breakeven_activate_mult": 1.0,
+      "partial_exit_pct": 0.5,
+      "time_exit_bars": 24
+    },
+    "timestamp": "2026-07-29T21:05:05.654682+00:00"
+  },
+  {
+    "type": "param_adjustment",
+    "wr": 68.0,
+    "pf": 2.52,
+    "changes": [
+      "CI threshold: 74.0 \u2192 71.0",
+      "Min score: 50 \u2192 60"
+    ],
+    "params": {
+      "ci_neutral_threshold": 71.0,
+      "ci_trend_threshold": 38.2,
+      "min_score": 60,
+      "supertrend_multiplier": 2.8,
+      "tp_ratio": 1.5,
+      "fibonacci_days": 30,
+      "atr_trail_mult": 2.0,
+      "breakeven_activate_mult": 1.0,
+      "partial_exit_pct": 0.5,
+      "time_exit_bars": 24
+    },
+    "timestamp": "2026-07-29T21:07:00.455770+00:00"
+  }
+]
