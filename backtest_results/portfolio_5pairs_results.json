@@ -1,0 +1,1003 @@
+{
+  "timestamp": "2026-07-30T18:45:53.323294+00:00",
+  "period": "2026-01-01 to 2026-07-30",
+  "portfolio": {
+    "initial_capital": 4450.0,
+    "capital_per_pair": 890.0,
+    "final_equity": 7460.98,
+    "total_return": 3010.98,
+    "total_return_pct": 67.66,
+    "max_dd_pct": -1.51,
+    "sharpe": 2.75,
+    "sortino": 0.4,
+    "profit_factor": 2.79,
+    "win_rate": 66.0,
+    "total_trades": 447,
+    "calmar": 44.77
+  },
+  "per_pair": {
+    "BTCUSDT": {
+      "total_return": 2283.67,
+      "total_return_pct": 256.59,
+      "win_rate": 65.9,
+      "profit_factor": 2.85,
+      "sharpe": 2.88,
+      "sortino": 0.32,
+      "max_dd_pct": -4.34,
+      "calmar": 59.11,
+      "avg_trade": 7.4874,
+      "avg_win": 17.4893,
+      "avg_loss": -11.8431,
+      "avg_bars_held": 19.2,
+      "wins": 201,
+      "losses": 104,
+      "exit_reasons": {
+        "time_exit": 182,
+        "stop_loss": 64,
+        "take_profit_2": 50,
+        "trailing_stop": 9
+      },
+      "final_equity": 3173.67
+    },
+    "ETHUSDT": {
+      "total_return": 108.08,
+      "total_return_pct": 12.14,
+      "win_rate": 51.1,
+      "profit_factor": 1.54,
+      "sharpe": 1.36,
+      "sortino": 0.19,
+      "max_dd_pct": -6.17,
+      "calmar": 1.97,
+      "avg_trade": 2.4018,
+      "avg_win": 13.3802,
+      "avg_loss": -9.0756,
+      "avg_bars_held": 14.6,
+      "wins": 23,
+      "losses": 22,
+      "exit_reasons": {
+        "take_profit_2": 9,
+        "time_exit": 17,
+        "stop_loss": 19
+      },
+      "final_equity": 998.08
+    },
+    "SOLUSDT": {
+      "total_return": 182.25,
+      "total_return_pct": 20.48,
+      "win_rate": 65.4,
+      "profit_factor": 3.3,
+      "sharpe": 2.58,
+      "sortino": 0.33,
+      "max_dd_pct": -2.57,
+      "calmar": 7.96,
+      "avg_trade": 7.0097,
+      "avg_win": 15.3805,
+      "avg_loss": -8.8018,
+      "avg_bars_held": 17.3,
+      "wins": 17,
+      "losses": 9,
+      "exit_reasons": {
+        "take_profit_2": 5,
+        "trailing_stop": 3,
+        "stop_loss": 6,
+        "time_exit": 12
+      },
+      "final_equity": 1072.25
+    },
+    "XRPUSDT": {
+      "total_return": 196.37,
+      "total_return_pct": 22.06,
+      "win_rate": 77.4,
+      "profit_factor": 4.06,
+      "sharpe": 3.44,
+      "sortino": 0.47,
+      "max_dd_pct": -1.3,
+      "calmar": 16.96,
+      "avg_trade": 6.3347,
+      "avg_win": 10.8578,
+      "avg_loss": -9.1732,
+      "avg_bars_held": 20.9,
+      "wins": 24,
+      "losses": 7,
+      "exit_reasons": {
+        "take_profit_2": 2,
+        "time_exit": 22,
+        "stop_loss": 5,
+        "trailing_stop": 2
+      },
+      "final_equity": 1086.37
+    },
+    "BNBUSDT": {
+      "total_return": 240.61,
+      "total_return_pct": 27.03,
+      "win_rate": 75.0,
+      "profit_factor": 3.27,
+      "sharpe": 3.47,
+      "sortino": 0.7,
+      "max_dd_pct": -2.82,
+      "calmar": 9.58,
+      "avg_trade": 6.0153,
+      "avg_win": 11.5488,
+      "avg_loss": -10.5853,
+      "avg_bars_held": 17.9,
+      "wins": 30,
+      "losses": 10,
+      "exit_reasons": {
+        "time_exit": 19,
+        "take_profit_2": 8,
+        "stop_loss": 12,
+        "trailing_stop": 1
+      },
+      "final_equity": 1130.61
+    }
+  },
+  "contributions": {
+    "BTCUSDT": {
+      "return_usd": 2283.67,
+      "return_pct": 256.59,
+      "pct_of_total": 75.8,
+      "trades": 305,
+      "sharpe": 2.88,
+      "max_dd": -4.34,
+      "final_equity": 3173.67
+    },
+    "ETHUSDT": {
+      "return_usd": 108.08,
+      "return_pct": 12.14,
+      "pct_of_total": 3.6,
+      "trades": 45,
+      "sharpe": 1.36,
+      "max_dd": -6.17,
+      "final_equity": 998.08
+    },
+    "SOLUSDT": {
+      "return_usd": 182.25,
+      "return_pct": 20.48,
+      "pct_of_total": 6.1,
+      "trades": 26,
+      "sharpe": 2.58,
+      "max_dd": -2.57,
+      "final_equity": 1072.25
+    },
+    "XRPUSDT": {
+      "return_usd": 196.37,
+      "return_pct": 22.06,
+      "pct_of_total": 6.5,
+      "trades": 31,
+      "sharpe": 3.44,
+      "max_dd": -1.3,
+      "final_equity": 1086.37
+    },
+    "BNBUSDT": {
+      "return_usd": 240.61,
+      "return_pct": 27.03,
+      "pct_of_total": 8.0,
+      "trades": 40,
+      "sharpe": 3.47,
+      "max_dd": -2.82,
+      "final_equity": 1130.61
+    }
+  },
+  "correlation_matrix": {
+    "BTCUSDT": {
+      "BTCUSDT": 1.0,
+      "ETHUSDT": -0.001,
+      "SOLUSDT": -0.008,
+      "XRPUSDT": -0.036,
+      "BNBUSDT": 0.026
+    },
+    "ETHUSDT": {
+      "BTCUSDT": -0.001,
+      "ETHUSDT": 1.0,
+      "SOLUSDT": 0.101,
+      "XRPUSDT": -0.034,
+      "BNBUSDT": -0.041
+    },
+    "SOLUSDT": {
+      "BTCUSDT": -0.008,
+      "ETHUSDT": 0.101,
+      "SOLUSDT": 1.0,
+      "XRPUSDT": 0.005,
+      "BNBUSDT": -0.004
+    },
+    "XRPUSDT": {
+      "BTCUSDT": -0.036,
+      "ETHUSDT": -0.034,
+      "SOLUSDT": 0.005,
+      "XRPUSDT": 1.0,
+      "BNBUSDT": 0.083
+    },
+    "BNBUSDT": {
+      "BTCUSDT": 0.026,
+      "ETHUSDT": -0.041,
+      "SOLUSDT": -0.004,
+      "XRPUSDT": 0.083,
+      "BNBUSDT": 1.0
+    }
+  },
+  "max_simultaneous_dd": 4,
+  "monthly_breakdown": {
+    "2023-01": {
+      "BTCUSDT": {
+        "pnl": 26.04857362588091,
+        "trades": 10,
+        "wins": 6
+      },
+      "TOTAL": {
+        "pnl": 26.05,
+        "trades": 10,
+        "win_rate": 60.0
+      }
+    },
+    "2023-02": {
+      "BTCUSDT": {
+        "pnl": -18.59465530335011,
+        "trades": 6,
+        "wins": 2
+      },
+      "TOTAL": {
+        "pnl": -18.59,
+        "trades": 6,
+        "win_rate": 33.3
+      }
+    },
+    "2023-03": {
+      "BTCUSDT": {
+        "pnl": 24.030798898554448,
+        "trades": 13,
+        "wins": 7
+      },
+      "TOTAL": {
+        "pnl": 24.03,
+        "trades": 13,
+        "win_rate": 53.8
+      }
+    },
+    "2023-04": {
+      "BTCUSDT": {
+        "pnl": 21.880866028884412,
+        "trades": 10,
+        "wins": 6
+      },
+      "TOTAL": {
+        "pnl": 21.88,
+        "trades": 10,
+        "win_rate": 60.0
+      }
+    },
+    "2023-05": {
+      "BTCUSDT": {
+        "pnl": 10.763702892191706,
+        "trades": 6,
+        "wins": 4
+      },
+      "TOTAL": {
+        "pnl": 10.76,
+        "trades": 6,
+        "win_rate": 66.7
+      }
+    },
+    "2023-06": {
+      "BTCUSDT": {
+        "pnl": -11.945766063496901,
+        "trades": 9,
+        "wins": 4
+      },
+      "TOTAL": {
+        "pnl": -11.95,
+        "trades": 9,
+        "win_rate": 44.4
+      }
+    },
+    "2023-07": {
+      "BTCUSDT": {
+        "pnl": 22.569917270883206,
+        "trades": 8,
+        "wins": 5
+      },
+      "TOTAL": {
+        "pnl": 22.57,
+        "trades": 8,
+        "win_rate": 62.5
+      }
+    },
+    "2023-08": {
+      "BTCUSDT": {
+        "pnl": 5.499590249739137,
+        "trades": 14,
+        "wins": 7
+      },
+      "TOTAL": {
+        "pnl": 5.5,
+        "trades": 14,
+        "win_rate": 50.0
+      }
+    },
+    "2023-09": {
+      "BTCUSDT": {
+        "pnl": -13.429759992022017,
+        "trades": 7,
+        "wins": 3
+      },
+      "TOTAL": {
+        "pnl": -13.43,
+        "trades": 7,
+        "win_rate": 42.9
+      }
+    },
+    "2023-10": {
+      "BTCUSDT": {
+        "pnl": 33.09153203594845,
+        "trades": 6,
+        "wins": 4
+      },
+      "TOTAL": {
+        "pnl": 33.09,
+        "trades": 6,
+        "win_rate": 66.7
+      }
+    },
+    "2023-11": {
+      "BTCUSDT": {
+        "pnl": 20.313153692292616,
+        "trades": 6,
+        "wins": 4
+      },
+      "TOTAL": {
+        "pnl": 20.31,
+        "trades": 6,
+        "win_rate": 66.7
+      }
+    },
+    "2023-12": {
+      "BTCUSDT": {
+        "pnl": 41.00622633273281,
+        "trades": 4,
+        "wins": 3
+      },
+      "TOTAL": {
+        "pnl": 41.01,
+        "trades": 4,
+        "win_rate": 75.0
+      }
+    },
+    "2024-01": {
+      "BTCUSDT": {
+        "pnl": 40.71972549556717,
+        "trades": 6,
+        "wins": 5
+      },
+      "TOTAL": {
+        "pnl": 40.72,
+        "trades": 6,
+        "win_rate": 83.3
+      }
+    },
+    "2024-02": {
+      "BTCUSDT": {
+        "pnl": 37.38125281488493,
+        "trades": 8,
+        "wins": 5
+      },
+      "TOTAL": {
+        "pnl": 37.38,
+        "trades": 8,
+        "win_rate": 62.5
+      }
+    },
+    "2024-03": {
+      "BTCUSDT": {
+        "pnl": 56.34313481881294,
+        "trades": 8,
+        "wins": 6
+      },
+      "TOTAL": {
+        "pnl": 56.34,
+        "trades": 8,
+        "win_rate": 75.0
+      }
+    },
+    "2024-04": {
+      "BTCUSDT": {
+        "pnl": 75.94215928506955,
+        "trades": 5,
+        "wins": 4
+      },
+      "TOTAL": {
+        "pnl": 75.94,
+        "trades": 5,
+        "win_rate": 80.0
+      }
+    },
+    "2024-05": {
+      "BTCUSDT": {
+        "pnl": -16.58628722345142,
+        "trades": 4,
+        "wins": 2
+      },
+      "TOTAL": {
+        "pnl": -16.59,
+        "trades": 4,
+        "win_rate": 50.0
+      }
+    },
+    "2024-06": {
+      "BTCUSDT": {
+        "pnl": 44.114888164508805,
+        "trades": 6,
+        "wins": 5
+      },
+      "TOTAL": {
+        "pnl": 44.11,
+        "trades": 6,
+        "win_rate": 83.3
+      }
+    },
+    "2024-07": {
+      "BTCUSDT": {
+        "pnl": 55.07102401539021,
+        "trades": 3,
+        "wins": 3
+      },
+      "TOTAL": {
+        "pnl": 55.07,
+        "trades": 3,
+        "win_rate": 100.0
+      }
+    },
+    "2024-08": {
+      "BTCUSDT": {
+        "pnl": 34.79520869275429,
+        "trades": 5,
+        "wins": 4
+      },
+      "TOTAL": {
+        "pnl": 34.8,
+        "trades": 5,
+        "win_rate": 80.0
+      }
+    },
+    "2024-09": {
+      "BTCUSDT": {
+        "pnl": 52.55424800125003,
+        "trades": 6,
+        "wins": 4
+      },
+      "TOTAL": {
+        "pnl": 52.55,
+        "trades": 6,
+        "win_rate": 66.7
+      }
+    },
+    "2024-10": {
+      "BTCUSDT": {
+        "pnl": -18.53649388371351,
+        "trades": 4,
+        "wins": 1
+      },
+      "TOTAL": {
+        "pnl": -18.54,
+        "trades": 4,
+        "win_rate": 25.0
+      }
+    },
+    "2024-11": {
+      "BTCUSDT": {
+        "pnl": 82.5362867313217,
+        "trades": 8,
+        "wins": 5
+      },
+      "TOTAL": {
+        "pnl": 82.54,
+        "trades": 8,
+        "win_rate": 62.5
+      }
+    },
+    "2024-12": {
+      "BTCUSDT": {
+        "pnl": 65.47664030004863,
+        "trades": 9,
+        "wins": 6
+      },
+      "TOTAL": {
+        "pnl": 65.48,
+        "trades": 9,
+        "win_rate": 66.7
+      }
+    },
+    "2025-01": {
+      "BTCUSDT": {
+        "pnl": 69.46363306777717,
+        "trades": 5,
+        "wins": 4
+      },
+      "TOTAL": {
+        "pnl": 69.46,
+        "trades": 5,
+        "win_rate": 80.0
+      }
+    },
+    "2025-02": {
+      "BTCUSDT": {
+        "pnl": 43.59818995921928,
+        "trades": 3,
+        "wins": 3
+      },
+      "TOTAL": {
+        "pnl": 43.6,
+        "trades": 3,
+        "win_rate": 100.0
+      }
+    },
+    "2025-03": {
+      "BTCUSDT": {
+        "pnl": 84.50506573723521,
+        "trades": 12,
+        "wins": 10
+      },
+      "TOTAL": {
+        "pnl": 84.51,
+        "trades": 12,
+        "win_rate": 83.3
+      }
+    },
+    "2025-04": {
+      "BTCUSDT": {
+        "pnl": 38.726218602518784,
+        "trades": 9,
+        "wins": 6
+      },
+      "TOTAL": {
+        "pnl": 38.73,
+        "trades": 9,
+        "win_rate": 66.7
+      }
+    },
+    "2025-05": {
+      "BTCUSDT": {
+        "pnl": 142.62914019745676,
+        "trades": 16,
+        "wins": 9
+      },
+      "TOTAL": {
+        "pnl": 142.63,
+        "trades": 16,
+        "win_rate": 56.2
+      }
+    },
+    "2025-06": {
+      "BTCUSDT": {
+        "pnl": 125.74632982898689,
+        "trades": 6,
+        "wins": 4
+      },
+      "TOTAL": {
+        "pnl": 125.75,
+        "trades": 6,
+        "win_rate": 66.7
+      }
+    },
+    "2025-07": {
+      "BTCUSDT": {
+        "pnl": 180.66347979467207,
+        "trades": 10,
+        "wins": 10
+      },
+      "TOTAL": {
+        "pnl": 180.66,
+        "trades": 10,
+        "win_rate": 100.0
+      }
+    },
+    "2025-08": {
+      "BTCUSDT": {
+        "pnl": 29.726642004872495,
+        "trades": 6,
+        "wins": 3
+      },
+      "TOTAL": {
+        "pnl": 29.73,
+        "trades": 6,
+        "win_rate": 50.0
+      }
+    },
+    "2025-09": {
+      "BTCUSDT": {
+        "pnl": 18.670972915303118,
+        "trades": 3,
+        "wins": 2
+      },
+      "TOTAL": {
+        "pnl": 18.67,
+        "trades": 3,
+        "win_rate": 66.7
+      }
+    },
+    "2025-10": {
+      "BTCUSDT": {
+        "pnl": 12.853926831911899,
+        "trades": 5,
+        "wins": 2
+      },
+      "TOTAL": {
+        "pnl": 12.85,
+        "trades": 5,
+        "win_rate": 40.0
+      }
+    },
+    "2025-11": {
+      "BTCUSDT": {
+        "pnl": -26.832162080728267,
+        "trades": 5,
+        "wins": 2
+      },
+      "TOTAL": {
+        "pnl": -26.83,
+        "trades": 5,
+        "win_rate": 40.0
+      }
+    },
+    "2025-12": {
+      "BTCUSDT": {
+        "pnl": 95.99652826126905,
+        "trades": 4,
+        "wins": 4
+      },
+      "TOTAL": {
+        "pnl": 96.0,
+        "trades": 4,
+        "win_rate": 100.0
+      }
+    },
+    "2026-01": {
+      "BTCUSDT": {
+        "pnl": 105.5201017227749,
+        "trades": 15,
+        "wins": 10
+      },
+      "ETHUSDT": {
+        "pnl": 22.86533941520812,
+        "trades": 2,
+        "wins": 2
+      },
+      "SOLUSDT": {
+        "pnl": 66.69233462748127,
+        "trades": 5,
+        "wins": 4
+      },
+      "TOTAL": {
+        "pnl": 195.08,
+        "trades": 22,
+        "win_rate": 72.7
+      }
+    },
+    "2026-02": {
+      "BTCUSDT": {
+        "pnl": 17.102659377442862,
+        "trades": 6,
+        "wins": 4
+      },
+      "ETHUSDT": {
+        "pnl": -27.59405286647412,
+        "trades": 11,
+        "wins": 3
+      },
+      "SOLUSDT": {
+        "pnl": 9.450019640892188,
+        "trades": 1,
+        "wins": 1
+      },
+      "XRPUSDT": {
+        "pnl": 25.849483364405998,
+        "trades": 2,
+        "wins": 2
+      },
+      "BNBUSDT": {
+        "pnl": 0.8382326850472084,
+        "trades": 1,
+        "wins": 1
+      },
+      "TOTAL": {
+        "pnl": 25.65,
+        "trades": 21,
+        "win_rate": 52.4
+      }
+    },
+    "2026-03": {
+      "BTCUSDT": {
+        "pnl": 170.36742826074322,
+        "trades": 5,
+        "wins": 5
+      },
+      "ETHUSDT": {
+        "pnl": 46.599679295665354,
+        "trades": 4,
+        "wins": 3
+      },
+      "SOLUSDT": {
+        "pnl": 53.80198547658836,
+        "trades": 6,
+        "wins": 4
+      },
+      "XRPUSDT": {
+        "pnl": 12.715125138837042,
+        "trades": 5,
+        "wins": 3
+      },
+      "BNBUSDT": {
+        "pnl": 62.45924045583979,
+        "trades": 7,
+        "wins": 6
+      },
+      "TOTAL": {
+        "pnl": 345.94,
+        "trades": 27,
+        "win_rate": 77.8
+      }
+    },
+    "2026-04": {
+      "BTCUSDT": {
+        "pnl": 123.04791983752027,
+        "trades": 6,
+        "wins": 5
+      },
+      "ETHUSDT": {
+        "pnl": 51.8810422318308,
+        "trades": 6,
+        "wins": 5
+      },
+      "SOLUSDT": {
+        "pnl": -11.18500522543866,
+        "trades": 3,
+        "wins": 1
+      },
+      "XRPUSDT": {
+        "pnl": 38.93329918345198,
+        "trades": 4,
+        "wins": 3
+      },
+      "BNBUSDT": {
+        "pnl": 21.31765522067575,
+        "trades": 2,
+        "wins": 2
+      },
+      "TOTAL": {
+        "pnl": 223.99,
+        "trades": 21,
+        "win_rate": 76.2
+      }
+    },
+    "2026-05": {
+      "BTCUSDT": {
+        "pnl": 35.61336803337133,
+        "trades": 5,
+        "wins": 3
+      },
+      "ETHUSDT": {
+        "pnl": 22.96568093693911,
+        "trades": 7,
+        "wins": 3
+      },
+      "SOLUSDT": {
+        "pnl": 56.00073038243769,
+        "trades": 4,
+        "wins": 3
+      },
+      "XRPUSDT": {
+        "pnl": 74.15971217754559,
+        "trades": 9,
+        "wins": 8
+      },
+      "BNBUSDT": {
+        "pnl": -24.65327210358503,
+        "trades": 7,
+        "wins": 3
+      },
+      "TOTAL": {
+        "pnl": 164.09,
+        "trades": 32,
+        "win_rate": 62.5
+      }
+    },
+    "2026-06": {
+      "BTCUSDT": {
+        "pnl": 321.6997999793956,
+        "trades": 6,
+        "wins": 6
+      },
+      "ETHUSDT": {
+        "pnl": 3.484670255551933,
+        "trades": 7,
+        "wins": 4
+      },
+      "SOLUSDT": {
+        "pnl": 8.685496403610232,
+        "trades": 6,
+        "wins": 4
+      },
+      "XRPUSDT": {
+        "pnl": 17.76779189932349,
+        "trades": 4,
+        "wins": 3
+      },
+      "BNBUSDT": {
+        "pnl": 93.58412768426577,
+        "trades": 13,
+        "wins": 10
+      },
+      "TOTAL": {
+        "pnl": 445.22,
+        "trades": 36,
+        "win_rate": 75.0
+      }
+    },
+    "2026-07": {
+      "BTCUSDT": {
+        "pnl": 23.524816408954038,
+        "trades": 7,
+        "wins": 4
+      },
+      "ETHUSDT": {
+        "pnl": -12.119668147056295,
+        "trades": 8,
+        "wins": 3
+      },
+      "SOLUSDT": {
+        "pnl": -1.1936549655031115,
+        "trades": 1,
+        "wins": 0
+      },
+      "XRPUSDT": {
+        "pnl": 26.949209560261536,
+        "trades": 7,
+        "wins": 5
+      },
+      "BNBUSDT": {
+        "pnl": 87.06502944645045,
+        "trades": 10,
+        "wins": 8
+      },
+      "TOTAL": {
+        "pnl": 124.23,
+        "trades": 33,
+        "win_rate": 60.6
+      }
+    }
+  },
+  "pair_backtests": [
+    {
+      "symbol": "BTCUSDT",
+      "total_trades": 305,
+      "metrics": {
+        "total_return": 2283.67,
+        "total_return_pct": 256.59,
+        "win_rate": 65.9,
+        "profit_factor": 2.85,
+        "sharpe": 2.88,
+        "sortino": 0.32,
+        "max_dd_pct": -4.34,
+        "calmar": 59.11,
+        "avg_trade": 7.4874,
+        "avg_win": 17.4893,
+        "avg_loss": -11.8431,
+        "avg_bars_held": 19.2,
+        "wins": 201,
+        "losses": 104,
+        "exit_reasons": {
+          "time_exit": 182,
+          "stop_loss": 64,
+          "take_profit_2": 50,
+          "trailing_stop": 9
+        },
+        "final_equity": 3173.67
+      }
+    },
+    {
+      "symbol": "ETHUSDT",
+      "total_trades": 45,
+      "metrics": {
+        "total_return": 108.08,
+        "total_return_pct": 12.14,
+        "win_rate": 51.1,
+        "profit_factor": 1.54,
+        "sharpe": 1.36,
+        "sortino": 0.19,
+        "max_dd_pct": -6.17,
+        "calmar": 1.97,
+        "avg_trade": 2.4018,
+        "avg_win": 13.3802,
+        "avg_loss": -9.0756,
+        "avg_bars_held": 14.6,
+        "wins": 23,
+        "losses": 22,
+        "exit_reasons": {
+          "take_profit_2": 9,
+          "time_exit": 17,
+          "stop_loss": 19
+        },
+        "final_equity": 998.08
+      }
+    },
+    {
+      "symbol": "SOLUSDT",
+      "total_trades": 26,
+      "metrics": {
+        "total_return": 182.25,
+        "total_return_pct": 20.48,
+        "win_rate": 65.4,
+        "profit_factor": 3.3,
+        "sharpe": 2.58,
+        "sortino": 0.33,
+        "max_dd_pct": -2.57,
+        "calmar": 7.96,
+        "avg_trade": 7.0097,
+        "avg_win": 15.3805,
+        "avg_loss": -8.8018,
+        "avg_bars_held": 17.3,
+        "wins": 17,
+        "losses": 9,
+        "exit_reasons": {
+          "take_profit_2": 5,
+          "trailing_stop": 3,
+          "stop_loss": 6,
+          "time_exit": 12
+        },
+        "final_equity": 1072.25
+      }
+    },
+    {
+      "symbol": "XRPUSDT",
+      "total_trades": 31,
+      "metrics": {
+        "total_return": 196.37,
+        "total_return_pct": 22.06,
+        "win_rate": 77.4,
+        "profit_factor": 4.06,
+        "sharpe": 3.44,
+        "sortino": 0.47,
+        "max_dd_pct": -1.3,
+        "calmar": 16.96,
+        "avg_trade": 6.3347,
+        "avg_win": 10.8578,
+        "avg_loss": -9.1732,
+        "avg_bars_held": 20.9,
+        "wins": 24,
+        "losses": 7,
+        "exit_reasons": {
+          "take_profit_2": 2,
+          "time_exit": 22,
+          "stop_loss": 5,
+          "trailing_stop": 2
+        },
+        "final_equity": 1086.37
+      }
+    },
+    {
+      "symbol": "BNBUSDT",
+      "total_trades": 40,
+      "metrics": {
+        "total_return": 240.61,
+        "total_return_pct": 27.03,
+        "win_rate": 75.0,
+        "profit_factor": 3.27,
+        "sharpe": 3.47,
+        "sortino": 0.7,
+        "max_dd_pct": -2.82,
+        "calmar": 9.58,
+        "avg_trade": 6.0153,
+        "avg_win": 11.5488,
+        "avg_loss": -10.5853,
+        "avg_bars_held": 17.9,
+        "wins": 30,
+        "losses": 10,
+        "exit_reasons": {
+          "time_exit": 19,
+          "take_profit_2": 8,
+          "stop_loss": 12,
+          "trailing_stop": 1
+        },
+        "final_equity": 1130.61
+      }
+    }
+  ]
+}

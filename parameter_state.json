@@ -1,8 +1,8 @@
 {
   "params": {
-    "ci_neutral_threshold": 71.0,
+    "ci_neutral_threshold": 74.0,
     "ci_trend_threshold": 38.2,
-    "min_score": 60,
+    "min_score": 50,
     "supertrend_multiplier": 2.8,
     "tp_ratio": 1.5,
     "fibonacci_days": 30,
@@ -12,8 +12,9 @@
     "time_exit_bars": 24
   },
   "consecutive_losses": 0,
-  "total_trades_recorded": 83,
-  "last_review_trade": 50,
+  "total_trades_recorded": 41,
+  "last_review_trade": 0,
   "is_paused": false,
-  "pause_reason": ""
+  "pause_reason": "",
+  "last_update": "2026-07-30T18:34:11.913466+00:00"
 }
