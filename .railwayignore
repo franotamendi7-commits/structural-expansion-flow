@@ -1,0 +1,86 @@
+# Logs
+logs/
+
+# Backtest data & results
+backtest_results/
+backtest_cache/
+backtests/
+backtest_*.csv
+backtest_*.md
+backtest_*.png
+
+# Cache
+cache_15m/
+cache_1h/
+
+# Research
+research/
+
+# Databases
+trading.db
+trading.db-shm
+trading.db-wal
+
+# ML models & pickles
+*.pkl
+*.zip
+
+# State & JSON files (ephemeral)
+trade_history.json
+paper_state.json
+equity_history.json
+signal_log.json
+risk_state.json
+position_state.json
+parameter_state.json
+drawdown_state.json
+rejection_log.json
+audit_results/
+audit_real_costs.json
+bandit_risk_*.json
+optimize_*.json
+optimize_*.csv
+walkforward_*.json
+walkforward_*.csv
+monte_carlo_*.csv
+monte_carlo_*.png
+institutional_results.json
+historical_deep_results.json
+experimental_*.json
+xgb_*.json
+xgb_*.csv
+*.json
+
+# Secrets & credentials
+.streamlit/secrets.toml
+credentials.enc
+credentials.json
+credentials.example.json
+
+# Backups & temp
+backups/
+*.bak
+*.bak2
+*.backup_*
+_backtest_temp.py
+__pycache__/
+
+# Old Python cache
+*.pyc
+*.pyo
+
+# Scripts not needed in deploy
+start_paper_trading.sh
+
+# Docs & reports (not needed in deploy)
+docs/
+*.md
+!requirements.txt
+
+# Git
+.git/
+.gitignore
+
+# Misc
+nohup.out
+*.log
