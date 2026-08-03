@@ -15,6 +15,9 @@ COPY . .
 # Create dirs for state files and logs
 RUN mkdir -p logs /app/.streamlit
 
+# Make start script executable
+RUN chmod +x /app/start.sh
+
 # Paper trading is default — no secrets needed for basic operation
 # Secrets (API keys, Telegram, ETH wallet) are injected via Railway env vars
 
@@ -24,4 +27,4 @@ EXPOSE 8501
 # We override in the CMD via env var
 ENV STREAMLIT_SERVER_PORT=8501
 
-CMD ["sh", "-c", "streamlit run app.py --server.port=${PORT:-8501} --server.address=0.0.0.0 --server.headless=true --server.enableCORS=false --server.enableXsrfProtection=false --browser.gatherUsageStats=false"]
+CMD ["./start.sh"]

@@ -1,43 +1,47 @@
 """
-Walk-Forward Validation - Institutional Engine V2
-==================================================
+Walk-Forward Simulation — 5 Pairs Portfolio
+=============================================
 
-Validación walk-forward exhaustiva con 7 folds para evitar overfitting.
-Compara V1 (baseline) vs V2 en cada fold.
+REALISTIC backtest that simulates how the bot would perform in real life.
+Processes data candle-by-candle, only seeing data as it closes (NO lookahead bias).
 
-Períodos:
-  Fold 1: Train 2023-Q1→Q3, Test 2023-Q4
-  Fold 2: Train 2023-Q1→Q4, Test 2024-Q1
-  Fold 3: Train 2023-Q1→2024-Q2, Test 2024-Q3
-  Fold 4: Train 2023-Q1→2024-Q4, Test 2025-Q1
-  Fold 5: Train 2023-Q1→2025-Q2, Test 2025-Q3
-  Fold 6: Train 2023-Q1→2025-Q4, Test 2026-Q1
-  Fold 7: Train 2023-Q1→2026-Q1, Test 2026-Q2-Q3 (actual)
+How it works:
+  1. Load 15m OHLCV data for all 5 pairs (BTC, ETH, SOL, XRP, BNB)
+  2. For each candle in chronological order:
+     - Only use data from candles that have already closed
+     - Compute indicators incrementally (not pre-computed)
+     - Check for engulfing signals on 4H candles that just closed
+     - Apply filters (CI, Williams %R, Supertrend, market phase)
+     - If signal found: open position with realistic sizing
+     - If position open: manage it (trailing stop, breakeven, TP1/TP2, time exit)
+  3. Track portfolio equity across all 5 pairs simultaneously
+  4. Calculate realistic metrics
 
-Costos realistas incluidos:
-  - Commission: 0.05% por lado
+Costos realistas:
+  - Commission: 0.018% por lado (Post-Only Maker, con BNB discount)
   - Spread: 0.02%
-  - Slippage: 0.1 x ATR(5m)
+  - Slippage: 0.1 x ATR(5m) * 0.5 (reduced with Maker)
 
-SIN look-ahead bias: solo usa datos cerrados antes de cada decisión.
+SIN look-ahead bias: solo usa datos cerrados antes de cada decision.
 """
 
 import sys
 import json
+import math
 import time
 import logging
 import numpy as np
 import pandas as pd
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from typing import Dict, Any, List, Tuple
-from dataclasses import dataclass, asdict
+from typing import Dict, Any, Optional, List, Tuple
+from dataclasses import dataclass, asdict, field
 
 # Setup path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from engine.institutional_engine_v2 import (
-    InstitutionalEngineV2, choppiness_index, williams_r, supertrend,
+    choppiness_index, williams_r, supertrend,
     ema, atr, bollinger_bands, is_bullish_engulfing, is_bearish_engulfing,
     AdaptiveFibonacci, detect_market_phase
 )
@@ -50,27 +54,52 @@ logger = logging.getLogger(__name__)
 # CONFIGURACION
 # ============================================================
 
-SYMBOL = "BTCUSDT"
-INITIAL_CAPITAL = 1000.0
+TOTAL_CAPITAL = 4450.0
+PAIRS = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'XRPUSDT', 'BNBUSDT']
+CAPITAL_PER_PAIR = TOTAL_CAPITAL / len(PAIRS)
 RISK_PCT = 0.01  # 1% risk per trade
+MAX_RISK_PCT = 0.025  # Max 2.5% per trade
 LEVERAGE = 10
 OUTPUT_DIR = Path(__file__).parent / "backtest_results"
 
-# Costos
-COMMISSION = 0.0005
-SPREAD = 0.0002
+# Costos Post-Only (Maker)
+COMMISSION_MAKER = 0.00018  # 0.018% per side (BNB discount)
+SPREAD = 0.0002  # 0.02%
 SLIP_ATR_MULT = 0.1
 
-# Walk-forward folds
-FOLDS = [
-    {"fold": 1, "train_start": "2023-01-01", "train_end": "2023-09-30", "test_start": "2023-10-01", "test_end": "2023-12-31"},
-    {"fold": 2, "train_start": "2023-01-01", "train_end": "2023-12-31", "test_start": "2024-01-01", "test_end": "2024-03-31"},
-    {"fold": 3, "train_start": "2023-01-01", "train_end": "2024-06-30", "test_start": "2024-07-01", "test_end": "2024-09-30"},
-    {"fold": 4, "train_start": "2023-01-01", "train_end": "2024-12-31", "test_start": "2025-01-01", "test_end": "2025-03-31"},
-    {"fold": 5, "train_start": "2023-01-01", "train_end": "2025-06-30", "test_start": "2025-07-01", "test_end": "2025-09-30"},
-    {"fold": 6, "train_start": "2023-01-01", "train_end": "2025-12-31", "test_start": "2026-01-01", "test_end": "2026-03-31"},
-    {"fold": 7, "train_start": "2023-01-01", "train_end": "2026-03-31", "test_start": "2026-04-01", "test_end": "2026-07-31"},
-]
+# Per-pair configurations (from backtest_portfolio_5pairs.py)
+PAIR_CONFIGS = {
+    "BTCUSDT": {
+        "supertrend_multiplier": 2.8, "choppiness_neutral_threshold": 74.0,
+        "fibonacci_days": 30, "tp_ratio": 1.3, "atr_trail_mult": 2.0,
+        "partial_exit_pct": 0.5, "time_exit_bars": 24, "min_score": 50,
+        "max_sl_pct": 0.018,
+    },
+    "ETHUSDT": {
+        "supertrend_multiplier": 2.6, "choppiness_neutral_threshold": 72.0,
+        "fibonacci_days": 30, "tp_ratio": 1.8, "atr_trail_mult": 2.0,
+        "partial_exit_pct": 0.5, "time_exit_bars": 24, "min_score": 50,
+        "max_sl_pct": 0.018,
+    },
+    "SOLUSDT": {
+        "supertrend_multiplier": 2.3, "choppiness_neutral_threshold": 70.0,
+        "fibonacci_days": 90, "tp_ratio": 2.0, "atr_trail_mult": 2.0,
+        "partial_exit_pct": 0.5, "time_exit_bars": 24, "min_score": 50,
+        "max_sl_pct": 0.018,
+    },
+    "XRPUSDT": {
+        "supertrend_multiplier": 2.3, "choppiness_neutral_threshold": 68.0,
+        "fibonacci_days": 60, "tp_ratio": 1.8, "atr_trail_mult": 2.0,
+        "partial_exit_pct": 0.5, "time_exit_bars": 24, "min_score": 50,
+        "max_sl_pct": 0.018,
+    },
+    "BNBUSDT": {
+        "supertrend_multiplier": 2.8, "choppiness_neutral_threshold": 68.0,
+        "fibonacci_days": 30, "tp_ratio": 1.6, "atr_trail_mult": 2.0,
+        "partial_exit_pct": 0.5, "time_exit_bars": 24, "min_score": 50,
+        "max_sl_pct": 0.018,
+    },
+}
 
 
 # ============================================================
@@ -153,6 +182,7 @@ class BinanceDataDownloader:
 @dataclass
 class Trade:
     """Representa un trade completado."""
+    pair: str
     entry_time: datetime
     exit_time: datetime
     direction: str
@@ -168,485 +198,293 @@ class Trade:
 
 
 # ============================================================
-# BACKTEST ENGINE
+# PER-PAIR SIMULATOR
 # ============================================================
 
-class BacktestEngine:
+class PairSimulator:
     """
-    Backtester para Institutional Engine V1 y V2.
-    Sin look-ahead bias: solo usa datos cerrados.
-    Costos realistas: commission + spread + slippage.
+    Simulates one pair's behavior in walk-forward mode.
+    Processes candles sequentially, no lookahead.
     """
 
-    def __init__(self, initial_capital: float = INITIAL_CAPITAL,
-                 risk_pct: float = RISK_PCT, leverage: int = LEVERAGE):
-        self.initial_capital = initial_capital
-        self.risk_pct = risk_pct
-        self.leverage = leverage
+    def __init__(self, symbol: str, capital: float, config: Dict):
+        self.symbol = symbol
+        self.initial_capital = capital
+        self.equity = capital
+        self.peak_equity = capital
+        self.config = config
+        self.trades: List[Trade] = []
+        self.equity_curve: List[float] = [capital]
+        self.open_pos: Optional[Dict] = None
+        self.dd_mgr = DrawdownManager(initial_equity=capital)
+        self.dd_mgr.reset(capital)
+        self.param_adapter = ParameterAdapter()
+        self.param_adapter.reset()
 
-    def run_v1(self, df_15m: pd.DataFrame, df_1h: pd.DataFrame,
-               df_4h: pd.DataFrame, df_1d: pd.DataFrame,
-               df_5m: pd.DataFrame = None) -> Dict[str, Any]:
-        """Backtest V1: Engulfing 4H + TP/SL all-or-nothing."""
-        equity = self.initial_capital
-        peak_equity = equity
-        trades = []
-        equity_curve = [equity]
+        # Track last processed 4H candle to avoid duplicate signals
+        self.last_signal_bar = None
 
-        # Iterate over 15m bars
-        for i in range(50, len(df_15m)):
-            bar_time = df_15m.index[i]
-            bar_close = float(df_15m["close"].iloc[i])
+    def process_candle(self, i: int, bar_time, bar_close: float,
+                       bar_high: float, bar_low: float,
+                       df_15m: pd.DataFrame, df_1h: pd.DataFrame,
+                       df_4h: pd.DataFrame) -> bool:
+        """
+        Process a single 15m candle for this pair.
+        Returns True if a trade was closed (equity changed).
+        """
 
-            # Need 4H engulfing signal
-            mask_4h = df_4h.index <= bar_time
-            if mask_4h.sum() < 3:
-                equity_curve.append(equity)
-                continue
+        # 1. Manage open position first
+        if self.open_pos is not None:
+            result = self._manage_position(bar_high, bar_low, bar_close)
+            if result is not None:
+                self.equity += result["pnl"]
+                self.peak_equity = max(self.peak_equity, self.equity)
+                self.dd_mgr.update(self.equity)
 
-            klines_4h = []
-            for j in range(max(0, mask_4h.sum() - 3), mask_4h.sum()):
-                idx = df_4h.index[j]
-                klines_4h.append({
-                    "open": float(df_4h.loc[idx, "open"]),
-                    "high": float(df_4h.loc[idx, "high"]),
-                    "low": float(df_4h.loc[idx, "low"]),
-                    "close": float(df_4h.loc[idx, "close"]),
+                trade_score = self.open_pos.get("score", 0)
+                self.trades.append(Trade(
+                    pair=self.symbol,
+                    entry_time=self.open_pos["entry_time"],
+                    exit_time=bar_time,
+                    direction=self.open_pos["direction"],
+                    entry_price=self.open_pos["entry_fill"],
+                    exit_price=result["exit_price"],
+                    size=self.open_pos["size"],
+                    pnl=result["pnl"],
+                    exit_reason=result["reason"],
+                    bars_held=i - self.open_pos["entry_idx"],
+                    score=trade_score,
+                    tp1_hit=self.open_pos.get("tp1_hit", False),
+                    partial_pnl=result.get("partial_pnl", 0.0),
+                ))
+                self.open_pos = None
+
+                self.param_adapter.record_trade({
+                    "net_pnl": result["pnl"],
+                    "score": trade_score,
                 })
 
-            signal = None
-            if is_bearish_engulfing(klines_4h):
-                signal = "SHORT"
-            elif is_bullish_engulfing(klines_4h):
-                signal = "LONG"
+                self.equity_curve.append(self.equity)
+                return True
 
-            if signal is None:
-                equity_curve.append(equity)
-                continue
+            self.equity_curve.append(self.equity)
+            return False
 
-            # Get 15m data for filters
-            mask_15 = df_15m.index <= bar_time
-            if mask_15.sum() < 30:
-                equity_curve.append(equity)
-                continue
+        # 2. No open position: check for new signal
+        config = self.config
 
-            data_15 = df_15m[mask_15]
-            c_15 = data_15["close"].values[-30:]
-            h_15 = data_15["high"].values[-30:]
-            l_15 = data_15["low"].values[-30:]
+        # Get 4H data available up to bar_time
+        mask_4h = df_4h.index <= bar_time
+        if mask_4h.sum() < 3:
+            self.equity_curve.append(self.equity)
+            return False
 
-            # CI filter
-            ci = choppiness_index(h_15, l_15, c_15)
-            if ci is not None and ci > 74.0:
-                equity_curve.append(equity)
-                continue
+        # Build klines for engulfing check
+        klines_4h = []
+        for j in range(max(0, mask_4h.sum() - 3), mask_4h.sum()):
+            idx = df_4h.index[j]
+            klines_4h.append({
+                "open": float(df_4h.loc[idx, "open"]),
+                "high": float(df_4h.loc[idx, "high"]),
+                "low": float(df_4h.loc[idx, "low"]),
+                "close": float(df_4h.loc[idx, "close"]),
+            })
 
-            # Market phase filter
-            mask_1h = df_1h.index <= bar_time
-            if mask_1h.sum() < 30:
-                equity_curve.append(equity)
-                continue
-            data_1h = df_1h[mask_1h]
-            c_1h = data_1h["close"].values[-30:]
-            h_1h = data_1h["high"].values[-30:]
-            l_1h = data_1h["low"].values[-30:]
-            v_1h = data_1h["volume"].values[-30:]
-            atr_1h_val = atr(h_1h, l_1h, c_1h)
-            _, _, bw_1h = bollinger_bands(c_1h)
-            vol_ratio_1h = float(v_1h[-1] / np.mean(v_1h[-20:])) if len(v_1h) >= 20 else 1.0
-            ind_1h = {"bb_width": bw_1h, "atr14": atr_1h_val, "vol_ratio": vol_ratio_1h}
-            phase = detect_market_phase(
-                [{"close": c, "high": h, "low": l, "volume": v,
-                  "open": o} for c, h, l, v, o in zip(
-                    data_1h["close"].values, data_1h["high"].values,
-                    data_1h["low"].values, data_1h["volume"].values,
-                    data_1h["open"].values
-                )],
-                ind_1h
-            )
-            if phase in ("ranging", "neutral", "unknown"):
-                equity_curve.append(equity)
-                continue
+        # Check if this 4H bar is the same as last signal (avoid duplicate)
+        current_4h_bar = df_4h.index[mask_4h.sum() - 1]
+        if current_4h_bar == self.last_signal_bar:
+            self.equity_curve.append(self.equity)
+            return False
 
-            # Calculate entry/SL
-            entry = bar_close
-            if signal == "SHORT":
-                last_high = float(data_15["high"].values[-10:].max())
-                sl = last_high * 1.002
-            else:
-                last_low = float(data_15["low"].values[-10:].min())
-                sl = last_low * 0.998
+        signal = None
+        if is_bearish_engulfing(klines_4h):
+            signal = "SHORT"
+        elif is_bullish_engulfing(klines_4h):
+            signal = "LONG"
 
-            sl_pct = abs(entry - sl) / entry
-            max_sl = 0.018
-            if sl_pct > max_sl:
-                if signal == "LONG":
-                    sl = entry * (1 - max_sl)
-                else:
-                    sl = entry * (1 + max_sl)
-                sl_pct = max_sl
+        if signal is None:
+            self.equity_curve.append(self.equity)
+            return False
 
-            if sl_pct <= 0:
-                equity_curve.append(equity)
-                continue
+        # Mark this bar as processed for signals
+        self.last_signal_bar = current_4h_bar
 
-            # TP levels
-            tp_ratio = 1.5
-            sl_dist = abs(entry - sl)
-            if signal == "LONG":
-                tp1 = entry + tp_ratio * sl_dist
-                tp2 = entry + 2 * tp_ratio * sl_dist
-            else:
-                tp1 = entry - tp_ratio * sl_dist
-                tp2 = entry - 2 * tp_ratio * sl_dist
+        # 3. Get 15m data for filters
+        mask_15 = df_15m.index <= bar_time
+        if mask_15.sum() < 30:
+            self.equity_curve.append(self.equity)
+            return False
 
-            # Position sizing
-            risk_usd = equity * self.risk_pct
-            risk_usd = min(risk_usd, equity * 0.025)
-            notional = risk_usd / sl_pct
-            size = notional / entry
+        data_15 = df_15m[mask_15]
+        c_15 = data_15["close"].values[-30:]
+        h_15 = data_15["high"].values[-30:]
+        l_15 = data_15["low"].values[-30:]
 
-            if size <= 0 or notional < 1:
-                equity_curve.append(equity)
-                continue
+        # CI filter
+        ci = choppiness_index(h_15, l_15, c_15)
+        if ci is not None and ci > config["choppiness_neutral_threshold"]:
+            self.equity_curve.append(self.equity)
+            return False
 
-            # Entry slippage
-            atr_5m = atr(
-                data_15["high"].values[-14:],
-                data_15["low"].values[-14:],
-                data_15["close"].values[-14:]
-            ) or entry * 0.001
-            slip = SLIP_ATR_MULT * atr_5m
-            if signal == "LONG":
-                entry_fill = entry * (1 + SPREAD) + slip
-            else:
-                entry_fill = entry * (1 - SPREAD) - slip
+        # 4. Get 1h data for phase + ATR
+        mask_1h = df_1h.index <= bar_time
+        if mask_1h.sum() < 30:
+            self.equity_curve.append(self.equity)
+            return False
 
-            # Simulate exit: check subsequent 15m bars
-            exit_price = None
-            exit_reason = None
-            exit_idx = None
+        data_1h = df_1h[mask_1h]
+        c_1h = data_1h["close"].values[-30:]
+        h_1h = data_1h["high"].values[-30:]
+        l_1h = data_1h["low"].values[-30:]
+        v_1h = data_1h["volume"].values[-30:]
+        atr_1h_val = atr(h_1h, l_1h, c_1h)
 
-            for j in range(i + 1, min(i + 100, len(df_15m))):
-                bh = float(df_15m["high"].iloc[j])
-                bl = float(df_15m["low"].iloc[j])
+        # Market phase filter
+        _, _, bw_1h = bollinger_bands(c_1h)
+        vol_ratio_1h = float(v_1h[-1] / np.mean(v_1h[-20:])) if len(v_1h) >= 20 else 1.0
+        ind_1h = {"bb_width": bw_1h, "atr14": atr_1h_val, "vol_ratio": vol_ratio_1h}
+        phase = detect_market_phase(
+            [{"close": c, "high": h, "low": l, "volume": v, "open": o}
+             for c, h, l, v, o in zip(
+                data_1h["close"].values, data_1h["high"].values,
+                data_1h["low"].values, data_1h["volume"].values,
+                data_1h["open"].values
+            )],
+            ind_1h
+        )
+        if phase in ("ranging", "neutral", "unknown"):
+            self.equity_curve.append(self.equity)
+            return False
 
-                # SL check
-                if signal == "LONG" and bl <= sl:
-                    exit_price = sl
-                    exit_reason = "stop_loss"
-                    exit_idx = j
-                    break
-                elif signal == "SHORT" and bh >= sl:
-                    exit_price = sl
-                    exit_reason = "stop_loss"
-                    exit_idx = j
-                    break
+        # 5. Score calculation
+        wr_4h = williams_r(
+            np.array([float(k["high"]) for k in klines_4h]),
+            np.array([float(k["low"]) for k in klines_4h]),
+            np.array([float(k["close"]) for k in klines_4h])
+        )
 
-                # TP check (all-or-nothing for V1)
-                if signal == "LONG" and bh >= tp1:
-                    exit_price = tp1
-                    exit_reason = "take_profit"
-                    exit_idx = j
-                    break
-                elif signal == "SHORT" and bl <= tp1:
-                    exit_price = tp1
-                    exit_reason = "take_profit"
-                    exit_idx = j
-                    break
+        body_ratio_4h = abs(float(klines_4h[-1]["close"]) - float(klines_4h[-1]["open"])) / \
+                        max(float(klines_4h[-1]["high"]) - float(klines_4h[-1]["low"]), 0.001)
 
-            # If no exit found, use last bar close
-            if exit_price is None:
-                last_bar = min(i + 99, len(df_15m) - 1)
-                exit_price = float(df_15m["close"].iloc[last_bar])
-                exit_reason = "time_exit"
-                exit_idx = last_bar
+        score = 55
+        if body_ratio_4h > 0.4:
+            score += 12
+        if ci is not None and ci < 60:
+            score += 8
+        if ci is not None and ci < 50:
+            score += 5
+        if wr_4h is not None and -80 < wr_4h < -20:
+            score += 5
+        if signal == "LONG" and c_15[-1] > np.mean(c_15[-20:]):
+            score += 3
+        elif signal == "SHORT" and c_15[-1] < np.mean(c_15[-20:]):
+            score += 3
 
-            # Exit slippage
-            if signal == "LONG":
-                exit_fill = exit_price * (1 - SPREAD) - slip
-            else:
-                exit_fill = exit_price * (1 + SPREAD) + slip
+        min_score = self.param_adapter.params.get("min_score", config["min_score"])
+        if score < min_score:
+            self.equity_curve.append(self.equity)
+            return False
 
-            # PnL
-            if signal == "LONG":
-                gross = size * (exit_fill - entry_fill)
-            else:
-                gross = size * (entry_fill - exit_fill)
+        # 6. DD manager check
+        dd_params = self.dd_mgr.get_risk_params()
+        dd_mult = dd_params[0]
+        dd_min_score = dd_params[1]
+        if dd_mult == 0:
+            self.equity_curve.append(self.equity)
+            return False
+        if score < dd_min_score:
+            self.equity_curve.append(self.equity)
+            return False
 
-            comm = size * (entry_fill + exit_fill) * COMMISSION
-            net = gross - comm
+        # Strategy weight multiplier
+        strat_mult = self.param_adapter.get_risk_multiplier()
 
-            equity += net
-            peak_equity = max(peak_equity, equity)
+        # 7. Calculate entry/SL
+        entry = bar_close
+        if signal == "SHORT":
+            sl = float(data_15["high"].values[-10:].max()) * 1.002
+        else:
+            sl = float(data_15["low"].values[-10:].min()) * 0.998
 
-            trades.append(Trade(
-                entry_time=bar_time,
-                exit_time=df_15m.index[exit_idx],
-                direction=signal,
-                entry_price=entry_fill,
-                exit_price=exit_fill,
-                size=size,
-                pnl=net,
-                exit_reason=exit_reason,
-                bars_held=exit_idx - i,
-                score=0,
-                tp1_hit=False,
-            ))
+        sl_pct = abs(entry - sl) / entry
+        max_sl = config["max_sl_pct"]
+        if sl_pct > max_sl:
+            sl = entry * (1 - max_sl) if signal == "LONG" else entry * (1 + max_sl)
+            sl_pct = max_sl
 
-            equity_curve.append(equity)
+        if sl_pct <= 0:
+            self.equity_curve.append(self.equity)
+            return False
 
-        return self._compute_metrics(trades, equity_curve, "V1")
+        # TP levels
+        tp_ratio = self.param_adapter.params.get("tp_ratio", config["tp_ratio"])
+        sl_dist = abs(entry - sl)
+        if signal == "LONG":
+            tp1 = entry + tp_ratio * sl_dist
+            tp2 = entry + 2 * tp_ratio * sl_dist
+        else:
+            tp1 = entry - tp_ratio * sl_dist
+            tp2 = entry - 2 * tp_ratio * sl_dist
 
-    def run_v2(self, df_15m: pd.DataFrame, df_1h: pd.DataFrame,
-               df_4h: pd.DataFrame, df_1d: pd.DataFrame,
-               df_5m: pd.DataFrame = None) -> Dict[str, Any]:
-        """Backtest V2: Engulfing 4H + trailing + breakeven + partial + DD manager."""
-        equity = self.initial_capital
-        peak_equity = equity
-        trades = []
-        equity_curve = [equity]
+        # 8. Position sizing with DD + strategy weight
+        risk_usd = self.equity * RISK_PCT * dd_mult * strat_mult
+        risk_usd = min(risk_usd, self.equity * MAX_RISK_PCT)
+        notional = risk_usd / sl_pct
+        size = notional / entry
 
-        dd_mgr = DrawdownManager(initial_equity=equity)
-        dd_mgr.reset(equity)  # Clean state for backtest
-        param_adapter = ParameterAdapter()
-        param_adapter.reset()  # Clean state for backtest
+        if size <= 0 or notional < 1:
+            self.equity_curve.append(self.equity)
+            return False
 
-        # Track open position
-        open_pos = None  # dict with entry details
+        # 9. Entry fill with Post-Only costs
+        atr_5m = atr(
+            data_15["high"].values[-14:],
+            data_15["low"].values[-14:],
+            data_15["close"].values[-14:]
+        ) or entry * 0.001
+        # Post-Only: 50% less slippage
+        slip = SLIP_ATR_MULT * atr_5m * 0.5
+        if signal == "LONG":
+            entry_fill = entry * (1 + SPREAD) + slip
+        else:
+            entry_fill = entry * (1 - SPREAD) - slip
 
-        for i in range(50, len(df_15m)):
-            bar_time = df_15m.index[i]
-            bar_close = float(df_15m["close"].iloc[i])
-            bar_high = float(df_15m["high"].iloc[i])
-            bar_low = float(df_15m["low"].iloc[i])
+        # 10. Open position
+        atr_trail = self.param_adapter.params.get("atr_trail_mult", config["atr_trail_mult"])
+        partial_pct = self.param_adapter.params.get("partial_exit_pct", config["partial_exit_pct"])
+        time_exit = self.param_adapter.params.get("time_exit_bars", config["time_exit_bars"])
 
-            # Check open position management first
-            if open_pos is not None:
-                result = self._manage_position_v2(
-                    open_pos, bar_high, bar_low, bar_close, i, df_15m
-                )
-                if result is not None:
-                    # Position closed
-                    equity += result["pnl"]
-                    peak_equity = max(peak_equity, equity)
-                    dd_mgr.update(equity)
+        self.open_pos = {
+            "direction": signal,
+            "entry_fill": entry_fill,
+            "entry_time": bar_time,
+            "entry_idx": i,
+            "size": size,
+            "size_remaining": size,
+            "stop_loss": sl,
+            "tp1": tp1,
+            "tp2": tp2,
+            "tp1_hit": False,
+            "breakeven_active": False,
+            "trailing_stop": None,
+            "trail_high": entry_fill,
+            "trail_low": entry_fill,
+            "bars_held": 0,
+            "score": score,
+            "atr_at_entry": atr_1h_val or entry * 0.005,
+            "atr_trail_mult": atr_trail,
+            "partial_exit_pct": partial_pct,
+            "time_exit_bars": time_exit,
+            "total_realized": 0.0,
+        }
 
-                    # Save score before clearing open_pos
-                    trade_score = open_pos.get("score", 0)
+        self.equity_curve.append(self.equity)
+        return False
 
-                    trades.append(Trade(
-                        entry_time=open_pos["entry_time"],
-                        exit_time=bar_time,
-                        direction=open_pos["direction"],
-                        entry_price=open_pos["entry_fill"],
-                        exit_price=result["exit_price"],
-                        size=open_pos["size"],
-                        pnl=result["pnl"],
-                        exit_reason=result["reason"],
-                        bars_held=i - open_pos["entry_idx"],
-                        score=trade_score,
-                        tp1_hit=open_pos.get("tp1_hit", False),
-                        partial_pnl=result.get("partial_pnl", 0.0),
-                    ))
-                    open_pos = None
-
-                    # Record trade in adapter
-                    param_adapter.record_trade({
-                        "net_pnl": result["pnl"],
-                        "score": trade_score,
-                    })
-
-                equity_curve.append(equity)
-                continue
-
-            # No open position: check for new signal
-            mask_4h = df_4h.index <= bar_time
-            if mask_4h.sum() < 3:
-                equity_curve.append(equity)
-                continue
-
-            klines_4h = []
-            for j in range(max(0, mask_4h.sum() - 3), mask_4h.sum()):
-                idx = df_4h.index[j]
-                klines_4h.append({
-                    "open": float(df_4h.loc[idx, "open"]),
-                    "high": float(df_4h.loc[idx, "high"]),
-                    "low": float(df_4h.loc[idx, "low"]),
-                    "close": float(df_4h.loc[idx, "close"]),
-                })
-
-            signal = None
-            if is_bearish_engulfing(klines_4h):
-                signal = "SHORT"
-            elif is_bullish_engulfing(klines_4h):
-                signal = "LONG"
-
-            if signal is None:
-                equity_curve.append(equity)
-                continue
-
-            # Get data for filters
-            mask_15 = df_15m.index <= bar_time
-            if mask_15.sum() < 30:
-                equity_curve.append(equity)
-                continue
-
-            data_15 = df_15m[mask_15]
-            c_15 = data_15["close"].values[-30:]
-            h_15 = data_15["high"].values[-30:]
-            l_15 = data_15["low"].values[-30:]
-
-            ci = choppiness_index(h_15, l_15, c_15)
-            if ci is not None and ci > 74.0:
-                equity_curve.append(equity)
-                continue
-
-            # Get 1h data for ATR
-            mask_1h = df_1h.index <= bar_time
-            if mask_1h.sum() < 30:
-                equity_curve.append(equity)
-                continue
-            data_1h = df_1h[mask_1h]
-            c_1h = data_1h["close"].values[-30:]
-            h_1h = data_1h["high"].values[-30:]
-            l_1h = data_1h["low"].values[-30:]
-            atr_1h_val = atr(h_1h, l_1h, c_1h)
-
-            # Score (V2 is more selective: base 55 vs V1's 70)
-            wr_5m = williams_r(
-                np.array([float(k["high"]) for k in klines_4h]),
-                np.array([float(k["low"]) for k in klines_4h]),
-                np.array([float(k["close"]) for k in klines_4h])
-            )
-
-            body_ratio_4h = abs(float(klines_4h[-1]["close"]) - float(klines_4h[-1]["open"])) / \
-                           max(float(klines_4h[-1]["high"]) - float(klines_4h[-1]["low"]), 0.001)
-
-            score = 55
-            if body_ratio_4h > 0.4:
-                score += 12
-            if ci is not None and ci < 60:
-                score += 8
-            if ci is not None and ci < 50:
-                score += 5
-            if wr_5m is not None and -80 < wr_5m < -20:
-                score += 5
-            # Bonus for fib level alignment
-            if signal == "LONG" and c_15[-1] > np.mean(c_15[-20:]):
-                score += 3
-            elif signal == "SHORT" and c_15[-1] < np.mean(c_15[-20:]):
-                score += 3
-
-            min_score = param_adapter.params.get("min_score", 50)
-            if score < min_score:
-                equity_curve.append(equity)
-                continue
-
-            # DD manager check
-            dd_params = dd_mgr.get_risk_params()
-            dd_mult = dd_params[0]
-            dd_min_score = dd_params[1]
-            if dd_mult == 0:
-                equity_curve.append(equity)
-                continue
-            if score < dd_min_score:
-                equity_curve.append(equity)
-                continue
-
-            # Strategy weight multiplier
-            strat_mult = param_adapter.get_risk_multiplier()
-
-            # Calculate entry
-            entry = bar_close
-            if signal == "SHORT":
-                last_high = float(data_15["high"].values[-10:].max())
-                sl = last_high * 1.002
-            else:
-                last_low = float(data_15["low"].values[-10:].min())
-                sl = last_low * 0.998
-
-            sl_pct = abs(entry - sl) / entry
-            max_sl = 0.018
-            if sl_pct > max_sl:
-                if signal == "LONG":
-                    sl = entry * (1 - max_sl)
-                else:
-                    sl = entry * (1 + max_sl)
-                sl_pct = max_sl
-
-            if sl_pct <= 0:
-                equity_curve.append(equity)
-                continue
-
-            tp_ratio = param_adapter.params.get("tp_ratio", 1.5)
-            sl_dist = abs(entry - sl)
-            if signal == "LONG":
-                tp1 = entry + tp_ratio * sl_dist
-                tp2 = entry + 2 * tp_ratio * sl_dist
-            else:
-                tp1 = entry - tp_ratio * sl_dist
-                tp2 = entry - 2 * tp_ratio * sl_dist
-
-            # Position sizing with DD + strategy weight
-            risk_usd = equity * self.risk_pct * dd_mult * strat_mult
-            risk_usd = min(risk_usd, equity * 0.025)
-            notional = risk_usd / sl_pct
-            size = notional / entry
-
-            if size <= 0 or notional < 1:
-                equity_curve.append(equity)
-                continue
-
-            # Entry fill
-            atr_5m = atr(
-                data_15["high"].values[-14:],
-                data_15["low"].values[-14:],
-                data_15["close"].values[-14:]
-            ) or entry * 0.001
-            slip = SLIP_ATR_MULT * atr_5m
-            if signal == "LONG":
-                entry_fill = entry * (1 + SPREAD) + slip
-            else:
-                entry_fill = entry * (1 - SPREAD) - slip
-
-            # Open position
-            atr_trail = param_adapter.params.get("atr_trail_mult", 2.0)
-            partial_pct = param_adapter.params.get("partial_exit_pct", 0.50)
-            time_exit = param_adapter.params.get("time_exit_bars", 24)
-
-            open_pos = {
-                "direction": signal,
-                "entry_fill": entry_fill,
-                "entry_time": bar_time,
-                "entry_idx": i,
-                "size": size,
-                "size_remaining": size,
-                "stop_loss": sl,
-                "tp1": tp1,
-                "tp2": tp2,
-                "tp1_hit": False,
-                "breakeven_active": False,
-                "trailing_stop": None,
-                "trail_high": entry_fill,
-                "trail_low": entry_fill,
-                "bars_held": 0,
-                "score": score,
-                "atr_at_entry": atr_1h_val or entry * 0.005,
-                "atr_trail_mult": atr_trail,
-                "partial_exit_pct": partial_pct,
-                "time_exit_bars": time_exit,
-                "total_realized": 0.0,
-            }
-
-            equity_curve.append(equity)
-
-        return self._compute_metrics(trades, equity_curve, "V2")
-
-    def _manage_position_v2(self, pos: Dict, bar_high: float, bar_low: float,
-                            bar_close: float, bar_idx: int,
-                            df_15m: pd.DataFrame) -> Dict:
-        """Gestionar posicion abierta en V2 (trailing, breakeven, partial, time)."""
+    def _manage_position(self, bar_high: float, bar_low: float,
+                         bar_close: float) -> Optional[Dict]:
+        """Manage open position: trailing, breakeven, partial, TP2, time exit."""
+        pos = self.open_pos
         pos["bars_held"] += 1
         d = 1 if pos["direction"] == "LONG" else -1
 
@@ -660,18 +498,18 @@ class BacktestEngine:
 
         # 1. SL check
         if d == 1 and bar_low <= pos["stop_loss"]:
-            return self._close_v2(pos, pos["stop_loss"], "stop_loss")
+            return self._close_position(pos, pos["stop_loss"], "stop_loss")
         elif d == -1 and bar_high >= pos["stop_loss"]:
-            return self._close_v2(pos, pos["stop_loss"], "stop_loss")
+            return self._close_position(pos, pos["stop_loss"], "stop_loss")
 
         # 2. Trailing stop check
         if pos["trailing_stop"] is not None:
             if d == 1 and bar_low <= pos["trailing_stop"]:
-                return self._close_v2(pos, pos["trailing_stop"], "trailing_stop")
+                return self._close_position(pos, pos["trailing_stop"], "trailing_stop")
             elif d == -1 and bar_high >= pos["trailing_stop"]:
-                return self._close_v2(pos, pos["trailing_stop"], "trailing_stop")
+                return self._close_position(pos, pos["trailing_stop"], "trailing_stop")
 
-        # 3. TP1 partial exit — modifies position in-place, does NOT close
+        # 3. TP1 partial exit
         if not pos["tp1_hit"]:
             tp1_hit = (d == 1 and bar_high >= pos["tp1"]) or \
                       (d == -1 and bar_low <= pos["tp1"])
@@ -690,11 +528,10 @@ class BacktestEngine:
                 else:
                     pos["trailing_stop"] = pos["trail_low"] + trail_dist
 
-                # Partial close: record PnL, reduce size, continue managing remaining
+                # Partial close
                 partial_pnl = self._calc_partial_pnl(pos, pos["tp1"], pos["partial_exit_pct"])
                 pos["size_remaining"] *= (1 - pos["partial_exit_pct"])
                 pos["total_realized"] += partial_pnl
-                # Do NOT return — continue managing remaining position
 
         # 4. Update trailing
         if pos["tp1_hit"] and pos["trailing_stop"] is not None:
@@ -712,19 +549,19 @@ class BacktestEngine:
         tp2_hit = (d == 1 and bar_high >= pos["tp2"]) or \
                   (d == -1 and bar_low <= pos["tp2"])
         if tp2_hit:
-            pnl = self._close_v2(pos, pos["tp2"], "take_profit_2")
-            return pnl
+            return self._close_position(pos, pos["tp2"], "take_profit_2")
 
         # 6. Time exit
         if pos["bars_held"] >= pos["time_exit_bars"]:
-            return self._close_v2(pos, bar_close, "time_exit")
+            return self._close_position(pos, bar_close, "time_exit")
 
         return None
 
-    def _close_v2(self, pos: Dict, exit_price: float, reason: str) -> Dict:
-        """Cerrar posicion V2."""
+    def _close_position(self, pos: Dict, exit_price: float, reason: str) -> Dict:
+        """Close position with Post-Only costs."""
         d = 1 if pos["direction"] == "LONG" else -1
-        slip = SLIP_ATR_MULT * pos["atr_at_entry"]
+        # Post-Only: 50% less slippage
+        slip = SLIP_ATR_MULT * pos["atr_at_entry"] * 0.5
         if d == 1:
             exit_fill = exit_price * (1 - SPREAD) - slip
         else:
@@ -735,7 +572,7 @@ class BacktestEngine:
         else:
             gross = pos["size_remaining"] * (pos["entry_fill"] - exit_fill)
 
-        comm = pos["size_remaining"] * (pos["entry_fill"] + exit_fill) * COMMISSION
+        comm = pos["size_remaining"] * (pos["entry_fill"] + exit_fill) * COMMISSION_MAKER
         net = gross - comm + pos["total_realized"]
 
         return {
@@ -746,9 +583,9 @@ class BacktestEngine:
         }
 
     def _calc_partial_pnl(self, pos: Dict, exit_price: float, ratio: float) -> float:
-        """Calcular PnL de una salida parcial."""
+        """Calculate PnL of partial exit with Post-Only costs."""
         d = 1 if pos["direction"] == "LONG" else -1
-        slip = SLIP_ATR_MULT * pos["atr_at_entry"]
+        slip = SLIP_ATR_MULT * pos["atr_at_entry"] * 0.5
         if d == 1:
             exit_fill = exit_price * (1 - SPREAD) - slip
         else:
@@ -760,17 +597,21 @@ class BacktestEngine:
         else:
             gross = close_size * (pos["entry_fill"] - exit_fill)
 
-        comm = close_size * (pos["entry_fill"] + exit_fill) * COMMISSION
+        comm = close_size * (pos["entry_fill"] + exit_fill) * COMMISSION_MAKER
         return gross - comm
 
-    def _compute_metrics(self, trades: List[Trade], equity_curve: List[float],
-                         version: str) -> Dict[str, Any]:
-        """Calcular metricas completas del backtest."""
+    def get_metrics(self) -> Dict[str, Any]:
+        """Compute metrics for this pair."""
+        trades = self.trades
+        equity_curve = self.equity_curve
+
         if not trades:
             return {
-                "version": version,
+                "symbol": self.symbol,
                 "total_trades": 0,
                 "metrics": self._empty_metrics(),
+                "equity_curve": [],
+                "trades": [],
             }
 
         pnls = [t.pnl for t in trades]
@@ -779,52 +620,35 @@ class BacktestEngine:
 
         eq = np.array(equity_curve)
         peak = np.maximum.accumulate(eq)
-        dd = (eq - peak) / peak * 100
+        dd = (eq - peak) / np.where(peak > 0, peak, 1) * 100
         max_dd = float(dd.min())
 
-        # Returns
         total_return = eq[-1] - eq[0]
         total_return_pct = total_return / eq[0] * 100
+        wr = len(wins) / len(trades) * 100
 
-        # Win rate
-        wr = len(wins) / len(trades) * 100 if trades else 0
-
-        # Profit factor
         gross_win = sum(wins)
         gross_loss = -sum(losses) if losses else 0.001
         pf = gross_win / gross_loss if gross_loss > 0 else 99.0
 
-        # Sharpe (annualized, 15m bars)
         if len(eq) > 1:
-            returns = np.diff(eq) / eq[:-1]
-            sharpe = float(np.mean(returns) / np.std(returns) * np.sqrt(252 * 24 * 4)) if np.std(returns) > 0 else 0
-        else:
-            sharpe = 0
-
-        # Sortino
-        if len(eq) > 1:
-            neg_returns = returns[returns < 0]
-            downside = float(np.std(neg_returns)) if len(neg_returns) > 0 else 0.001
+            returns = np.diff(eq) / np.where(eq[:-1] != 0, eq[:-1], 1)
+            std = np.std(returns)
+            sharpe = float(np.mean(returns) / std * np.sqrt(252 * 24 * 4)) if std > 0 else 0
+            neg = returns[returns < 0]
+            downside = float(np.std(neg)) if len(neg) > 0 else 0.001
             sortino = float(np.mean(returns) / downside * np.sqrt(252 * 24 * 4)) if downside > 0 else 0
         else:
-            sortino = 0
+            sharpe = sortino = 0
 
-        # Calmar
         calmar = abs(total_return_pct / max_dd) if max_dd < 0 else 0
 
-        # Avg metrics
-        avg_trade = np.mean(pnls)
-        avg_win = np.mean(wins) if wins else 0
-        avg_loss = np.mean(losses) if losses else 0
-        avg_bars = np.mean([t.bars_held for t in trades])
-
-        # Exit reason distribution
         reasons = {}
         for t in trades:
             reasons[t.exit_reason] = reasons.get(t.exit_reason, 0) + 1
 
         return {
-            "version": version,
+            "symbol": self.symbol,
             "total_trades": len(trades),
             "metrics": {
                 "total_return": round(total_return, 2),
@@ -835,16 +659,16 @@ class BacktestEngine:
                 "sortino": round(sortino, 2),
                 "max_dd_pct": round(max_dd, 2),
                 "calmar": round(calmar, 2),
-                "avg_trade": round(float(avg_trade), 4),
-                "avg_win": round(float(avg_win), 4),
-                "avg_loss": round(float(avg_loss), 4),
-                "avg_bars_held": round(float(avg_bars), 1),
+                "avg_trade": round(float(np.mean(pnls)), 4),
+                "avg_win": round(float(np.mean(wins)), 4) if wins else 0,
+                "avg_loss": round(float(np.mean(losses)), 4) if losses else 0,
+                "avg_bars_held": round(float(np.mean([t.bars_held for t in trades])), 1),
                 "wins": len(wins),
                 "losses": len(losses),
                 "exit_reasons": reasons,
                 "final_equity": round(float(eq[-1]), 2),
             },
-            "equity_curve": [round(float(x), 2) for x in equity_curve[::10]],  # subsample
+            "equity_curve": [round(float(x), 2) for x in equity_curve[::10]],
             "trades": [asdict(t) for t in trades],
         }
 
@@ -859,205 +683,494 @@ class BacktestEngine:
 
 
 # ============================================================
-# WALK-FORWARD RUNNER
+# WALK-FORWARD SIMULATOR
 # ============================================================
 
-def run_walkforward():
-    """Ejecutar walk-forward validation completa."""
-    print("=" * 70)
-    print(" WALK-FORWARD VALIDATION - INSTITUTIONAL ENGINE V2")
-    print("=" * 70)
+class WalkForwardSimulator:
+    """
+    Portfolio-level walk-forward simulation.
+    Processes all 5 pairs candle-by-candle in chronological order.
+    NO lookahead bias.
+    """
 
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    def __init__(self, capital: float = TOTAL_CAPITAL,
+                 pairs: List[str] = None):
+        self.capital = capital
+        self.pairs = pairs or PAIRS
+        self.capital_per_pair = capital / len(self.pairs)
+        self.simulators: Dict[str, PairSimulator] = {}
+        self.portfolio_equity_curve: List[float] = []
+        self.all_trades: List[Trade] = []
+        self.data: Dict[str, Dict[str, pd.DataFrame]] = {}
 
-    # Download ALL data (2023-2026)
-    print("\n[1/3] Downloading historical data (2023-2026)...")
-    dl = BinanceDataDownloader()
-    start_date = datetime(2023, 1, 1, tzinfo=timezone.utc)
-    end_date = datetime.now(timezone.utc)
+    def run(self, start_date: datetime, end_date: datetime):
+        """Main loop: download data, process all candles, compute metrics."""
+        print("=" * 70)
+        print(" WALK-FORWARD SIMULATION — 5 PAIRS PORTFOLIO")
+        print(" Candle-by-candle, NO lookahead bias")
+        print("=" * 70)
 
-    print("  15m data:")
-    df_15m_full = dl.download_klines(SYMBOL, "15m", start_date, end_date)
-    print("  1h data:")
-    df_1h_full = dl.download_klines(SYMBOL, "1h", start_date, end_date)
-    print("  4h data:")
-    df_4h_full = dl.download_klines(SYMBOL, "4h", start_date, end_date)
-    print("  1d data:")
-    df_1d_full = dl.download_klines(SYMBOL, "1d", start_date, end_date)
+        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    print(f"\n  Full period: {df_15m_full.index[0]} to {df_15m_full.index[-1]}")
-    print(f"  15m bars: {len(df_15m_full)}, 1h: {len(df_1h_full)}, "
-          f"4h: {len(df_4h_full)}, 1d: {len(df_1d_full)}")
+        # 1. Download data
+        print(f"\n[1/3] Downloading data ({start_date.date()} → {end_date.date()})...")
+        dl = BinanceDataDownloader()
 
-    # Run each fold
-    print("\n[2/3] Running walk-forward folds...")
-    bt = BacktestEngine()
-    results = []
+        for pair in self.pairs:
+            print(f"\n  {pair}:")
+            data = {}
+            for tf in ["15m", "1h", "4h"]:
+                data[tf] = dl.download_klines(pair, tf, start_date, end_date)
+            self.data[pair] = data
+            print(f"    15m: {len(data['15m'])} bars, 1h: {len(data['1h'])}, 4h: {len(data['4h'])}")
 
-    for fold_info in FOLDS:
-        fold_num = fold_info["fold"]
-        train_start = pd.Timestamp(fold_info["train_start"], tz=timezone.utc)
-        train_end = pd.Timestamp(fold_info["train_end"], tz=timezone.utc)
-        test_start = pd.Timestamp(fold_info["test_start"], tz=timezone.utc)
-        test_end = pd.Timestamp(fold_info["test_end"], tz=timezone.utc)
+        # 2. Initialize simulators
+        print("\n[2/3] Running walk-forward simulation...")
+        for pair in self.pairs:
+            config = PAIR_CONFIGS[pair]
+            self.simulators[pair] = PairSimulator(
+                pair, self.capital_per_pair, config
+            )
 
-        print(f"\n  --- Fold {fold_num} ---")
-        print(f"  Train: {train_start.date()} → {train_end.date()}")
-        print(f"  Test:  {test_start.date()} → {test_end.date()}")
+        # 3. Find common time range across all pairs
+        common_start = max(self.data[p]["15m"].index[0] for p in self.pairs)
+        common_end = min(self.data[p]["15m"].index[-1] for p in self.pairs)
+        print(f"\n  Common range: {common_start} → {common_end}")
 
-        # Filter data for test period
-        mask_15m = (df_15m_full.index >= test_start) & (df_15m_full.index <= test_end)
-        mask_1h = (df_1h_full.index >= test_start) & (df_1h_full.index <= test_end)
-        mask_4h = (df_4h_full.index >= test_start) & (df_4h_full.index <= test_end)
-        mask_1d = (df_1d_full.index >= test_start) & (df_1d_full.index <= test_end)
+        # 4. Process candle-by-candle across all pairs
+        # Use the 15m index from any pair as reference
+        ref_15m = self.data[self.pairs[0]]["15m"]
+        total_bars = len(ref_15m)
+        print(f"  Total 15m bars to process: {total_bars}")
+        print(f"  Pairs: {len(self.pairs)}")
+        print(f"  Capital per pair: ${self.capital_per_pair:.2f}")
 
-        df_15m_test = df_15m_full[mask_15m]
-        df_1h_test = df_1h_full[mask_1h]
-        df_4h_test = df_4h_full[mask_4h]
-        df_1d_test = df_1d_full[mask_1d]
+        t0 = time.time()
+        last_print = 0
 
-        # Need some buffer before test_start for indicators
-        buffer_start = test_start - timedelta(days=30)
-        mask_15m_buf = (df_15m_full.index >= buffer_start) & (df_15m_full.index <= test_end)
-        mask_1h_buf = (df_1h_full.index >= buffer_start) & (df_1h_full.index <= test_end)
-        mask_4h_buf = (df_4h_full.index >= buffer_start) & (df_4h_full.index <= test_end)
-        mask_1d_buf = (df_1d_full.index >= buffer_start) & (df_1d_full.index <= test_end)
+        for i in range(50, total_bars):
+            bar_time = ref_15m.index[i]
+            bar_close = float(ref_15m["close"].iloc[i])
+            bar_high = float(ref_15m["high"].iloc[i])
+            bar_low = float(ref_15m["low"].iloc[i])
 
-        df_15m_buf = df_15m_full[mask_15m_buf]
-        df_1h_buf = df_1h_full[mask_1h_buf]
-        df_4h_buf = df_4h_full[mask_4h_buf]
-        df_1d_buf = df_1d_full[mask_1d_buf]
+            # Process each pair
+            for pair in self.pairs:
+                sim = self.simulators[pair]
+                pair_15m = self.data[pair]["15m"]
+                pair_1h = self.data[pair]["1h"]
+                pair_4h = self.data[pair]["4h"]
 
-        if len(df_15m_buf) < 100:
-            print(f"  WARNING: Insufficient data for fold {fold_num}, skipping")
-            continue
+                # Find closest bar in this pair's data
+                if bar_time not in pair_15m.index:
+                    # Find nearest previous bar
+                    mask = pair_15m.index <= bar_time
+                    if mask.sum() == 0:
+                        continue
+                    idx = mask.sum() - 1
+                else:
+                    idx = pair_15m.index.get_loc(bar_time)
 
-        # Run V1
-        print("    Running V1...")
-        result_v1 = bt.run_v1(df_15m_buf, df_1h_buf, df_4h_buf, df_1d_buf)
-        m1 = result_v1["metrics"]
-        print(f"    V1: {result_v1['total_trades']} trades, WR={m1['win_rate']}%, "
-              f"PF={m1['profit_factor']}, Return={m1['total_return_pct']}%, "
-              f"DD={m1['max_dd_pct']}%, Sharpe={m1['sharpe']}")
+                pair_bar_close = float(pair_15m["close"].iloc[idx])
+                pair_bar_high = float(pair_15m["high"].iloc[idx])
+                pair_bar_low = float(pair_15m["low"].iloc[idx])
 
-        # Run V2
-        print("    Running V2...")
-        result_v2 = bt.run_v2(df_15m_buf, df_1h_buf, df_4h_buf, df_1d_buf)
-        m2 = result_v2["metrics"]
-        print(f"    V2: {result_v2['total_trades']} trades, WR={m2['win_rate']}%, "
-              f"PF={m2['profit_factor']}, Return={m2['total_return_pct']}%, "
-              f"DD={m2['max_dd_pct']}%, Sharpe={m2['sharpe']}")
+                sim.process_candle(
+                    idx, bar_time, pair_bar_close,
+                    pair_bar_high, pair_bar_low,
+                    pair_15m, pair_1h, pair_4h
+                )
 
-        # Determine winner
-        v1_wins = m1["sharpe"] > m2["sharpe"]
-        winner = "V1" if v1_wins else "V2"
+            # Portfolio equity = sum of all pair equities
+            portfolio_eq = sum(
+                self.simulators[p].equity for p in self.pairs
+            )
+            self.portfolio_equity_curve.append(portfolio_eq)
 
-        # Check warnings
-        warnings = []
-        if m2["max_dd_pct"] < -10:
-            warnings.append(f"V2 DD {m2['max_dd_pct']:.2f}% exceeds -10% threshold")
-        if m2["profit_factor"] < 1.0:
-            warnings.append(f"V2 PF {m2['profit_factor']:.2f} < 1.0 (negative)")
+            # Progress every 5%
+            pct = i / total_bars * 100
+            if pct - last_print >= 5:
+                elapsed = time.time() - t0
+                print(f"  [{pct:.0f}%] Bar {i}/{total_bars} | "
+                      f"Portfolio: ${portfolio_eq:.2f} | "
+                      f"Elapsed: {elapsed:.1f}s")
+                last_print = pct
 
-        fold_result = {
-            "fold": fold_num,
-            "train_period": f"{train_start.date()} to {train_end.date()}",
-            "test_period": f"{test_start.date()} to {test_end.date()}",
-            "v1": {
-                "total_trades": result_v1["total_trades"],
-                "sharpe": m1["sharpe"],
-                "sortino": m1["sortino"],
-                "max_dd_pct": m1["max_dd_pct"],
-                "win_rate": m1["win_rate"],
-                "profit_factor": m1["profit_factor"],
-                "calmar": m1["calmar"],
-                "total_return_pct": m1["total_return_pct"],
-                "final_equity": m1["final_equity"],
+        elapsed = time.time() - t0
+        print(f"\n  Simulation complete in {elapsed:.1f}s")
+
+        # 5. Collect all trades
+        for pair in self.pairs:
+            self.all_trades.extend(self.simulators[pair].trades)
+        self.all_trades.sort(key=lambda t: t.entry_time)
+
+        # 6. Compute results
+        print("\n[3/3] Computing metrics...")
+        results = self._compute_metrics()
+
+        # 7. Save results
+        output_file = OUTPUT_DIR / "walkforward_5pairs_results.json"
+        with open(output_file, "w") as f:
+            json.dump(results, f, indent=2, default=str)
+        print(f"\nResults saved: {output_file}")
+
+        # 8. Print summary
+        self._print_summary(results)
+
+        return results
+
+    def _compute_metrics(self) -> Dict[str, Any]:
+        """Calculate portfolio and per-pair metrics."""
+        per_pair = {}
+        for pair in self.pairs:
+            result = self.simulators[pair].get_metrics()
+            per_pair[pair] = result
+
+        # Portfolio metrics
+        total_final = sum(per_pair[p]["metrics"]["final_equity"] for p in per_pair)
+        total_return = total_final - self.capital
+        total_return_pct = total_return / self.capital * 100
+
+        # Portfolio equity curve
+        eq = np.array(self.portfolio_equity_curve)
+        if len(eq) == 0:
+            eq = np.array([self.capital])
+        peak = np.maximum.accumulate(eq)
+        dd = (eq - peak) / np.where(peak > 0, peak, 1) * 100
+        portfolio_max_dd = float(dd.min())
+
+        # Trade stats
+        all_trades = self.all_trades
+        total_trades = len(all_trades)
+        total_wins = sum(1 for t in all_trades if t.pnl > 0)
+        total_losses = sum(1 for t in all_trades if t.pnl <= 0)
+        wr = total_wins / total_trades * 100 if total_trades > 0 else 0
+
+        pnls = [t.pnl for t in all_trades]
+        wins_pnl = [p for p in pnls if p > 0]
+        losses_pnl = [p for p in pnls if p <= 0]
+
+        gross_win = sum(wins_pnl) if wins_pnl else 0
+        gross_loss = -sum(losses_pnl) if losses_pnl else 0.001
+        pf = gross_win / gross_loss if gross_loss > 0 else 99.0
+
+        # Sharpe & Sortino
+        if len(eq) > 1:
+            returns = np.diff(eq) / np.where(eq[:-1] != 0, eq[:-1], 1)
+            std = np.std(returns)
+            sharpe = float(np.mean(returns) / std * np.sqrt(252 * 24 * 4)) if std > 0 else 0
+            neg = returns[returns < 0]
+            downside = float(np.std(neg)) if len(neg) > 0 else 0.001
+            sortino = float(np.mean(returns) / downside * np.sqrt(252 * 24 * 4)) if downside > 0 else 0
+        else:
+            sharpe = sortino = 0
+
+        calmar = abs(total_return_pct / portfolio_max_dd) if portfolio_max_dd < 0 else 0
+
+        avg_trade = np.mean(pnls) if pnls else 0
+        avg_win = np.mean(wins_pnl) if wins_pnl else 0
+        avg_loss = np.mean(losses_pnl) if losses_pnl else 0
+        avg_bars = np.mean([t.bars_held for t in all_trades]) if all_trades else 0
+
+        # Exit reasons
+        exit_reasons = {}
+        for t in all_trades:
+            exit_reasons[t.exit_reason] = exit_reasons.get(t.exit_reason, 0) + 1
+
+        # Contributions
+        contributions = {}
+        for pair in self.pairs:
+            m = per_pair[pair]["metrics"]
+            pair_return = m["final_equity"] - self.capital_per_pair
+            contributions[pair] = {
+                "return_usd": round(pair_return, 2),
+                "return_pct": round(pair_return / self.capital_per_pair * 100, 2),
+                "pct_of_total": round(pair_return / total_return * 100, 1) if total_return != 0 else 0,
+                "trades": per_pair[pair]["total_trades"],
+                "sharpe": m["sharpe"],
+                "max_dd": m["max_dd_pct"],
+                "final_equity": m["final_equity"],
+            }
+
+        # Correlation matrix
+        min_len = min(len(per_pair[p]["equity_curve"]) for p in self.pairs)
+        curves = {}
+        for p in self.pairs:
+            ec = np.array(per_pair[p]["equity_curve"][:min_len])
+            if len(ec) > 1:
+                curves[p] = np.diff(ec) / np.where(ec[:-1] != 0, ec[:-1], 1)
+
+        syms = list(curves.keys())
+        corr = {}
+        for s1 in syms:
+            corr[s1] = {}
+            for s2 in syms:
+                if s1 == s2:
+                    corr[s1][s2] = 1.0
+                elif s2 in corr and s1 in corr[s2]:
+                    corr[s1][s2] = corr[s2][s1]
+                else:
+                    c = np.corrcoef(curves[s1], curves[s2])[0, 1]
+                    corr[s1][s2] = round(float(c), 3)
+
+        # Max simultaneous DD
+        pair_dds = {}
+        for p in self.pairs:
+            ec = np.array(per_pair[p]["equity_curve"][:min_len])
+            pp = np.maximum.accumulate(ec)
+            d = (ec - pp) / np.where(pp > 0, pp, 1) * 100
+            pair_dds[p] = d < -1.0
+
+        max_sim = 0
+        for i in range(min_len):
+            count = sum(1 for p in pair_dds if pair_dds[p][i])
+            max_sim = max(max_sim, count)
+
+        # Monthly breakdown
+        monthly = {}
+        for t in all_trades:
+            et = t.entry_time
+            if isinstance(et, str):
+                try:
+                    et = datetime.fromisoformat(et)
+                except:
+                    continue
+            mk = et.strftime("%Y-%m")
+            if mk not in monthly:
+                monthly[mk] = {}
+            pair = t.pair
+            if pair not in monthly[mk]:
+                monthly[mk][pair] = {"pnl": 0, "trades": 0, "wins": 0}
+            monthly[mk][pair]["pnl"] += t.pnl
+            monthly[mk][pair]["trades"] += 1
+            if t.pnl > 0:
+                monthly[mk][pair]["wins"] += 1
+
+        for mk in monthly:
+            tp = sum(monthly[mk][p]["pnl"] for p in monthly[mk])
+            tt = sum(monthly[mk][p]["trades"] for p in monthly[mk])
+            tw = sum(monthly[mk][p]["wins"] for p in monthly[mk])
+            monthly[mk]["TOTAL"] = {
+                "pnl": round(tp, 2),
+                "trades": tt,
+                "win_rate": round(tw / tt * 100, 1) if tt > 0 else 0
+            }
+
+        return {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "period": f"{self.data[self.pairs[0]]['15m'].index[0]} to "
+                      f"{self.data[self.pairs[0]]['15m'].index[-1]}",
+            "type": "walkforward_simulation",
+            "lookahead_bias": False,
+            "costs": {
+                "commission": f"{COMMISSION_MAKER * 100:.3f}% (Maker Post-Only)",
+                "spread": f"{SPREAD * 100:.2f}%",
+                "slippage": f"{SLIP_ATR_MULT} x ATR(5m) x 0.5 (Maker)",
             },
-            "v2": {
-                "total_trades": result_v2["total_trades"],
-                "sharpe": m2["sharpe"],
-                "sortino": m2["sortino"],
-                "max_dd_pct": m2["max_dd_pct"],
-                "win_rate": m2["win_rate"],
-                "profit_factor": m2["profit_factor"],
-                "calmar": m2["calmar"],
-                "total_return_pct": m2["total_return_pct"],
-                "final_equity": m2["final_equity"],
+            "portfolio": {
+                "initial_capital": self.capital,
+                "capital_per_pair": self.capital_per_pair,
+                "final_equity": round(total_final, 2),
+                "total_return": round(total_return, 2),
+                "total_return_pct": round(total_return_pct, 2),
+                "max_dd_pct": round(portfolio_max_dd, 2),
+                "sharpe": round(sharpe, 2),
+                "sortino": round(sortino, 2),
+                "profit_factor": round(pf, 2),
+                "win_rate": round(wr, 1),
+                "total_trades": total_trades,
+                "calmar": round(calmar, 2),
+                "avg_trade": round(float(avg_trade), 4),
+                "avg_win": round(float(avg_win), 4),
+                "avg_loss": round(float(avg_loss), 4),
+                "avg_bars_held": round(float(avg_bars), 1),
+                "wins": total_wins,
+                "losses": total_losses,
+                "exit_reasons": exit_reasons,
             },
-            "winner": winner,
-            "v2_better_risk_adjusted": m2["sharpe"] > m1["sharpe"],
-            "warnings": warnings,
+            "per_pair": {p: per_pair[p] for p in self.pairs},
+            "contributions": contributions,
+            "correlation_matrix": corr,
+            "max_simultaneous_dd": max_sim,
+            "monthly_breakdown": monthly,
+            "portfolio_equity_curve": [round(float(x), 2)
+                                       for x in self.portfolio_equity_curve[::100]],
+            "total_bars_processed": len(self.portfolio_equity_curve),
         }
-        results.append(fold_result)
 
-    # Aggregate results
-    print("\n[3/3] Aggregating results...")
-    v2_sharpes = [r["v2"]["sharpe"] for r in results]
-    v2_dds = [r["v2"]["max_dd_pct"] for r in results]
-    v2_better_count = sum(1 for r in results if r["v2_better_risk_adjusted"])
+    def _print_summary(self, results: Dict):
+        """Print formatted summary to console."""
+        p = results["portfolio"]
 
-    # Success criteria
-    sharpes_above_1 = sum(1 for s in v2_sharpes if s > 1.0)
-    dds_below_10 = sum(1 for d in v2_dds if d > -10)
-    v2_wins_over_v1 = v2_better_count
+        print(f"\n{'=' * 70}")
+        print(" WALK-FORWARD SIMULATION RESULTS")
+        print(f"{'=' * 70}")
+        print(f"  Period: {results['period']}")
+        print(f"  Type: {results['type']} (NO lookahead bias)")
+        print(f"  Costs: {results['costs']['commission']} + "
+              f"{results['costs']['spread']} + {results['costs']['slippage']}")
 
-    summary = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "symbol": SYMBOL,
-        "total_folds": len(results),
-        "v2_sharpe_above_1": f"{sharpes_above_1}/{len(results)}",
-        "v2_dd_below_10": f"{dds_below_10}/{len(results)}",
-        "v2_better_than_v1": f"{v2_wins_over_v1}/{len(results)}",
-        "success_criteria": {
-            "sharpe_5_of_7": sharpes_above_1 >= 5,
-            "dd_all_below_10": dds_below_10 == len(results),
-            "v2_better_4_of_7": v2_wins_over_v1 >= 4,
-        },
-        "overall_pass": all([
-            sharpes_above_1 >= 5,
-            dds_below_10 == len(results),
-            v2_wins_over_v1 >= 4,
-        ]),
-        "avg_v2_sharpe": round(float(np.mean(v2_sharpes)), 2),
-        "avg_v2_dd": round(float(np.mean(v2_dds)), 2),
-        "avg_v2_return": round(float(np.mean([r["v2"]["total_return_pct"] for r in results])), 2),
-        "folds": results,
-    }
+        print(f"\n{'─' * 70}")
+        print(" PORTFOLIO METRICS")
+        print(f"{'─' * 70}")
+        print(f"  Initial:  ${p['initial_capital']:,.2f}  →  "
+              f"Final: ${p['final_equity']:,.2f}")
+        print(f"  Return:   ${p['total_return']:+,.2f} ({p['total_return_pct']:+.2f}%)")
+        print(f"  Max DD:   {p['max_dd_pct']:.2f}%")
+        print(f"  Sharpe:   {p['sharpe']:.2f}  |  Sortino: {p['sortino']:.2f}")
+        print(f"  PF:       {p['profit_factor']:.2f}  |  WR: {p['win_rate']:.1f}%")
+        print(f"  Trades:   {p['total_trades']}  |  Calmar: {p['calmar']:.2f}")
+        print(f"  Avg Trade: ${p['avg_trade']:.4f}  |  "
+              f"Avg Win: ${p['avg_win']:.4f}  |  Avg Loss: ${p['avg_loss']:.4f}")
+        print(f"  Avg Bars:  {p['avg_bars_held']:.1f}")
 
-    # Save results
-    output_file = OUTPUT_DIR / "walkforward_results.json"
-    with open(output_file, "w") as f:
-        json.dump(summary, f, indent=2, default=str)
+        print(f"\n{'─' * 70}")
+        print(" PER-PAIR BREAKDOWN")
+        print(f"{'─' * 70}")
+        print(f"  {'Pair':<12} {'Trades':>7} {'WR':>7} {'PF':>7} "
+              f"{'Return':>10} {'Ret%':>8} {'DD':>8} {'Sharpe':>8} {'Final$':>10}")
+        print(f"  {'─' * 77}")
+        for pair in self.pairs:
+            m = results["per_pair"][pair]["metrics"]
+            c = results["contributions"][pair]
+            print(f"  {pair:<12} {results['per_pair'][pair]['total_trades']:>6} "
+                  f"{m['win_rate']:>6.1f}% {m['profit_factor']:>6.2f} "
+                  f"${m['total_return']:>+9.2f} {m['total_return_pct']:>+7.2f}% "
+                  f"{m['max_dd_pct']:>7.2f}% {m['sharpe']:>7.2f} "
+                  f"${m['final_equity']:>9.2f}")
 
-    # Print summary
+        print(f"\n  CONTRIBUTIONS TO TOTAL RETURN:")
+        print(f"  {'Pair':<12} {'Return$':>10} {'Ret%':>8} {'%Total':>8}")
+        print(f"  {'─' * 38}")
+        for pair, c in results["contributions"].items():
+            print(f"  {pair:<12} ${c['return_usd']:>+9.2f} "
+                  f"{c['return_pct']:>+7.2f}% {c['pct_of_total']:>7.1f}%")
+
+        print(f"\n  MAX SIMULTANEOUS DD: {results['max_simultaneous_dd']}/{len(self.pairs)} pairs")
+
+        print(f"\n  CORRELATION MATRIX:")
+        syms = list(results["correlation_matrix"].keys())
+        header = f"  {'':>12}" + "".join(f"{s[:3]:>8}" for s in syms)
+        print(header)
+        for s1 in syms:
+            row = f"  {s1:<12}" + "".join(
+                f"{results['correlation_matrix'][s1][s2]:>8.3f}" for s2 in syms
+            )
+            print(row)
+
+        print(f"\n  MONTHLY BREAKDOWN:")
+        print(f"  {'Month':<10} {'PnL':>10} {'Trades':>8} {'WR':>8}")
+        print(f"  {'─' * 36}")
+        for mk in sorted(results["monthly_breakdown"].keys()):
+            t = results["monthly_breakdown"][mk]["TOTAL"]
+            print(f"  {mk:<10} ${t['pnl']:>+9.2f} {t['trades']:>7} "
+                  f"{t['win_rate']:>7.1f}%")
+
+        # Exit reasons
+        print(f"\n  EXIT REASONS:")
+        for reason, count in sorted(p["exit_reasons"].items(),
+                                    key=lambda x: -x[1]):
+            pct = count / p["total_trades"] * 100 if p["total_trades"] > 0 else 0
+            print(f"    {reason:<20} {count:>4} ({pct:.1f}%)")
+
+        print(f"\n  Bars processed: {results['total_bars_processed']:,}")
+        print(f"{'=' * 70}")
+
+
+# ============================================================
+# COMPARISON WITH STANDARD BACKTEST
+# ============================================================
+
+def compare_with_standard_backtest(wf_results: Dict):
+    """Compare walk-forward results with standard backtest results."""
+    portfolio_file = OUTPUT_DIR / "portfolio_5pairs_results.json"
+    if not portfolio_file.exists():
+        print("\n  [SKIP] No standard backtest results to compare with.")
+        return
+
+    with open(portfolio_file) as f:
+        std_results = json.load(f)
+
+    std_p = std_results.get("portfolio", {})
+    wf_p = wf_results.get("portfolio", {})
+
     print(f"\n{'=' * 70}")
-    print(" WALK-FORWARD RESULTS SUMMARY")
+    print(" COMPARISON: Walk-Forward vs Standard Backtest")
     print(f"{'=' * 70}")
-    print(f"  V2 Sharpe > 1.0: {sharpes_above_1}/{len(results)} folds "
-          f"{'✅ PASS' if sharpes_above_1 >= 5 else '❌ FAIL'}")
-    print(f"  V2 DD < 10%:     {dds_below_10}/{len(results)} folds "
-          f"{'✅ PASS' if dds_below_10 == len(results) else '❌ FAIL'}")
-    print(f"  V2 > V1 (Sharpe): {v2_wins_over_v1}/{len(results)} folds "
-          f"{'✅ PASS' if v2_wins_over_v1 >= 4 else '❌ FAIL'}")
-    print(f"\n  Overall: {'✅ PASS' if summary['overall_pass'] else '❌ FAIL'}")
-    print(f"  Avg V2 Sharpe: {summary['avg_v2_sharpe']}")
-    print(f"  Avg V2 DD: {summary['avg_v2_dd']}%")
-    print(f"  Avg V2 Return: {summary['avg_v2_return']}%")
+    print(f"  {'Metric':<20} {'Standard':>15} {'Walk-Forward':>15} {'Delta':>12}")
+    print(f"  {'─' * 62}")
 
-    # Print fold table
-    print(f"\n{'=' * 70}")
-    print(f"{'Fold':<6} {'V1 Sharpe':<12} {'V2 Sharpe':<12} {'V1 DD%':<10} {'V2 DD%':<10} {'V1 Ret%':<10} {'V2 Ret%':<10} {'Winner':<8}")
-    print("-" * 70)
-    for r in results:
-        print(f"{r['fold']:<6} {r['v1']['sharpe']:<12} {r['v2']['sharpe']:<12} "
-              f"{r['v1']['max_dd_pct']:<10} {r['v2']['max_dd_pct']:<10} "
-              f"{r['v1']['total_return_pct']:<10} {r['v2']['total_return_pct']:<10} "
-              f"{r['winner']:<8}")
+    metrics = [
+        ("Total Return%", "total_return_pct", "%"),
+        ("Max DD%", "max_dd_pct", "%"),
+        ("Sharpe", "sharpe", ""),
+        ("Profit Factor", "profit_factor", ""),
+        ("Win Rate%", "win_rate", "%"),
+        ("Total Trades", "total_trades", ""),
+        ("Final Equity$", "final_equity", "$"),
+    ]
 
-    print(f"\nResults saved: {output_file}")
-    return summary
+    for name, key, fmt in metrics:
+        std_val = std_p.get(key, 0)
+        wf_val = wf_p.get(key, 0)
+        delta = wf_val - std_val
+
+        if fmt == "$":
+            print(f"  {name:<20} ${std_val:>14,.2f} ${wf_val:>14,.2f} ${delta:>+11,.2f}")
+        elif fmt == "%":
+            print(f"  {name:<20} {std_val:>14.2f} {wf_val:>14.2f} {delta:>+11.2f}")
+        else:
+            print(f"  {name:<20} {std_val:>15.2f} {wf_val:>15.2f} {delta:>+12.2f}")
+
+    # Interpretation
+    print(f"\n  ANALYSIS:")
+    if wf_p.get("total_return_pct", 0) < std_p.get("total_return_pct", 0):
+        diff = std_p.get("total_return_pct", 0) - wf_p.get("total_return_pct", 0)
+        print(f"  - Walk-forward return is {diff:.2f}% lower than standard backtest")
+        print(f"    (Expected: standard backtest may have some overestimation)")
+    else:
+        diff = wf_p.get("total_return_pct", 0) - std_p.get("total_return_pct", 0)
+        print(f"  - Walk-forward return is {diff:.2f}% HIGHER than standard backtest")
+
+    if wf_p.get("max_dd_pct", 0) < std_p.get("max_dd_pct", 0):
+        print(f"  - Walk-forward DD is WORSE than standard backtest")
+    else:
+        print(f"  - Walk-forward DD is BETTER than standard backtest")
+
+    if wf_p.get("sharpe", 0) > std_p.get("sharpe", 0):
+        print(f"  - Walk-forward Sharpe is BETTER: better risk-adjusted returns")
+    else:
+        print(f"  - Walk-forward Sharpe is WORSE: more risk per unit of return")
+
+    print(f"{'=' * 70}")
+
+
+# ============================================================
+# MAIN
+# ============================================================
+
+def main():
+    """Run walk-forward simulation for 5 pairs portfolio."""
+    print("=" * 70)
+    print(" INSTITUTIONAL ENGINE V2 — WALK-FORWARD SIMULATION")
+    print(" 5 Pairs: BTC, ETH, SOL, XRP, BNB")
+    print(" $4,450 capital ($890/pair)")
+    print(" Candle-by-candle | NO lookahead bias | Post-Only costs")
+    print("=" * 70)
+
+    sim = WalkForwardSimulator()
+
+    # Run for Jan-Jul 2026
+    end_date = datetime.now(timezone.utc)
+    start_date = datetime(2026, 1, 1, tzinfo=timezone.utc)
+
+    results = sim.run(start_date, end_date)
+
+    # Compare with standard backtest
+    compare_with_standard_backtest(results)
+
+    return results
 
 
 if __name__ == "__main__":
-    run_walkforward()
+    main()

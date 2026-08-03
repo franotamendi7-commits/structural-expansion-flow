@@ -34,6 +34,8 @@ class ExecutionManager:
         try:
             if method == 'POST':
                 resp = self.session.post(url, headers=headers, data=params, timeout=10)
+            elif method == 'DELETE':
+                resp = self.session.delete(url, headers=headers, params=params, timeout=10)
             else:
                 resp = self.session.get(url, headers=headers, params=params, timeout=10)
             return resp.json()
@@ -75,7 +77,7 @@ class ExecutionManager:
         # 3) Último recurso: price (puede ser 0 en mercado)
         return float(resp.get('price', 0))
 
-    def _poll_order(self, symbol: str, order_id: int, timeout: float = 5.0) -> Optional[dict]:
+    def _poll_order(self, symbol: str, order_id: int, timeout: float = 10.0) -> Optional[dict]:
         """Espera hasta que la orden esté FILLED y devuelve la respuesta completa."""
         start = time.time()
         while time.time() - start < timeout:
@@ -88,6 +90,52 @@ class ExecutionManager:
                 return resp
             time.sleep(0.5)
         return resp
+
+    def cancel_order(self, symbol: str, order_id: int) -> dict:
+        """Cancel a pending order on Binance."""
+        try:
+            params = self._sign_request({
+                'symbol': symbol,
+                'orderId': str(order_id)
+            })
+            resp = self._send_request('DELETE', '/fapi/v1/order', params)
+            return resp
+        except Exception as e:
+            return {'error': str(e)}
+
+    def get_open_orders(self, symbol: str = None) -> list:
+        """Get all open (pending) orders, optionally filtered by symbol."""
+        try:
+            params = self._sign_request({})
+            if symbol:
+                params['symbol'] = symbol
+            resp = self._send_request('GET', '/fapi/v1/openOrders', params)
+            if isinstance(resp, list):
+                return resp
+            return []
+        except Exception as e:
+            return []
+
+    def get_position(self, symbol: str) -> Optional[dict]:
+        """Get actual position from exchange for a symbol."""
+        try:
+            params = self._sign_request({'symbol': symbol})
+            resp = self._send_request('GET', '/fapi/v2/positionRisk', params)
+            if isinstance(resp, list):
+                for pos in resp:
+                    if pos.get('symbol') == symbol:
+                        amt = float(pos.get('positionAmt', 0))
+                        if amt != 0:
+                            return {
+                                'symbol': symbol,
+                                'side': 'LONG' if amt > 0 else 'SHORT',
+                                'quantity': abs(amt),
+                                'entry_price': float(pos.get('entryPrice', 0)),
+                                'unrealized_pnl': float(pos.get('unRealizedProfit', 0)),
+                            }
+            return None
+        except Exception as e:
+            return None
 
     def execute_signal(self, signal_dict: dict, reduce_only: bool = False, 
                       order_type: str = 'MARKET', price: float = None) -> dict:

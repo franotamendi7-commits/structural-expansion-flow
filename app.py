@@ -44,6 +44,13 @@ APP_DIR = Path(__file__).resolve().parent
 # BINANCE HELPERS
 # ============================================================
 def _load_secrets():
+    # First check environment variables (for Railway deployment)
+    api_key = os.environ.get("BINANCE_API_KEY", "")
+    api_secret = os.environ.get("BINANCE_SECRET_KEY", "")
+    if api_key and api_secret:
+        return api_key, api_secret
+    
+    # Fallback to secrets.toml file
     secrets_path = APP_DIR / ".streamlit" / "secrets.toml"
     try:
         import toml

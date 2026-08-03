@@ -32,6 +32,7 @@
 ============================================================
 """
 import time
+import os
 import math
 import json
 import logging
@@ -120,6 +121,16 @@ def _signal_log(signal_type: str, symbol: str, direction: int, entry: float,
 
 def _init_telegram():
     global _TG_TOKEN, _TG_CHAT_ID, _TG_CHANNEL_ID, _TG_ENABLED
+    # First check environment variables (for Railway deployment)
+    _TG_TOKEN = os.environ.get("TELEGRAM_TOKEN", "")
+    _TG_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
+    _TG_CHANNEL_ID = os.environ.get("TELEGRAM_CHANNEL_ID", "")
+    if _TG_TOKEN and _TG_CHAT_ID:
+        _TG_ENABLED = True
+        logger.info("Telegram alerts enabled via environment variables")
+        return
+    
+    # Fallback to secrets.toml file
     secrets_path = Path(__file__).parent / ".streamlit" / "secrets.toml"
     if secrets_path.exists():
         try:

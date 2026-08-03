@@ -11,10 +11,10 @@
     "partial_exit_pct": 0.5,
     "time_exit_bars": 24
   },
-  "consecutive_losses": 0,
-  "total_trades_recorded": 41,
+  "consecutive_losses": 1,
+  "total_trades_recorded": 25,
   "last_review_trade": 0,
   "is_paused": false,
   "pause_reason": "",
-  "last_update": "2026-07-30T18:34:11.913466+00:00"
+  "last_update": "2026-08-03T22:06:53.127905+00:00"
 }

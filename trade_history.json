@@ -74,5 +74,89 @@
     "size": 36.16374945754497,
     "exit_reason": "take_profit_2",
     "score": 75
+  },
+  {
+    "symbol": "ETHUSDT",
+    "direction": "bearish",
+    "entry": 1918.12,
+    "exit": 1932.0214446680002,
+    "entry_time": "2026-07-30T21:53:24.007083+00:00",
+    "exit_time": "2026-07-30T22:28:59.972492+00:00",
+    "net": -11.265123119330662,
+    "size": 0.6898648482144776,
+    "exit_reason": "stop_loss",
+    "score": 80
+  },
+  {
+    "symbol": "BTCUSDT",
+    "direction": "bearish",
+    "entry": 63027.168,
+    "exit": 62941.947531428574,
+    "entry_time": "2026-08-01T15:50:10.868604+00:00",
+    "exit_time": "2026-08-01T16:22:00.152488+00:00",
+    "net": -0.044816207771403604,
+    "size": 0.04048095996070911,
+    "exit_reason": "time_exit",
+    "score": 91
+  },
+  {
+    "symbol": "ETHUSDT",
+    "direction": "bearish",
+    "entry": 1879.6242,
+    "exit": 1877.8819248571428,
+    "entry_time": "2026-08-03T00:03:44.581110+00:00",
+    "exit_time": "2026-08-03T00:37:28.278685+00:00",
+    "net": 0.8119729475843285,
+    "size": 0.43020480828304497,
+    "exit_reason": "time_exit",
+    "score": 80
+  },
+  {
+    "symbol": "ETHUSDT",
+    "direction": "bearish",
+    "entry": 1868.7339,
+    "exit": 1870.553113714286,
+    "entry_time": "2026-08-03T01:01:19.654691+00:00",
+    "exit_time": "2026-08-03T01:39:06.186960+00:00",
+    "net": -0.34010637882525707,
+    "size": 0.512108290915451,
+    "exit_reason": "time_exit",
+    "score": 92
+  },
+  {
+    "symbol": "ETHUSDT",
+    "direction": "bearish",
+    "entry": 1862.3981,
+    "exit": 1868.474269142857,
+    "entry_time": "2026-08-03T02:01:01.834957+00:00",
+    "exit_time": "2026-08-03T02:34:57.517495+00:00",
+    "net": -1.856441642867964,
+    "size": 0.37817175861041685,
+    "exit_reason": "time_exit",
+    "score": 91
+  },
+  {
+    "symbol": "ETHUSDT",
+    "direction": "bearish",
+    "entry": 1863.5183,
+    "exit": 1865.530314,
+    "entry_time": "2026-08-03T02:36:18.882016+00:00",
+    "exit_time": "2026-08-03T03:10:42.834781+00:00",
+    "net": -0.4779781050120321,
+    "size": 0.5162227296204508,
+    "exit_reason": "time_exit",
+    "score": 95
+  },
+  {
+    "symbol": "ETHUSDT",
+    "direction": "bearish",
+    "entry": 1859.1987,
+    "exit": 1852.5949422857143,
+    "entry_time": "2026-08-03T03:11:56.929883+00:00",
+    "exit_time": "2026-08-03T03:47:04.105750+00:00",
+    "net": 2.8968408744017333,
+    "size": 0.3058740211696908,
+    "exit_reason": "time_exit",
+    "score": 95
   }
 ]

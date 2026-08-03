@@ -19,6 +19,7 @@ Usage:
 """
 
 import sys
+import os
 import time
 import math
 import json
@@ -78,7 +79,14 @@ def calculate_position_size(capital, risk_pct, entry, sl):
 
 
 def _load_binance_keys():
-    """Load Binance API keys from secrets.toml."""
+    """Load Binance API keys from environment variables or secrets.toml."""
+    # First check environment variables (for Railway deployment)
+    api_key = os.environ.get("BINANCE_API_KEY", "")
+    api_secret = os.environ.get("BINANCE_SECRET_KEY", "")
+    if api_key and api_secret:
+        return api_key, api_secret
+    
+    # Fallback to secrets.toml file
     try:
         import toml
         secrets_path = Path(__file__).parent / ".streamlit" / "secrets.toml"
@@ -373,6 +381,7 @@ class InstitutionalBot:
         
         # Execute REAL order on Binance testnet
         order_result = None
+        order_confirmed = False
         try:
             side = "BUY" if direction == 1 else "SELL"
             order_result = self.execution_mgr.execute_signal({
@@ -381,20 +390,42 @@ class InstitutionalBot:
                 "quantity": qty,
             })
             logger.info(f"[{self.symbol}] ORDER RESULT: {order_result}")
-            
+
             if order_result and order_result.get("error"):
                 logger.error(f"[{self.symbol}] ORDER FAILED: {order_result['error']}")
-                # Don't block the position — paper trading continues
                 order_result = None
-            elif order_result and order_result.get("executed_price"):
-                # Use actual execution price from Binance
-                entry = order_result["executed_price"]
-                logger.info(f"[{self.symbol}] ORDER FILLED @ {entry}")
+            elif order_result and order_result.get("status") in ("FILLED", "NEW") and order_result.get("order_id"):
+                # Order confirmed on exchange — safe to track
+                order_confirmed = True
+                if order_result.get("executed_price"):
+                    entry = order_result["executed_price"]
+                    logger.info(f"[{self.symbol}] ORDER FILLED @ {entry}")
+                else:
+                    logger.info(f"[{self.symbol}] ORDER CONFIRMED (status={order_result['status']}, id={order_result['order_id']})")
+            else:
+                # UNKNOWN status or missing order_id — reject position
+                status = order_result.get("status", "NONE") if order_result else "NONE"
+                oid = order_result.get("order_id") if order_result else None
+                logger.warning(f"[{self.symbol}] ORDER NOT CONFIRMED (status={status}, order_id={oid}) — rejecting position")
+                # Cancel if there's an order_id to clean up
+                if oid:
+                    try:
+                        self.execution_mgr.cancel_order(self.symbol, oid)
+                        logger.info(f"[{self.symbol}] Cancelled unconfirmed order {oid}")
+                    except Exception:
+                        pass
+                order_result = None
         except Exception as e:
             logger.error(f"[{self.symbol}] ORDER EXCEPTION: {e}")
             order_result = None
-        
-        # Store position reference for manage_position (FIX: include entry_time + order_id)
+
+        if not order_confirmed:
+            # Remove the optimistic PositionManager entry we created
+            if pos.position_id in self.position_mgr.positions:
+                del self.position_mgr.positions[pos.position_id]
+            return False
+
+        # Store position reference for manage_position
         self.position = {
             "position_id": pos.position_id,
             "direction": signal["direction"],
@@ -454,8 +485,8 @@ class InstitutionalBot:
         # Update capital
         self.capital += pnl
         
-        # Update drawdown manager
-        self.dd_mgr.update(self.capital)
+        # NOTE: DD update happens in run_once() with total portfolio equity
+        # Do NOT update here with per-bot capital (causes DD spike bug)
         
         # Update parameter adapter
         self.param_adapter.record_trade({
@@ -606,7 +637,8 @@ class MultiBotSystemV2:
         leverage: int = 10,
     ):
         if symbols is None:
-            symbols = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT", "BNBUSDT"]
+            symbols = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT"]
+            # XRPUSDT: Agregar cuando pasemos a REAL (testnet tiene poca liquidez, backtest +22%)
         
         self.symbols = symbols
         self.capital_per_bot = capital_per_bot
@@ -662,6 +694,39 @@ class MultiBotSystemV2:
         logger.info(f"MultiBotSystemV2 initialized with {len(symbols)} bots, "
                     f"shared DD manager (total=${total_capital:.2f})")
     
+    def reconcile_positions(self):
+        """
+        Periodically reconcile local state with actual exchange positions.
+        - Cancel stuck/pending orders older than 30s
+        - Detect phantom positions (local thinks open, exchange says flat)
+        - Detect orphaned positions (exchange has position, local doesn't know)
+        """
+        for symbol, bot in self.bots.items():
+            # 1) Cancel stale open orders (pending > 30s)
+            try:
+                open_orders = self.shared_execution_mgr.get_open_orders(symbol)
+                for order in open_orders:
+                    order_id = order.get("orderId")
+                    update_time = order.get("updateTime", 0)
+                    age_s = (time.time() * 1000 - update_time) / 1000 if update_time else 999
+                    if age_s > 30:
+                        logger.warning(f"[{symbol}] Cancelling stale order {order_id} (age={age_s:.0f}s)")
+                        self.shared_execution_mgr.cancel_order(symbol, order_id)
+            except Exception as e:
+                logger.warning(f"[{symbol}] Reconcile open orders error: {e}")
+
+            # 2) Detect phantom positions: local says open, exchange says flat
+            if bot.position:
+                exchange_pos = self.shared_execution_mgr.get_position(symbol)
+                if exchange_pos is None:
+                    pos_id = bot.position.get("position_id")
+                    logger.error(f"[{symbol}] PHANTOM POSITION DETECTED — local has position but exchange is flat. Clearing.")
+                    bot.position = None
+                    # Clean up PositionManager state
+                    if pos_id and pos_id in bot.position_mgr.positions:
+                        del bot.position_mgr.positions[pos_id]
+                    bot._save_state()
+
     def run_once(self) -> Dict[str, Any]:
         """
         Run single tick of all bots.
@@ -727,11 +792,21 @@ class MultiBotSystemV2:
     def start(self, interval_seconds: int = 60):
         """Start continuous trading loop."""
         logger.info(f"Starting MultiBotSystemV2 with {interval_seconds}s interval")
-        
+        tick_count = 0
+        RECONCILE_EVERY = 5  # reconcile every 5 ticks
+
         while True:
             try:
                 results = self.run_once()
-                
+                tick_count += 1
+
+                # Reconcile positions periodically
+                if tick_count % RECONCILE_EVERY == 0:
+                    try:
+                        self.reconcile_positions()
+                    except Exception as e:
+                        logger.warning(f"Reconciliation error: {e}")
+
                 # Log summary
                 active = sum(1 for r in results.values() if r.get("has_position"))
                 signals = sum(1 for r in results.values() if r.get("signal"))

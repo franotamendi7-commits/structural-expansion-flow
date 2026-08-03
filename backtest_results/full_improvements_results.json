@@ -1,0 +1,175 @@
+{
+  "timestamp": "2026-07-30T21:13:54.429981+00:00",
+  "results": {
+    "step1_10pairs": {
+      "description": "10-pair portfolio walk-forward, Jan\u2013Jul 2026",
+      "period": "2026-01-31 to 2026-07-30",
+      "total_capital": 10000.0,
+      "pairs_succeeded": 9,
+      "failed_pairs": [
+        "MATICUSDT"
+      ],
+      "portfolio": {
+        "initial_capital": 10000.0,
+        "final_equity": 10506.85,
+        "total_return_pct": 5.07,
+        "max_dd_pct": -0.81,
+        "sharpe": 2.61,
+        "profit_factor": 3.03,
+        "win_rate": 69.5,
+        "total_trades": 246,
+        "calmar": 6.26
+      },
+      "per_pair": {
+        "BTCUSDT": {
+          "trades": 34,
+          "return_pct": 26.67,
+          "sharpe": 3.6,
+          "dd": -3.49,
+          "wr": 76.5,
+          "pf": 3.93
+        },
+        "ETHUSDT": {
+          "trades": 43,
+          "return_pct": 9.34,
+          "sharpe": 1.19,
+          "dd": -6.17,
+          "wr": 48.8,
+          "pf": 1.43
+        },
+        "SOLUSDT": {
+          "trades": 21,
+          "return_pct": 12.08,
+          "sharpe": 2.11,
+          "dd": -2.57,
+          "wr": 61.9,
+          "pf": 2.73
+        },
+        "XRPUSDT": {
+          "trades": 31,
+          "return_pct": 22.06,
+          "sharpe": 3.44,
+          "dd": -1.3,
+          "wr": 77.4,
+          "pf": 4.06
+        },
+        "BNBUSDT": {
+          "trades": 39,
+          "return_pct": 26.92,
+          "sharpe": 3.45,
+          "dd": -2.82,
+          "wr": 74.4,
+          "pf": 3.27
+        },
+        "DOTUSDT": {
+          "trades": 13,
+          "return_pct": 2.89,
+          "sharpe": 0.98,
+          "dd": -2.17,
+          "wr": 69.2,
+          "pf": 1.78
+        },
+        "AVAXUSDT": {
+          "trades": 29,
+          "return_pct": 31.77,
+          "sharpe": 4.0,
+          "dd": -2.24,
+          "wr": 79.3,
+          "pf": 6.0
+        },
+        "LINKUSDT": {
+          "trades": 26,
+          "return_pct": 12.15,
+          "sharpe": 2.54,
+          "dd": -1.36,
+          "wr": 69.2,
+          "pf": 3.15
+        },
+        "ADAUSDT": {
+          "trades": 10,
+          "return_pct": 6.82,
+          "sharpe": 2.17,
+          "dd": -1.15,
+          "wr": 80.0,
+          "pf": 6.28
+        }
+      }
+    },
+    "step2_3years": {
+      "description": "BTC 3-year walk-forward, Jan 2023 \u2013 Jul 2026",
+      "period": "2023-01-01 to 2026-07-30",
+      "total_capital": 10000.0,
+      "result": {
+        "trades": 305,
+        "metrics": {
+          "total_return_pct": 256.59,
+          "win_rate": 65.9,
+          "profit_factor": 2.85,
+          "sharpe": 2.88,
+          "max_dd_pct": -4.34,
+          "final_equity": 35659.0,
+          "avg_trade": 8.41
+        }
+      },
+      "annualized_return": 71.67,
+      "comparison_with_7m": {
+        "7m_return": 26.67,
+        "3y_return": 256.59,
+        "annualized": 71.67
+      }
+    },
+    "step3_bear2022": {
+      "description": "BTC bear market 2022, Jan\u2013Dec 2022",
+      "period": "2022-01-01 to 2022-12-31",
+      "total_capital": 10000.0,
+      "result": {
+        "trades": 71,
+        "metrics": {
+          "total_return_pct": 54.78,
+          "win_rate": 64.8,
+          "profit_factor": 3.97,
+          "sharpe": 3.43,
+          "max_dd_pct": -1.98,
+          "final_equity": 15478.0
+        }
+      },
+      "analysis": {
+        "btc_2022_context": "BTC fell from $47k to $16k (-66%) in 2022",
+        "strategy_profitable_in_bear": true,
+        "monthly_trades": 5.9
+      }
+    },
+    "step4_1h_signals": {
+      "description": "1H signal detection comparison, BTC 2023\u20132026",
+      "period": "2023-01-01 to 2026-07-30",
+      "baseline_4h": {
+        "trades": 305,
+        "return_pct": 256.59,
+        "sharpe": 2.88,
+        "dd": -4.34,
+        "wr": 65.9,
+        "pf": 2.85
+      },
+      "enhanced_4h1h": {
+        "trades": 795,
+        "return_pct": 459.69,
+        "sharpe": 2.54,
+        "dd": -14.76,
+        "wr": 59.4,
+        "pf": 1.7,
+        "signal_sources": {
+          "4H": 286,
+          "1H": 509
+        }
+      },
+      "improvement": {
+        "trades_increase_pct": 160.7,
+        "return_delta_pp": 203.1,
+        "sharpe_delta": -0.34,
+        "wr_delta": -6.5,
+        "pf_delta": -1.15,
+        "dd_worsened_by": -10.42
+      }
+    }
+  }
+}
