@@ -13,3 +13,4 @@ streamlit-autorefresh>=0.3
 tweepy>=4.14
 web3>=6.0
 eth-account>=0.8
+supervisor>=4.2.0
