@@ -1,29 +1,28 @@
 #!/bin/bash
-# Start bot daemon in background
-python run_bots_background.py &
+set -e
+
+echo "=== Starting Trading Bot Daemon ==="
+python run_bots_background.py > /tmp/bot.log 2>&1 &
 BOT_PID=$!
+echo "Bot daemon PID: $BOT_PID"
 
-# Wait for daemon to start
-sleep 5
+# Wait and check if daemon started
+sleep 10
+if ! kill -0 $BOT_PID 2>/dev/null; then
+  echo "ERROR: Bot daemon failed to start!"
+  cat /tmp/bot.log
+  exit 1
+fi
 
-# Function to cleanup on exit
-cleanup() {
-    echo "Shutting down..."
-    if kill -0 $BOT_PID 2>/dev/null; then
-        kill $BOT_PID
-        wait $BOT_PID 2>/dev/null
-    fi
-    exit 0
-}
+echo "Bot daemon running. Starting dashboard..."
 
-# Trap signals
-trap cleanup SIGTERM SIGINT
-
-# Start Streamlit (this will be the main process)
+# Redirect Streamlit logs too
 exec streamlit run app.py \
-    --server.port=${PORT:-8501} \
-    --server.address=0.0.0.0 \
-    --server.headless=true \
-    --server.enableCORS=false \
-    --server.enableXsrfProtection=false \
-    --browser.gatherUsageStats=false
+  --server.port=$PORT \
+  --server.address=0.0.0.0 \
+  --server.headless=true \
+  --browser.gatherUsageStats=false \
+  --theme.base=dark \
+  --server.enableCORS=false \
+  --server.enableXsrfProtection=false \
+  > /tmp/streamlit.log 2>&1
