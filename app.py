@@ -202,12 +202,43 @@ def get_equity_history() -> List[Dict]:
 
 
 def get_bot_status() -> str:
+    import os
+    # Method 1: Check if supervisord is managing the bot
     try:
-        result = subprocess.run(["pgrep", "-f", "multi_bot_v2"],
+        result = subprocess.run(["pgrep", "-f", "supervisord"],
                                 capture_output=True, text=True, timeout=5)
         if result.returncode == 0:
-            pid = result.stdout.strip().split("\\n")[0]
+            # Check if bot process is alive
+            result2 = subprocess.run(["pgrep", "-f", "run_bots_background"],
+                                     capture_output=True, text=True, timeout=5)
+            if result2.returncode == 0:
+                pid = result2.stdout.strip().split("\n")[0]
+                return f"RUNNING (PID {pid})"
+            # Also check for multi_bot_v2
+            result3 = subprocess.run(["pgrep", "-f", "multi_bot_v2"],
+                                     capture_output=True, text=True, timeout=5)
+            if result3.returncode == 0:
+                pid = result3.stdout.strip().split("\n")[0]
+                return f"RUNNING (PID {pid})"
+    except Exception:
+        pass
+    # Method 2: Check if any python bot process exists
+    try:
+        result4 = subprocess.run(["pgrep", "-f", "run_bots_background|multi_bot_v2"],
+                                 capture_output=True, text=True, timeout=5)
+        if result4.returncode == 0:
+            pid = result4.stdout.strip().split("\n")[0]
             return f"RUNNING (PID {pid})"
+    except Exception:
+        pass
+    # Method 3: Check signal_log.json modification time (fallback)
+    try:
+        log_path = APP_DIR / "signal_log.json"
+        if log_path.exists():
+            mtime = os.path.getmtime(log_path)
+            age_seconds = time.time() - mtime
+            if age_seconds < 300:  # Updated in last 5 minutes
+                return f"RUNNING (log active {int(age_seconds)}s ago)"
     except Exception:
         pass
     return "STOPPED"
